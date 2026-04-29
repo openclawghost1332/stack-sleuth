@@ -1,4 +1,7 @@
 import { analyzeTrace, formatFrame } from './analyze.js';
+import { detectTraceStartRuntime } from './parse.js';
+
+const PYTHON_CHAIN_MARKER = /^(?:The above exception was the direct cause of the following exception:|During handling of the above exception, another exception occurred:)$/;
 
 export function splitTraceChunks(input) {
   const source = String(input ?? '').replace(/\r\n/g, '\n').trim();
@@ -6,12 +9,30 @@ export function splitTraceChunks(input) {
     return [];
   }
 
-  const normalized = source.replace(/\n\s*\n(?=(?:Traceback \(most recent call last\):|[A-Za-z_$][\w$]*:|(?:\s*from\s+)?[^\n]+:\d+:in `.*'))/g, '\n<<<STACK_SLEUTH_TRACE_BREAK>>>\n');
-
-  return normalized
-    .split('\n<<<STACK_SLEUTH_TRACE_BREAK>>>\n')
-    .map((chunk) => chunk.trim())
+  const sections = source
+    .split(/\n\s*\n/)
+    .map((section) => section.trim())
     .filter(Boolean);
+
+  return sections.reduce((chunks, section) => {
+    if (chunks.length === 0) {
+      chunks.push(section);
+      return chunks;
+    }
+
+    const firstLine = section.split('\n')[0] ?? '';
+    const lastLine = chunks.at(-1)?.split('\n').at(-1) ?? '';
+    const startsNewTrace = Boolean(detectTraceStartRuntime(firstLine));
+    const continuesPythonChain = firstLine === 'Traceback (most recent call last):' && PYTHON_CHAIN_MARKER.test(lastLine);
+
+    if (startsNewTrace && !continuesPythonChain) {
+      chunks.push(section);
+      return chunks;
+    }
+
+    chunks[chunks.length - 1] = `${chunks.at(-1)}\n\n${section}`;
+    return chunks;
+  }, []);
 }
 
 export function analyzeTraceDigest(input) {

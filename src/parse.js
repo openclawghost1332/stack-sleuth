@@ -1,4 +1,9 @@
 const INTERNAL_PREFIXES = ['node:', 'internal/', '<internal:', '(internal', 'ruby/'];
+const TRACE_START_PATTERNS = [
+  ['python', /^Traceback \(most recent call last\):$/],
+  ['javascript', /^[A-Za-z_$][\w$]*(?::|$)/],
+  ['ruby', /^(?:\s*from\s+)?[^\n]+:\d+:in `.*'/]
+];
 
 export function parseTrace(traceText) {
   const text = String(traceText ?? '').replace(/\r\n/g, '\n').trimEnd();
@@ -15,17 +20,21 @@ export function parseTrace(traceText) {
   };
 }
 
+export function detectTraceStartRuntime(line) {
+  const candidate = String(line ?? '');
+  return TRACE_START_PATTERNS.find(([, pattern]) => pattern.test(candidate))?.[0] ?? null;
+}
+
 function detectRuntime(text) {
-  if (/^Traceback \(most recent call last\):/m.test(text)) {
-    return 'python';
+  const firstNonEmptyLine = text.split('\n').find((line) => line.trim());
+  const runtimeFromStart = detectTraceStartRuntime(firstNonEmptyLine);
+
+  if (runtimeFromStart) {
+    return runtimeFromStart;
   }
 
   if (/^\s*at .*:\d+:\d+\)?$/m.test(text)) {
     return 'javascript';
-  }
-
-  if (/^(?:\s*from\s+)?[^\n]+:\d+:in `.*'/m.test(text)) {
-    return 'ruby';
   }
 
   return 'javascript';

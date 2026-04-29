@@ -28,6 +28,20 @@ const repeatedRubyTrace = "app/service.rb:7:in `run': undefined method `email' f
 
 const secondRubyTrace = "worker/jobs/report_job.rb:11:in `perform': undefined method `account' for nil:NilClass (NoMethodError)\n\tfrom worker/runner.rb:4:in `run'";
 
+const chainedPythonTrace = `Traceback (most recent call last):
+  File "parser.py", line 10, in parse_payload
+    return int(payload["user_id"])
+ValueError: invalid literal for int() with base 10: 'abc'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "worker.py", line 22, in sync_user
+    return parse_payload(payload)
+  File "parser.py", line 12, in parse_payload
+    raise RuntimeError("bad payload") from error
+RuntimeError: bad payload`;
+
 const multiTraceInput = [
   repeatedJavascriptTrace,
   repeatedJavascriptTrace,
@@ -56,6 +70,16 @@ test('splitTraceChunks separates mixed-runtime traces including Ruby backtrace h
     repeatedPythonTrace,
     secondRubyTrace
   ]);
+});
+
+test('splitTraceChunks keeps a chained Python exception as one logical trace', () => {
+  assert.deepEqual(splitTraceChunks(chainedPythonTrace), [
+    chainedPythonTrace
+  ]);
+
+  const digest = analyzeTraceDigest(chainedPythonTrace);
+  assert.equal(digest.totalTraces, 1);
+  assert.equal(digest.groupCount, 1);
 });
 
 test('analyzeTraceDigest groups reports by signature and sorts by repeat count', () => {

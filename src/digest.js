@@ -6,7 +6,7 @@ export function splitTraceChunks(input) {
     return [];
   }
 
-  const normalized = source.replace(/\n\s*\n(?=(?:Traceback \(most recent call last\):|[A-Za-z_$][\w$]*:))/g, '\n<<<STACK_SLEUTH_TRACE_BREAK>>>\n');
+  const normalized = source.replace(/\n\s*\n(?=(?:Traceback \(most recent call last\):|[A-Za-z_$][\w$]*:|(?:\s*from\s+)?[^\n]+:\d+:in `.*'))/g, '\n<<<STACK_SLEUTH_TRACE_BREAK>>>\n');
 
   return normalized
     .split('\n<<<STACK_SLEUTH_TRACE_BREAK>>>\n')

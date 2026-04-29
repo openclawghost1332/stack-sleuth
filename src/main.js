@@ -82,7 +82,7 @@ function renderDigest(traceText) {
 }
 
 function resetEmptyState() {
-  headlineValue.textContent = 'Paste a trace to get started';
+  headlineValue.textContent = 'Paste one or more traces to get started';
   runtimeValue.textContent = 'Awaiting trace';
   culpritValue.textContent = 'No frame selected yet';
   confidenceValue.textContent = '-';
@@ -96,7 +96,7 @@ function resetEmptyState() {
   ]));
   summaryValue.textContent = 'Your diagnosis summary will appear here.';
   checklistValue.replaceChildren(...buildListItems([
-    'Run an example or paste a real trace to see actionable next steps.'
+    'Run an example or paste one or more real traces to see actionable next steps.'
   ]));
 }
 

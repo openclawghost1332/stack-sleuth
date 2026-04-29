@@ -10,15 +10,15 @@
     <main class="app-shell">
       <section class="hero card">
         <p class="eyebrow">Stack Sleuth</p>
-        <h1>Paste a stack trace, get the likeliest culprit, and leave with a practical next-step checklist.</h1>
-        <p class="hero-copy">Built for quick triage on a laptop or phone, without plugins, setup, or guesswork.</p>
+        <h1>Paste one or more stack traces, spot the likeliest culprit, and turn repeated failures into a practical incident digest.</h1>
+        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash or collapsing a noisy incident bundle.</p>
       </section>
 
       <section class="workspace card">
-        <label class="field-label" for="trace-input">Stack trace</label>
-        <textarea id="trace-input" rows="14" spellcheck="false" placeholder="Paste a JavaScript, Python, or Ruby trace here..."></textarea>
+        <label class="field-label" for="trace-input">Stack trace or incident bundle</label>
+        <textarea id="trace-input" rows="14" spellcheck="false" placeholder="Paste one or more JavaScript, Python, or Ruby traces here..."></textarea>
         <div class="actions">
-          <button id="explain-button" type="button">Explain trace</button>
+          <button id="explain-button" type="button">Explain trace(s)</button>
           <button id="load-js-button" type="button" class="secondary">Load JS example</button>
           <button id="load-python-button" type="button" class="secondary">Load Python example</button>
           <button id="load-digest-button" type="button" class="secondary">Load digest example</button>
@@ -34,7 +34,7 @@
         </article>
         <article class="card result-card">
           <span class="result-label">Error headline</span>
-          <strong id="headline-value">Paste a trace to get started</strong>
+          <strong id="headline-value">Paste one or more traces to get started</strong>
         </article>
         <article class="card result-card">
           <span class="result-label">Culprit frame</span>
@@ -71,7 +71,7 @@
         <article class="card result-card wide">
           <span class="result-label">Checklist</span>
           <ul id="checklist-value" class="checklist">
-            <li>Run an example or paste a real trace to see actionable next steps.</li>
+            <li>Run an example or paste one or more real traces to see actionable next steps.</li>
           </ul>
         </article>
       </section>

@@ -17,6 +17,7 @@ import {
 const args = process.argv.slice(2);
 const mode = args.includes('--json') ? 'json' : args.includes('--markdown') ? 'markdown' : 'text';
 const wantsDigest = args.includes('--digest');
+const compareArgumentError = validateCompareArguments(args);
 const baselinePath = readOptionValue(args, '--baseline');
 const candidatePath = readOptionValue(args, '--candidate');
 const filePath = args.find((arg, index) => {
@@ -27,6 +28,10 @@ const filePath = args.find((arg, index) => {
   const previous = args[index - 1] ?? '';
   return previous !== '--baseline' && previous !== '--candidate';
 }) ?? null;
+
+if (compareArgumentError) {
+  fail(compareArgumentError);
+}
 
 try {
   if (baselinePath || candidatePath) {
@@ -80,7 +85,28 @@ try {
 
 function readOptionValue(list, flag) {
   const index = list.indexOf(flag);
-  return index === -1 ? null : list[index + 1] ?? null;
+  if (index === -1) {
+    return null;
+  }
+
+  const value = list[index + 1] ?? null;
+  return value && !value.startsWith('--') ? value : null;
+}
+
+function validateCompareArguments(list) {
+  for (const flag of ['--baseline', '--candidate']) {
+    const index = list.indexOf(flag);
+    if (index === -1) {
+      continue;
+    }
+
+    const value = list[index + 1] ?? null;
+    if (!value || value.startsWith('--')) {
+      return `Missing value for ${flag}.`;
+    }
+  }
+
+  return null;
 }
 
 function readNamedInput(targetPath, label) {

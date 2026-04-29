@@ -102,6 +102,29 @@ function renderRegressionWorkflow() {
 
   const regression = analyzeRegression({ baseline, candidate });
   const summary = regression.summary;
+  const topIncident = regression.incidents[0] ?? null;
+  const topReport = topIncident?.representative ?? null;
+
+  runtimeValue.textContent = 'comparison';
+  headlineValue.textContent = `${summary.totalCandidateTraces} candidate traces vs ${summary.totalBaselineTraces} baseline traces`;
+  culpritValue.textContent = formatFrame(topReport?.culpritFrame ?? null);
+  confidenceValue.textContent = topReport?.diagnosis?.confidence ?? 'comparison';
+  tagsValue.textContent = topIncident ? [topIncident.status, ...(topIncident.tags ?? [])].join(', ') : '-';
+  signatureValue.textContent = topIncident?.signature ?? '-';
+  summaryValue.textContent = topIncident
+    ? `Top shift: ${topIncident.status} incident at ${formatFrame(topReport?.culpritFrame ?? null)} changed from ${topIncident.baselineCount} to ${topIncident.candidateCount} occurrences.`
+    : 'No incident changes detected.';
+  digestGroupsValue.replaceChildren(...buildListItems(
+    regression.incidents.length
+      ? regression.incidents.map((incident) => `${incident.status}: ${incident.candidateCount} vs ${incident.baselineCount} (${formatDelta(incident.delta)})`)
+      : ['No incident changes detected.']
+  ));
+  supportFramesValue.replaceChildren(...buildListItems(
+    topReport?.supportFrames?.length
+      ? topReport.supportFrames.map((frame) => formatFrame(frame))
+      : ['Open the top changed incident to inspect nearby supporting frames.']
+  ));
+  checklistValue.replaceChildren(...buildListItems(buildRegressionChecklist(summary, topIncident)));
 
   regressionSummaryValue.textContent = [
     `${summary.newCount} new`,
@@ -192,6 +215,25 @@ function buildListItems(items) {
 
 function formatDelta(delta) {
   return delta > 0 ? `+${delta}` : String(delta);
+}
+
+function buildRegressionChecklist(summary, topIncident) {
+  const checklist = [];
+
+  if (summary.newCount > 0) {
+    checklist.push('Investigate brand-new signatures first, especially if they appeared right after the latest deploy.');
+  }
+  if (summary.volumeUpCount > 0) {
+    checklist.push('Compare payloads, traffic shape, or rollout segments for incidents that spiked in volume.');
+  }
+  if (summary.resolvedCount > 0) {
+    checklist.push('Confirm resolved incidents against production telemetry before closing the loop.');
+  }
+  if (topIncident?.representative?.diagnosis?.checklist?.length) {
+    checklist.push(...topIncident.representative.diagnosis.checklist.slice(0, 2));
+  }
+
+  return checklist.length ? checklist : ['Review the compared batches for signature drift or parsing mismatches.'];
 }
 
 explainButton?.addEventListener('click', renderDiagnosis);

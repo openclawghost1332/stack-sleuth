@@ -163,3 +163,11 @@ test('CLI compare mode exits non-zero when a side is empty', async () => {
   assert.match(result.stderr, /requires non-empty baseline and candidate/i);
   assert.equal(result.stdout, '');
 });
+
+test('CLI compare mode exits non-zero when a compare flag is missing its value', async () => {
+  const result = runCli(['--baseline', '--candidate', 'candidate.txt']);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Missing value for --baseline/i);
+  assert.equal(result.stdout, '');
+});

@@ -10,3 +10,10 @@ test('README documents browser and CLI workflows, local development, and GitHub 
   assert.match(readme, /npm test/);
   assert.match(readme, /GitHub Pages/);
 });
+
+test('README documents browser and CLI workflows, including incident digest mode', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Incident Digest/i);
+  assert.match(readme, /--digest/);
+  assert.match(readme, /multiple traces|repeated traces/i);
+});

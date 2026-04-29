@@ -4,7 +4,8 @@ import {
   analyzeTrace,
   buildSignature,
   renderTextSummary,
-  renderMarkdownSummary
+  renderMarkdownSummary,
+  formatFrame
 } from '../src/analyze.js';
 
 test('analyzeTrace composes parse and diagnose, adds support frames, and builds a deterministic signature', () => {
@@ -144,6 +145,19 @@ test('renderMarkdownSummary escapes markdown-breaking and html-like content from
   assert.match(markdown, /## Summary\nsum &lt;b&gt;html&lt;\/b&gt; &#96;ticks&#96;/);
   assert.match(markdown, /## Checklist\n- item &lt;script&gt;x&lt;\/script&gt; &#96;tick&#96;/);
   assert.doesNotMatch(markdown, /<img|<script>|<b>/);
+});
+
+test('formatFrame returns a readable fallback and preserves function locations', () => {
+  assert.equal(formatFrame(null), 'No application frame detected');
+  assert.equal(
+    formatFrame({
+      file: '/app/src/profile.js',
+      line: 88,
+      column: 17,
+      functionName: 'renderProfile'
+    }),
+    'renderProfile (/app/src/profile.js:88)'
+  );
 });
 
 test('whitespace-only input returns a normalized empty analysis state', () => {

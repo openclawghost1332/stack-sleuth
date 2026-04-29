@@ -9,6 +9,12 @@ import { analyzeTrace } from '../src/analyze.js';
 const cliPath = new URL('../bin/stack-sleuth.js', import.meta.url);
 const packageJsonPath = new URL('../package.json', import.meta.url);
 const sampleTrace = `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
+const multiTraceInput = [sampleTrace, sampleTrace, `Traceback (most recent call last):
+  File "app.py", line 42, in <module>
+    run()
+  File "service.py", line 17, in run
+    return user["email"]
+KeyError: 'email'`].join('\n\n');
 
 function runCli(args = [], options = {}) {
   return spawnSync(process.execPath, [cliPath.pathname, ...args], {
@@ -58,6 +64,29 @@ test('CLI supports --markdown output', () => {
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /^# Stack Sleuth Report/m);
   assert.match(result.stdout, /- \*\*Runtime:\*\* javascript/);
+});
+
+test('CLI supports --digest output', () => {
+  const result = runCli(['--digest'], { input: multiTraceInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Incident Digest/);
+  assert.match(result.stdout, /Total traces: 3/);
+  assert.match(result.stdout, /Incident 1: 2x javascript TypeError/);
+});
+
+test('CLI auto-promotes multi-trace stdin into digest output', () => {
+  const result = runCli([], { input: multiTraceInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Incident Digest/);
+});
+
+test('CLI supports --digest --json output', () => {
+  const result = runCli(['--digest', '--json'], { input: multiTraceInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).groupCount, 2);
 });
 
 test('CLI exits non-zero for empty stdin input', () => {

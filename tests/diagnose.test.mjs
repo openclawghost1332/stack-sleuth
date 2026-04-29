@@ -86,7 +86,7 @@ test('maps module import failures to a deterministic dependency diagnosis', () =
   assert.match(result.checklist.join(' '), /import or require path|dependency is installed|omitted files/i);
 });
 
-test('marks generic runtime failures as lower confidence when signal is weak', () => {
+test('keeps generic runtime failures at medium confidence when no specific pattern matches', () => {
   const result = diagnoseTrace({
     runtime: 'ruby',
     errorName: 'RuntimeError',
@@ -102,5 +102,6 @@ test('marks generic runtime failures as lower confidence when signal is weak', (
 
   assert.equal(result.confidence, 'medium');
   assert.ok(result.tags.includes('generic-runtime-error'));
-  assert.match(result.summary, /inspect the failing inputs/i);
+  assert.match(result.summary, /no specific pattern matched/i);
+  assert.match(result.summary, /failing inputs/i);
 });

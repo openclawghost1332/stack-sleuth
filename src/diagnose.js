@@ -64,7 +64,7 @@ export function diagnoseTrace(traceReport) {
   return {
     confidence: 'medium',
     tags: ['generic-runtime-error'],
-    summary: `Signal is limited, so inspect the failing inputs and recent changes around ${formatFrame(report.culpritFrame)}.`,
+    summary: `No specific pattern matched, so focus on the failing inputs and recent changes around ${formatFrame(report.culpritFrame)}.`,
     checklist: [
       'Reproduce the failure with the same inputs if possible.',
       'Inspect the values entering the failing frame.',

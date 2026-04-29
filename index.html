@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stack Sleuth</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero card">
+        <p class="eyebrow">Stack Sleuth</p>
+        <h1>Paste a stack trace, get the likeliest culprit, and leave with a practical next-step checklist.</h1>
+        <p class="hero-copy">Built for quick triage on a laptop or phone, without plugins, setup, or guesswork.</p>
+      </section>
+
+      <section class="workspace card">
+        <label class="field-label" for="trace-input">Stack trace</label>
+        <textarea id="trace-input" rows="14" spellcheck="false" placeholder="Paste a JavaScript, Python, or Ruby trace here..."></textarea>
+        <div class="actions">
+          <button id="explain-button" type="button">Explain trace</button>
+          <button id="load-js-button" type="button" class="secondary">Load JS example</button>
+          <button id="load-python-button" type="button" class="secondary">Load Python example</button>
+          <button id="copy-button" type="button" class="ghost">Copy diagnosis</button>
+        </div>
+        <p id="example-caption" class="caption" aria-live="polite"></p>
+      </section>
+
+      <section class="results" aria-live="polite">
+        <article class="card result-card">
+          <span class="result-label">Runtime</span>
+          <strong id="runtime-value">Awaiting trace</strong>
+        </article>
+        <article class="card result-card">
+          <span class="result-label">Error headline</span>
+          <strong id="headline-value">Paste a trace to get started</strong>
+        </article>
+        <article class="card result-card">
+          <span class="result-label">Culprit frame</span>
+          <strong id="culprit-value">No frame selected yet</strong>
+        </article>
+        <article class="card result-card compact">
+          <span class="result-label">Confidence</span>
+          <strong id="confidence-value">-</strong>
+        </article>
+        <article class="card result-card compact">
+          <span class="result-label">Tags</span>
+          <strong id="tags-value">-</strong>
+        </article>
+        <article class="card result-card wide">
+          <span class="result-label">Summary</span>
+          <p id="summary-value">Your diagnosis summary will appear here.</p>
+        </article>
+        <article class="card result-card wide">
+          <span class="result-label">Checklist</span>
+          <ul id="checklist-value" class="checklist">
+            <li>Run an example or paste a real trace to see actionable next steps.</li>
+          </ul>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

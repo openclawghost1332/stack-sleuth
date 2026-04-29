@@ -9,6 +9,7 @@ import { analyzeTrace } from '../src/analyze.js';
 const cliPath = new URL('../bin/stack-sleuth.js', import.meta.url);
 const packageJsonPath = new URL('../package.json', import.meta.url);
 const sampleTrace = `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
+const comparisonTrace = `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
 const multiTraceInput = [sampleTrace, sampleTrace, `Traceback (most recent call last):
   File "app.py", line 42, in <module>
     run()
@@ -102,5 +103,63 @@ test('CLI exits non-zero for an unreadable file path', () => {
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Could not read trace file/i);
+  assert.equal(result.stdout, '');
+});
+
+test('CLI compares baseline and candidate files in text mode', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-radar-'));
+  const baselinePath = path.join(tempDir, 'baseline.txt');
+  const candidatePath = path.join(tempDir, 'candidate.txt');
+  await fs.promises.writeFile(baselinePath, sampleTrace, 'utf8');
+  await fs.promises.writeFile(candidatePath, [sampleTrace, sampleTrace, comparisonTrace].join('\n\n'), 'utf8');
+
+  const result = runCli(['--baseline', baselinePath, '--candidate', candidatePath]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Regression Radar/);
+  assert.match(result.stdout, /volume-up: 1/i);
+  assert.match(result.stdout, /new: 1/i);
+});
+
+test('CLI supports --baseline file plus --candidate - from stdin in json mode', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-radar-'));
+  const baselinePath = path.join(tempDir, 'baseline.txt');
+  await fs.promises.writeFile(baselinePath, sampleTrace, 'utf8');
+
+  const result = runCli(['--baseline', baselinePath, '--candidate', '-', '--json'], {
+    input: [sampleTrace, sampleTrace, comparisonTrace].join('\n\n')
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.summary.volumeUpCount, 1);
+  assert.equal(parsed.summary.newCount, 1);
+});
+
+test('CLI supports compare mode markdown output', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-radar-'));
+  const baselinePath = path.join(tempDir, 'baseline.txt');
+  const candidatePath = path.join(tempDir, 'candidate.txt');
+  await fs.promises.writeFile(baselinePath, sampleTrace, 'utf8');
+  await fs.promises.writeFile(candidatePath, [sampleTrace, sampleTrace].join('\n\n'), 'utf8');
+
+  const result = runCli(['--baseline', baselinePath, '--candidate', candidatePath, '--markdown']);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^# Stack Sleuth Regression Radar/m);
+  assert.match(result.stdout, /## Volume-up incidents/);
+});
+
+test('CLI compare mode exits non-zero when a side is empty', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-radar-'));
+  const baselinePath = path.join(tempDir, 'baseline.txt');
+  const candidatePath = path.join(tempDir, 'candidate.txt');
+  await fs.promises.writeFile(baselinePath, sampleTrace, 'utf8');
+  await fs.promises.writeFile(candidatePath, '   \n', 'utf8');
+
+  const result = runCli(['--baseline', baselinePath, '--candidate', candidatePath]);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /requires non-empty baseline and candidate/i);
   assert.equal(result.stdout, '');
 });

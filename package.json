@@ -2,6 +2,9 @@
   "name": "stack-sleuth",
   "private": true,
   "type": "module",
+  "bin": {
+    "stack-sleuth": "./bin/stack-sleuth.js"
+  },
   "scripts": {
     "test": "node --test"
   }

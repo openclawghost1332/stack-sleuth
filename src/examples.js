@@ -10,6 +10,11 @@ const pythonTrace = `Traceback (most recent call last):
     return user["email"]
 KeyError: 'email'`;
 
+const regressionTrace = `TypeError: Cannot read properties of undefined (reading 'email')
+    at renderInvoice (/app/src/invoice.js:19:7)
+    at refreshBilling (/app/src/billing.js:57:3)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
+
 export const examples = [
   {
     label: 'JavaScript undefined property',
@@ -25,5 +30,11 @@ export const examples = [
     label: 'Repeated incident digest',
     caption: 'Two repeated frontend failures and one backend key miss collapse into a repeat-friendly incident digest.',
     trace: `${javascriptTrace}\n\n${javascriptTrace}\n\n${pythonTrace}`
+  },
+  {
+    label: 'Regression radar',
+    caption: 'The candidate batch introduces a brand-new billing failure while the profile crash spikes and the old backend key miss disappears.',
+    baseline: `${javascriptTrace}\n\n${pythonTrace}`,
+    candidate: `${javascriptTrace}\n\n${javascriptTrace}\n\n${regressionTrace}`
   }
 ];

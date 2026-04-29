@@ -1,5 +1,6 @@
 import { analyzeTrace, formatFrame, renderTextSummary } from './analyze.js';
 import { analyzeTraceDigest, splitTraceChunks, renderDigestTextSummary } from './digest.js';
+import { analyzeRegression } from './regression.js';
 import { examples } from './examples.js';
 
 const traceInput = document.querySelector('#trace-input');
@@ -9,6 +10,12 @@ const loadPythonButton = document.querySelector('#load-python-button');
 const loadDigestButton = document.querySelector('#load-digest-button');
 const copyButton = document.querySelector('#copy-button');
 const caption = document.querySelector('#example-caption');
+
+const compareBaselineInput = document.querySelector('#compare-baseline-input');
+const compareCandidateInput = document.querySelector('#compare-candidate-input');
+const compareButton = document.querySelector('#compare-button');
+const loadRegressionButton = document.querySelector('#load-regression-button');
+const compareCaption = document.querySelector('#compare-caption');
 
 const runtimeValue = document.querySelector('#runtime-value');
 const headlineValue = document.querySelector('#headline-value');
@@ -20,10 +27,13 @@ const supportFramesValue = document.querySelector('#support-frames-value');
 const summaryValue = document.querySelector('#summary-value');
 const digestGroupsValue = document.querySelector('#digest-groups-value');
 const checklistValue = document.querySelector('#checklist-value');
+const regressionSummaryValue = document.querySelector('#regression-summary-value');
+const regressionIncidentsValue = document.querySelector('#regression-incidents-value');
 
 const jsExample = examples.find((item) => item.label === 'JavaScript undefined property');
 const pythonExample = examples.find((item) => item.label === 'Python missing key');
 const digestExample = examples.find((item) => item.label === 'Repeated incident digest');
+const regressionExample = examples.find((item) => item.label === 'Regression radar');
 
 function renderDiagnosis() {
   const traceText = traceInput.value.trim();
@@ -81,6 +91,36 @@ function renderDigest(traceText) {
   ));
 }
 
+function renderRegressionWorkflow() {
+  const baseline = compareBaselineInput.value.trim();
+  const candidate = compareCandidateInput.value.trim();
+
+  if (!baseline || !candidate) {
+    resetRegressionState();
+    return;
+  }
+
+  const regression = analyzeRegression({ baseline, candidate });
+  const summary = regression.summary;
+
+  regressionSummaryValue.textContent = [
+    `${summary.newCount} new`,
+    `${summary.volumeUpCount} volume-up`,
+    `${summary.recurringCount} recurring`,
+    `${summary.volumeDownCount} volume-down`,
+    `${summary.resolvedCount} resolved`,
+    `${summary.totalBaselineTraces} baseline traces`,
+    `${summary.totalCandidateTraces} candidate traces`
+  ].join(', ');
+
+  regressionIncidentsValue.replaceChildren(...buildListItems(
+    regression.incidents.map((incident) => {
+      const culprit = formatFrame(incident.representative?.culpritFrame ?? null);
+      return `${incident.status}: ${incident.candidateCount} vs ${incident.baselineCount} (${formatDelta(incident.delta)}) at ${culprit}`;
+    })
+  ));
+}
+
 function resetEmptyState() {
   headlineValue.textContent = 'Paste one or more traces to get started';
   runtimeValue.textContent = 'Awaiting trace';
@@ -100,6 +140,13 @@ function resetEmptyState() {
   ]));
 }
 
+function resetRegressionState() {
+  regressionSummaryValue.textContent = 'Paste baseline and candidate traces to compare releases.';
+  regressionIncidentsValue.replaceChildren(...buildListItems([
+    'New, resolved, and volume-shifted incidents will appear here after a comparison.'
+  ]));
+}
+
 function loadExample(example) {
   if (!example) {
     return;
@@ -108,6 +155,17 @@ function loadExample(example) {
   traceInput.value = example.trace;
   caption.textContent = example.caption;
   renderDiagnosis();
+}
+
+function loadRegressionExample(example) {
+  if (!example) {
+    return;
+  }
+
+  compareBaselineInput.value = example.baseline;
+  compareCandidateInput.value = example.candidate;
+  compareCaption.textContent = example.caption;
+  renderRegressionWorkflow();
 }
 
 async function copyDiagnosis() {
@@ -132,10 +190,16 @@ function buildListItems(items) {
   });
 }
 
+function formatDelta(delta) {
+  return delta > 0 ? `+${delta}` : String(delta);
+}
+
 explainButton?.addEventListener('click', renderDiagnosis);
 loadJsButton?.addEventListener('click', () => loadExample(jsExample));
 loadPythonButton?.addEventListener('click', () => loadExample(pythonExample));
 loadDigestButton?.addEventListener('click', () => loadExample(digestExample));
+loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));
+compareButton?.addEventListener('click', renderRegressionWorkflow);
 copyButton?.addEventListener('click', copyDiagnosis);
 traceInput?.addEventListener('input', () => {
   if (!traceInput.value.trim()) {
@@ -143,5 +207,18 @@ traceInput?.addEventListener('input', () => {
     resetEmptyState();
   }
 });
+compareBaselineInput?.addEventListener('input', () => {
+  if (!compareBaselineInput.value.trim() || !compareCandidateInput.value.trim()) {
+    compareCaption.textContent = 'Paste baseline and candidate traces to spot new, resolved, and worsening incidents.';
+    resetRegressionState();
+  }
+});
+compareCandidateInput?.addEventListener('input', () => {
+  if (!compareBaselineInput.value.trim() || !compareCandidateInput.value.trim()) {
+    compareCaption.textContent = 'Paste baseline and candidate traces to spot new, resolved, and worsening incidents.';
+    resetRegressionState();
+  }
+});
 
 loadExample(jsExample);
+resetRegressionState();

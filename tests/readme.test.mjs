@@ -17,3 +17,11 @@ test('README documents browser and CLI workflows, including incident digest mode
   assert.match(readme, /--digest/);
   assert.match(readme, /multiple traces|repeated traces/i);
 });
+
+test('README documents regression radar workflows for browser and CLI compare mode', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Regression Radar/i);
+  assert.match(readme, /--baseline/);
+  assert.match(readme, /--candidate/);
+  assert.match(readme, /baseline and candidate/i);
+});

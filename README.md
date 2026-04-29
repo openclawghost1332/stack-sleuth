@@ -1,16 +1,19 @@
 # Stack Sleuth
 
-Stack Sleuth turns raw JavaScript, Python, and Ruby stack traces into a likely culprit frame, a reusable issue signature, nearby support frames, and a practical next-step checklist. When you paste multiple traces, it can also collapse repeated failures into an Incident Digest with ranked groups.
+Stack Sleuth turns raw JavaScript, Python, and Ruby stack traces into a likely culprit frame, a reusable issue signature, nearby support frames, and a practical next-step checklist. When you paste multiple traces, it can collapse repeated failures into an Incident Digest with ranked groups. When you compare a baseline batch against a candidate batch, it can also run a Regression Radar that surfaces new, resolved, and worsening incidents.
 
 ## Browser demo
 
-Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so the runtime, culprit, signature, support frames, checklist, and multi-trace digest stay aligned across both workflows.
+Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so the runtime, culprit, signature, support frames, checklist, incident digest, and regression comparison stay aligned across both workflows.
 
-Use the built-in example buttons to compare single-trace diagnosis with repeated traces grouped into digest incidents.
+Use the built-in example buttons to compare three modes:
+- single-trace diagnosis
+- repeated traces grouped into digest incidents
+- baseline and candidate batches compared in Regression Radar mode
 
 ## CLI
 
-Use the CLI when you want quick terminal triage from stdin or a saved trace file.
+Use the CLI when you want quick terminal triage from stdin or saved trace files.
 
 ### Read from stdin
 
@@ -49,6 +52,30 @@ cat repeated-traces.txt | node ./bin/stack-sleuth.js --digest
 ```bash
 cat repeated-traces.txt | node ./bin/stack-sleuth.js --digest --markdown
 ```
+
+## Regression Radar
+
+Regression Radar compares two trace batches by signature so you can see what is new, what disappeared, and what got worse.
+
+### Compare baseline and candidate files
+
+```bash
+node ./bin/stack-sleuth.js --baseline ./baseline.txt --candidate ./candidate.txt
+```
+
+### Compare a saved baseline against candidate stdin
+
+```bash
+cat candidate.txt | node ./bin/stack-sleuth.js --baseline ./baseline.txt --candidate - --json
+```
+
+### Compare in Markdown
+
+```bash
+node ./bin/stack-sleuth.js --baseline ./baseline.txt --candidate ./candidate.txt --markdown
+```
+
+In the browser, paste baseline and candidate incident batches into the Regression Radar panel, then press **Compare batches**.
 
 ## Local development
 

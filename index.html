@@ -10,8 +10,8 @@
     <main class="app-shell">
       <section class="hero card">
         <p class="eyebrow">Stack Sleuth</p>
-        <h1>Paste one or more stack traces, spot the likeliest culprit, and turn repeated failures into a practical incident digest.</h1>
-        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash or collapsing a noisy incident bundle.</p>
+        <h1>Paste one or more stack traces, spot the likeliest culprit, collapse noisy failures into an incident digest, or compare two batches with a Regression Radar.</h1>
+        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, collapsing a noisy incident bundle, or asking what got worse after a release.</p>
       </section>
 
       <section class="workspace card">
@@ -27,7 +27,36 @@
         <p id="example-caption" class="caption" aria-live="polite"></p>
       </section>
 
+      <section class="workspace card">
+        <p class="field-label">Regression Radar</p>
+        <div class="compare-grid">
+          <div>
+            <label class="field-label" for="compare-baseline-input">Baseline incident batch</label>
+            <textarea id="compare-baseline-input" rows="10" spellcheck="false" placeholder="Paste the baseline traces here..."></textarea>
+          </div>
+          <div>
+            <label class="field-label" for="compare-candidate-input">Candidate incident batch</label>
+            <textarea id="compare-candidate-input" rows="10" spellcheck="false" placeholder="Paste the candidate traces here..."></textarea>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="compare-button" type="button">Compare batches</button>
+          <button id="load-regression-button" type="button" class="secondary">Load regression example</button>
+        </div>
+        <p id="compare-caption" class="caption" aria-live="polite">Paste baseline and candidate traces to spot new, resolved, and worsening incidents.</p>
+      </section>
+
       <section class="results" aria-live="polite">
+        <article class="card result-card wide">
+          <span class="result-label">Regression Radar</span>
+          <p id="regression-summary-value">Paste baseline and candidate traces to compare releases.</p>
+        </article>
+        <article class="card result-card wide">
+          <span class="result-label">Incident changes</span>
+          <ul id="regression-incidents-value" class="checklist">
+            <li>New, resolved, and volume-shifted incidents will appear here after a comparison.</li>
+          </ul>
+        </article>
         <article class="card result-card">
           <span class="result-label">Runtime</span>
           <strong id="runtime-value">Awaiting trace</strong>

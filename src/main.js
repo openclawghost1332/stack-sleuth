@@ -130,7 +130,7 @@ function renderRegressionWorkflow() {
       ? topReport.supportFrames.map((frame) => formatFrame(frame))
       : ['Open the top changed incident to inspect nearby supporting frames.']
   ));
-  hotspotsValue.replaceChildren(...buildListItems(buildHotspotItems(topReport?.hotspots ?? [])));
+  hotspotsValue.replaceChildren(...buildListItems(buildHotspotItems(regression.candidateDigest.hotspots)));
   hotspotShiftsValue.replaceChildren(...buildListItems(
     regression.hotspotShifts.length
       ? regression.hotspotShifts.map((shift) => `${shift.status}: ${shift.label} ${formatDelta(shift.delta)} (${shift.baselineScore} → ${shift.candidateScore})`)
@@ -182,6 +182,9 @@ function resetRegressionState() {
   regressionSummaryValue.textContent = 'Paste baseline and candidate traces to compare releases.';
   regressionIncidentsValue.replaceChildren(...buildListItems([
     'New, resolved, and volume-shifted incidents will appear here after a comparison.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems([
+    'Candidate-batch suspect hotspots will appear here after a comparison.'
   ]));
   hotspotShiftsValue.replaceChildren(...buildListItems([
     'Hotspot shifts between baseline and candidate batches will appear here after a comparison.'

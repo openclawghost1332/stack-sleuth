@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const browserMain = fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 
 test('browser copy invites pasting one or more traces for digesting and comparing', () => {
   assert.match(indexHtml, /Paste one or more stack traces/i);
@@ -17,4 +18,9 @@ test('browser copy invites pasting one or more traces for digesting and comparin
   assert.match(indexHtml, /Hotspot shifts/i);
   assert.match(indexHtml, /Suspect hotspots will appear here/i);
   assert.match(indexHtml, /Hotspot shifts between baseline and candidate batches will appear here/i);
+});
+
+test('browser regression workflow uses aggregate hotspot data and clears stale hotspot state', () => {
+  assert.match(browserMain, /buildHotspotItems\(regression\.candidateDigest\.hotspots\)/);
+  assert.match(browserMain, /resetRegressionState\([\s\S]*hotspotsValue\.replaceChildren/);
 });

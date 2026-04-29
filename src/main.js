@@ -24,11 +24,13 @@ const confidenceValue = document.querySelector('#confidence-value');
 const tagsValue = document.querySelector('#tags-value');
 const signatureValue = document.querySelector('#signature-value');
 const supportFramesValue = document.querySelector('#support-frames-value');
+const hotspotsValue = document.querySelector('#hotspots-value');
 const summaryValue = document.querySelector('#summary-value');
 const digestGroupsValue = document.querySelector('#digest-groups-value');
 const checklistValue = document.querySelector('#checklist-value');
 const regressionSummaryValue = document.querySelector('#regression-summary-value');
 const regressionIncidentsValue = document.querySelector('#regression-incidents-value');
+const hotspotShiftsValue = document.querySelector('#hotspot-shifts-value');
 
 const jsExample = examples.find((item) => item.label === 'JavaScript undefined property');
 const pythonExample = examples.find((item) => item.label === 'Python missing key');
@@ -65,6 +67,7 @@ function renderDiagnosis() {
       ? report.supportFrames.map((frame) => formatFrame(frame))
       : ['No nearby application frames beyond the culprit were detected.']
   ));
+  hotspotsValue.replaceChildren(...buildListItems(buildHotspotItems(report.hotspots)));
   checklistValue.replaceChildren(...buildListItems(diagnosis.checklist));
 }
 
@@ -86,6 +89,7 @@ function renderDigest(traceText) {
       ? digest.groups[0].representative.supportFrames.map((frame) => formatFrame(frame))
       : ['Open the top incident to inspect its nearby application frames.']
   ));
+  hotspotsValue.replaceChildren(...buildListItems(buildHotspotItems(digest.hotspots)));
   checklistValue.replaceChildren(...buildListItems(
     digest.groups[0]?.representative?.diagnosis?.checklist ?? ['Inspect the top repeated incident first.']
   ));
@@ -109,7 +113,9 @@ function renderRegressionWorkflow() {
   headlineValue.textContent = `${summary.totalCandidateTraces} candidate traces vs ${summary.totalBaselineTraces} baseline traces`;
   culpritValue.textContent = formatFrame(topReport?.culpritFrame ?? null);
   confidenceValue.textContent = topReport?.diagnosis?.confidence ?? 'comparison';
-  tagsValue.textContent = topIncident ? [topIncident.status, ...(topIncident.tags ?? [])].join(', ') : '-';
+  tagsValue.textContent = topIncident
+    ? [topIncident.status, ...(topReport?.diagnosis?.tags ?? [])].join(', ')
+    : '-';
   signatureValue.textContent = topIncident?.signature ?? '-';
   summaryValue.textContent = topIncident
     ? `Top shift: ${topIncident.status} incident at ${formatFrame(topReport?.culpritFrame ?? null)} changed from ${topIncident.baselineCount} to ${topIncident.candidateCount} occurrences.`
@@ -123,6 +129,12 @@ function renderRegressionWorkflow() {
     topReport?.supportFrames?.length
       ? topReport.supportFrames.map((frame) => formatFrame(frame))
       : ['Open the top changed incident to inspect nearby supporting frames.']
+  ));
+  hotspotsValue.replaceChildren(...buildListItems(buildHotspotItems(topReport?.hotspots ?? [])));
+  hotspotShiftsValue.replaceChildren(...buildListItems(
+    regression.hotspotShifts.length
+      ? regression.hotspotShifts.map((shift) => `${shift.status}: ${shift.label} ${formatDelta(shift.delta)} (${shift.baselineScore} → ${shift.candidateScore})`)
+      : ['No hotspot shifts detected yet.']
   ));
   checklistValue.replaceChildren(...buildListItems(buildRegressionChecklist(summary, topIncident)));
 
@@ -158,6 +170,9 @@ function resetEmptyState() {
     'Repeated incidents will appear here when Stack Sleuth detects multiple traces.'
   ]));
   summaryValue.textContent = 'Your diagnosis summary will appear here.';
+  hotspotsValue.replaceChildren(...buildListItems([
+    'Suspect hotspots will appear here when Stack Sleuth detects repeated culprit or support paths.'
+  ]));
   checklistValue.replaceChildren(...buildListItems([
     'Run an example or paste one or more real traces to see actionable next steps.'
   ]));
@@ -167,6 +182,9 @@ function resetRegressionState() {
   regressionSummaryValue.textContent = 'Paste baseline and candidate traces to compare releases.';
   regressionIncidentsValue.replaceChildren(...buildListItems([
     'New, resolved, and volume-shifted incidents will appear here after a comparison.'
+  ]));
+  hotspotShiftsValue.replaceChildren(...buildListItems([
+    'Hotspot shifts between baseline and candidate batches will appear here after a comparison.'
   ]));
 }
 
@@ -215,6 +233,16 @@ function buildListItems(items) {
 
 function formatDelta(delta) {
   return delta > 0 ? `+${delta}` : String(delta);
+}
+
+function buildHotspotItems(hotspots) {
+  if (!hotspots.length) {
+    return ['No suspect hotspots detected yet.'];
+  }
+
+  return hotspots.slice(0, 5).map((hotspot) => (
+    `${hotspot.label} scored ${hotspot.score} (${hotspot.culpritCount} culprit, ${hotspot.supportCount} support)`
+  ));
 }
 
 function buildRegressionChecklist(summary, topIncident) {

@@ -18,22 +18,22 @@ const regressionTrace = `TypeError: Cannot read properties of undefined (reading
 export const examples = [
   {
     label: 'JavaScript undefined property',
-    caption: 'Frontend render path loses a nested profile object before reading the name field.',
+    caption: 'Frontend render path loses a nested profile object before reading the name field, with profile.js and view.js surfacing as the top hotspots.',
     trace: javascriptTrace
   },
   {
     label: 'Python missing key',
-    caption: 'Backend payload arrives without an expected email key during account sync.',
+    caption: 'Backend payload arrives without an expected email key during account sync, centering the hotspot radar on service.py.',
     trace: pythonTrace
   },
   {
     label: 'Repeated incident digest',
-    caption: 'Two repeated frontend failures and one backend key miss collapse into a repeat-friendly incident digest.',
+    caption: 'Two repeated frontend failures and one backend key miss collapse into a repeat-friendly incident digest with ranked suspect hotspots.',
     trace: `${javascriptTrace}\n\n${javascriptTrace}\n\n${pythonTrace}`
   },
   {
     label: 'Regression radar',
-    caption: 'The candidate batch introduces a brand-new billing failure while the profile crash spikes and the old backend key miss disappears.',
+    caption: 'The candidate batch introduces a brand-new billing failure while the profile crash spikes and the old backend key miss disappears, making the hotspot shifts easy to scan.',
     baseline: `${javascriptTrace}\n\n${pythonTrace}`,
     candidate: `${javascriptTrace}\n\n${javascriptTrace}\n\n${regressionTrace}`
   }

@@ -1,5 +1,6 @@
 import { parseTrace } from './parse.js';
 import { diagnoseTrace } from './diagnose.js';
+import { buildHotspots } from './hotspots.js';
 
 const EMPTY_MESSAGE = 'No trace provided yet. Paste a stack trace to analyze it.';
 
@@ -14,6 +15,7 @@ export function analyzeTrace(traceText) {
       message: '',
       culpritFrame: null,
       supportFrames: [],
+      hotspots: [],
       diagnosis: null,
       signature: 'empty-trace'
     };
@@ -27,6 +29,8 @@ export function analyzeTrace(traceText) {
     diagnosis,
     supportFrames: selectSupportFrames(parsed.frames, parsed.culpritFrame),
   };
+
+  report.hotspots = buildHotspots([report]);
 
   return {
     ...report,
@@ -64,6 +68,7 @@ export function renderTextSummary(report) {
     `Signature: ${normalized.signature}`,
     `Culprit: ${formatFrame(normalized.culpritFrame)}`,
     `Support frames: ${supportFrames}`,
+    `Suspect hotspots: ${formatTextHotspots(normalized.hotspots)}`,
     `Confidence: ${normalized.diagnosis.confidence}`,
     `Tags: ${normalized.diagnosis.tags.join(', ')}`,
     `Summary: ${normalized.diagnosis.summary}`,
@@ -94,6 +99,9 @@ export function renderMarkdownSummary(report) {
     '',
     '## Support frames',
     supportFrames,
+    '',
+    '## Suspect hotspots',
+    formatMarkdownHotspots(normalized.hotspots),
     '',
     '## Summary',
     escapeMarkdownText(normalized.diagnosis.summary),
@@ -139,6 +147,7 @@ function normalizeRenderableReport(report) {
     message: String(report?.message ?? ''),
     culpritFrame: report?.culpritFrame ?? null,
     supportFrames: Array.isArray(report?.supportFrames) ? report.supportFrames : [],
+    hotspots: Array.isArray(report?.hotspots) ? report.hotspots : buildHotspots([report]),
     signature: String(report?.signature ?? buildSignature(report)),
     diagnosis: {
       confidence: String(diagnosis.confidence ?? 'unknown'),
@@ -158,6 +167,28 @@ export function formatFrame(frame) {
 
   const location = frame.line ? `${frame.file}:${frame.line}` : frame.file;
   return frame.functionName ? `${frame.functionName} (${location})` : location;
+}
+
+function formatTextHotspots(hotspots) {
+  if (!hotspots.length) {
+    return 'None';
+  }
+
+  return hotspots
+    .slice(0, 3)
+    .map((hotspot) => `${hotspot.label} (score ${hotspot.score})`)
+    .join(', ');
+}
+
+function formatMarkdownHotspots(hotspots) {
+  if (!hotspots.length) {
+    return '- `None`';
+  }
+
+  return hotspots
+    .slice(0, 3)
+    .map((hotspot) => `- ${formatMarkdownCode(hotspot.label)} (score ${hotspot.score}, culprit ${hotspot.culpritCount}x, support ${hotspot.supportCount}x)`)
+    .join('\n');
 }
 
 function formatMarkdownCode(value) {

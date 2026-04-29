@@ -93,6 +93,40 @@ test('analyzeTraceDigest groups reports by signature and sorts by repeat count',
   assert.deepEqual(digest.groups[0].tags, ['nullish-data', 'undefined-property-access']);
   assert.equal(digest.groups[1].count, 1);
   assert.equal(digest.groups[1].runtime, 'python');
+  assert.deepEqual(
+    digest.hotspots.map(({ label, score, culpritCount, supportCount }) => ({
+      label,
+      score,
+      culpritCount,
+      supportCount,
+    })),
+    [
+      {
+        label: 'profile.js',
+        score: 6,
+        culpritCount: 2,
+        supportCount: 0,
+      },
+      {
+        label: 'service.py',
+        score: 3,
+        culpritCount: 1,
+        supportCount: 0,
+      },
+      {
+        label: 'view.js',
+        score: 2,
+        culpritCount: 0,
+        supportCount: 2,
+      },
+      {
+        label: 'app.py',
+        score: 1,
+        culpritCount: 0,
+        supportCount: 1,
+      },
+    ]
+  );
 });
 
 test('analyzeTraceDigest keeps the first matching trace as the group representative', () => {
@@ -126,9 +160,11 @@ test('digest renderers produce copy-ready text and markdown summaries', () => {
   assert.match(text, /Total traces: 3/);
   assert.match(text, /Unique incidents: 2/);
   assert.match(text, /2x javascript TypeError/);
+  assert.match(text, /Suspect hotspots: profile\.js \(score 6\), service\.py \(score 3\), view\.js \(score 2\)/);
 
   assert.match(markdown, /^# Stack Sleuth Incident Digest/m);
   assert.match(markdown, /- \*\*Total traces:\*\* 3/);
+  assert.match(markdown, /## Suspect hotspots\n- `profile\.js` \(score 6, culprit 2x, support 0x\)\n- `service\.py` \(score 3, culprit 1x, support 0x\)\n- `view\.js` \(score 2, culprit 0x, support 2x\)/);
   assert.match(markdown, /## Incident 1 \(2 traces\)/);
   assert.match(markdown, /`javascript\|TypeError\|app\/src\/profile\.js:88\|nullish-data,undefined-property-access`/);
 });

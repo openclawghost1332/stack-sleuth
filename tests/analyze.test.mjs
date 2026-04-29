@@ -26,6 +26,34 @@ test('analyzeTrace composes parse and diagnose, adds support frames, and builds 
   assert.equal(report.signature, buildSignature(report));
   assert.equal(report.diagnosis.confidence, 'high');
   assert.deepEqual(report.diagnosis.tags, ['nullish-data', 'undefined-property-access']);
+  assert.deepEqual(
+    report.hotspots.map(({ label, score, culpritCount, supportCount }) => ({
+      label,
+      score,
+      culpritCount,
+      supportCount,
+    })),
+    [
+      {
+        label: 'profile.js',
+        score: 3,
+        culpritCount: 1,
+        supportCount: 0,
+      },
+      {
+        label: 'commit.js',
+        score: 1,
+        culpritCount: 0,
+        supportCount: 1,
+      },
+      {
+        label: 'view.js',
+        score: 1,
+        culpritCount: 0,
+        supportCount: 1,
+      },
+    ]
+  );
 });
 
 test('buildSignature keeps enough file context to avoid same-basename collisions', () => {
@@ -71,11 +99,13 @@ test('render helpers produce copy-ready text and markdown summaries from a real 
   assert.match(text, /Runtime: python/);
   assert.match(text, /Signature: python\|KeyError\|service\.py:17\|missing-key/);
   assert.match(text, /Support frames: <module> \(app\.py:42\)/);
+  assert.match(text, /Suspect hotspots: service\.py \(score 3\), app\.py \(score 1\)/);
   assert.match(text, /Checklist:/);
 
   assert.match(markdown, /^# Stack Sleuth Report/m);
   assert.match(markdown, /- \*\*Signature:\*\* `python\|KeyError\|service\.py:17\|missing-key`/);
   assert.match(markdown, /- `&lt;module&gt; \(app\.py:42\)`/);
+  assert.match(markdown, /## Suspect hotspots\n- `service\.py` \(score 3, culprit 1x, support 0x\)\n- `app\.py` \(score 1, culprit 0x, support 1x\)/);
   assert.match(markdown, /## Checklist/);
 });
 
@@ -100,11 +130,13 @@ test('render helpers safely fall back when diagnosis or support frames are missi
   assert.match(text, /Confidence: unknown/);
   assert.match(text, /Tags: untagged/);
   assert.match(text, /Summary: No diagnosis available yet\./);
+  assert.match(text, /Suspect hotspots: index\.js \(score 3\)/);
   assert.match(text, /- No checklist available yet\./);
 
   assert.match(markdown, /- \*\*Confidence:\*\* unknown/);
   assert.match(markdown, /- \*\*Tags:\*\* untagged/);
   assert.match(markdown, /## Support frames\n- `None`/);
+  assert.match(markdown, /## Suspect hotspots\n- `index\.js` \(score 3, culprit 1x, support 0x\)/);
   assert.match(markdown, /## Summary\nNo diagnosis available yet\./);
   assert.match(markdown, /## Checklist\n- No checklist available yet\./);
 });
@@ -167,6 +199,7 @@ test('whitespace-only input returns a normalized empty analysis state', () => {
   assert.equal(report.signature, 'empty-trace');
   assert.equal(report.culpritFrame, null);
   assert.deepEqual(report.supportFrames, []);
+  assert.deepEqual(report.hotspots, []);
   assert.equal(report.diagnosis, null);
   assert.match(renderTextSummary(report), /No trace provided/i);
   assert.match(renderMarkdownSummary(report), /No trace provided/i);

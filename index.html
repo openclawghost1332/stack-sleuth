@@ -10,7 +10,7 @@
     <main class="app-shell">
       <section class="hero card">
         <p class="eyebrow">Stack Sleuth</p>
-        <h1>Paste one or more stack traces, spot the likeliest culprit, collapse noisy failures into an incident digest, or compare two batches with a Regression Radar.</h1>
+        <h1>Paste one or more stack traces, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, or compare two batches with a Regression Radar.</h1>
         <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, collapsing a noisy incident bundle, or asking what got worse after a release.</p>
       </section>
 
@@ -57,6 +57,12 @@
             <li>New, resolved, and volume-shifted incidents will appear here after a comparison.</li>
           </ul>
         </article>
+        <article class="card result-card wide">
+          <span class="result-label">Hotspot shifts</span>
+          <ul id="hotspot-shifts-value" class="checklist">
+            <li>Hotspot shifts between baseline and candidate batches will appear here after a comparison.</li>
+          </ul>
+        </article>
         <article class="card result-card">
           <span class="result-label">Runtime</span>
           <strong id="runtime-value">Awaiting trace</strong>
@@ -95,6 +101,12 @@
           <span class="result-label">Support frames</span>
           <ul id="support-frames-value" class="checklist">
             <li>Support frames will appear here when Stack Sleuth finds nearby app frames.</li>
+          </ul>
+        </article>
+        <article class="card result-card wide">
+          <span class="result-label">Suspect hotspots</span>
+          <ul id="hotspots-value" class="checklist">
+            <li>Suspect hotspots will appear here when Stack Sleuth detects repeated culprit or support paths.</li>
           </ul>
         </article>
         <article class="card result-card wide">

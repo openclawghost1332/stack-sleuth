@@ -1,5 +1,6 @@
 import { analyzeTraceDigest } from './digest.js';
 import { formatFrame } from './analyze.js';
+import { buildHotspotShifts } from './hotspots.js';
 
 const STATUS_PRIORITY = {
   new: 0,
@@ -22,6 +23,10 @@ export function analyzeRegression({ baseline, candidate }) {
     baselineDigest,
     candidateDigest,
     incidents,
+    hotspotShifts: buildHotspotShifts({
+      baseline: baselineDigest.hotspots,
+      candidate: candidateDigest.hotspots,
+    }),
     summary: summarizeRegression(incidents, baselineDigest, candidateDigest),
   };
 }
@@ -36,6 +41,7 @@ export function renderRegressionTextSummary(regression) {
     `recurring: ${regression.summary.recurringCount}`,
     `volume-down: ${regression.summary.volumeDownCount}`,
     `resolved: ${regression.summary.resolvedCount}`,
+    `Hotspot shifts: ${formatTextHotspotShifts(regression.hotspotShifts)}`,
     '',
   ];
 
@@ -69,6 +75,9 @@ export function renderRegressionMarkdownSummary(regression) {
     `- **Recurring incidents:** ${regression.summary.recurringCount}`,
     `- **Volume-down incidents:** ${regression.summary.volumeDownCount}`,
     `- **Resolved incidents:** ${regression.summary.resolvedCount}`,
+    '',
+    '## Hotspot shifts',
+    formatMarkdownHotspotShifts(regression.hotspotShifts),
     '',
   ];
 
@@ -174,6 +183,28 @@ function formatDelta(delta) {
   return delta > 0 ? `+${delta}` : String(delta);
 }
 
+function formatTextHotspotShifts(hotspotShifts) {
+  if (!(hotspotShifts?.length)) {
+    return 'None';
+  }
+
+  return hotspotShifts
+    .slice(0, 3)
+    .map((shift) => `${shift.label} (${formatDelta(shift.delta)})`)
+    .join(', ');
+}
+
+function formatMarkdownHotspotShifts(hotspotShifts) {
+  if (!(hotspotShifts?.length)) {
+    return '- `None`';
+  }
+
+  return hotspotShifts
+    .slice(0, 3)
+    .map((shift) => `- ${formatMarkdownCode(shift.label)} (${shift.status}, baseline ${shift.baselineScore}, candidate ${shift.candidateScore}, delta ${formatDelta(shift.delta)})`)
+    .join('\n');
+}
+
 function escapeMarkdownText(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -184,4 +215,8 @@ function escapeMarkdownText(value) {
 
 function escapeMarkdownCode(value) {
   return escapeMarkdownText(value);
+}
+
+function formatMarkdownCode(value) {
+  return `\`${escapeMarkdownCode(value)}\``;
 }

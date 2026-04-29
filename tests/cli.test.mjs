@@ -87,7 +87,9 @@ test('CLI supports --digest --json output', () => {
   const result = runCli(['--digest', '--json'], { input: multiTraceInput });
 
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(JSON.parse(result.stdout).groupCount, 2);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.groupCount, 2);
+  assert.equal(parsed.hotspots[0].label, 'profile.js');
 });
 
 test('CLI exits non-zero for empty stdin input', () => {
@@ -134,6 +136,7 @@ test('CLI supports --baseline file plus --candidate - from stdin in json mode', 
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.summary.volumeUpCount, 1);
   assert.equal(parsed.summary.newCount, 1);
+  assert.equal(parsed.hotspotShifts[0].label, 'profile.js');
 });
 
 test('CLI supports compare mode markdown output', async () => {

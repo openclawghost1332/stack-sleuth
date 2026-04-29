@@ -65,6 +65,46 @@ test('analyzeRegression classifies incidents and sorts them by status priority t
   });
 
   assert.deepEqual(
+    regression.hotspotShifts.slice(0, 4).map(({ status, label, baselineScore, candidateScore, delta }) => ({
+      status,
+      label,
+      baselineScore,
+      candidateScore,
+      delta,
+    })),
+    [
+      {
+        status: 'volume-up',
+        label: 'profile.js',
+        baselineScore: 3,
+        candidateScore: 9,
+        delta: 6,
+      },
+      {
+        status: 'volume-down',
+        label: 'dashboard.js',
+        baselineScore: 9,
+        candidateScore: 3,
+        delta: -6,
+      },
+      {
+        status: 'resolved',
+        label: 'service.py',
+        baselineScore: 6,
+        candidateScore: 0,
+        delta: -6,
+      },
+      {
+        status: 'new',
+        label: 'invoice.js',
+        baselineScore: 0,
+        candidateScore: 3,
+        delta: 3,
+      },
+    ]
+  );
+
+  assert.deepEqual(
     regression.incidents.map(({ status, signature, baselineCount, candidateCount, delta }) => ({
       status,
       signature,
@@ -138,10 +178,12 @@ test('renderRegression helpers produce copy-ready text and markdown summaries', 
   assert.match(text, /Candidate traces: 3/);
   assert.match(text, /new: 1/);
   assert.match(text, /volume-up: 1/);
+  assert.match(text, /Hotspot shifts: profile\.js \(\+3\), invoice\.js \(\+3\), service\.py \(-3\)/);
 
   assert.match(markdown, /^# Stack Sleuth Regression Radar/m);
   assert.match(markdown, /- \*\*Baseline traces:\*\* 2/);
   assert.match(markdown, /- \*\*Candidate traces:\*\* 3/);
+  assert.match(markdown, /## Hotspot shifts\n- `profile\.js` \(volume-up, baseline 3, candidate 6, delta \+3\)\n- `invoice\.js` \(new, baseline 0, candidate 3, delta \+3\)\n- `service\.py` \(resolved, baseline 3, candidate 0, delta -3\)/);
   assert.match(markdown, /## New incidents/);
   assert.match(markdown, /## Volume-up incidents/);
 });

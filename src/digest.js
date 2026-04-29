@@ -1,5 +1,6 @@
 import { analyzeTrace, formatFrame } from './analyze.js';
 import { detectTraceStartRuntime } from './parse.js';
+import { buildHotspots } from './hotspots.js';
 
 const PYTHON_CHAIN_MARKER = /^(?:The above exception was the direct cause of the following exception:|During handling of the above exception, another exception occurred:)$/;
 
@@ -73,7 +74,8 @@ export function analyzeTraceDigest(input) {
     totalTraces: traces.length,
     groupCount: groups.length,
     groups,
-    traces
+    traces,
+    hotspots: buildHotspots(traces)
   };
 }
 
@@ -82,6 +84,7 @@ export function renderDigestTextSummary(digest) {
     'Stack Sleuth Incident Digest',
     `Total traces: ${digest.totalTraces}`,
     `Unique incidents: ${digest.groupCount}`,
+    `Suspect hotspots: ${formatTextHotspots(digest.hotspots)}`,
     '',
     ...digest.groups.flatMap((group, index) => [
       `Incident ${index + 1}: ${group.count}x ${group.runtime} ${group.errorName}`,
@@ -102,6 +105,9 @@ export function renderDigestMarkdownSummary(digest) {
     `- **Total traces:** ${digest.totalTraces}`,
     `- **Unique incidents:** ${digest.groupCount}`,
     '',
+    '## Suspect hotspots',
+    formatMarkdownHotspots(digest.hotspots),
+    '',
     ...digest.groups.flatMap((group, index) => [
       `## Incident ${index + 1} (${group.count} traces)`,
       '',
@@ -116,6 +122,28 @@ export function renderDigestMarkdownSummary(digest) {
       ''
     ])
   ].join('\n').trim();
+}
+
+function formatTextHotspots(hotspots) {
+  if (!(hotspots?.length)) {
+    return 'None';
+  }
+
+  return hotspots
+    .slice(0, 3)
+    .map((hotspot) => `${hotspot.label} (score ${hotspot.score})`)
+    .join(', ');
+}
+
+function formatMarkdownHotspots(hotspots) {
+  if (!(hotspots?.length)) {
+    return '- `None`';
+  }
+
+  return hotspots
+    .slice(0, 3)
+    .map((hotspot) => `- ${formatMarkdownCode(hotspot.label)} (score ${hotspot.score}, culprit ${hotspot.culpritCount}x, support ${hotspot.supportCount}x)`)
+    .join('\n');
 }
 
 function mergeSortedUnique(existing, next) {

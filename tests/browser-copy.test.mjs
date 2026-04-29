@@ -13,4 +13,8 @@ test('browser copy invites pasting one or more traces for digesting and comparin
   assert.match(indexHtml, /Baseline incident batch/i);
   assert.match(indexHtml, /Candidate incident batch/i);
   assert.match(indexHtml, />Compare batches</i);
+  assert.match(indexHtml, /Suspect hotspots/i);
+  assert.match(indexHtml, /Hotspot shifts/i);
+  assert.match(indexHtml, /Suspect hotspots will appear here/i);
+  assert.match(indexHtml, /Hotspot shifts between baseline and candidate batches will appear here/i);
 });

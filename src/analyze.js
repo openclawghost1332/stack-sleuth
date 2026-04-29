@@ -151,7 +151,7 @@ function normalizeRenderableReport(report) {
   };
 }
 
-function formatFrame(frame) {
+export function formatFrame(frame) {
   if (!frame?.file) {
     return 'No application frame detected';
   }

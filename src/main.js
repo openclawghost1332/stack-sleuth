@@ -1,10 +1,12 @@
-import { analyzeTrace } from './analyze.js';
+import { analyzeTrace, formatFrame, renderTextSummary } from './analyze.js';
+import { analyzeTraceDigest, splitTraceChunks, renderDigestTextSummary } from './digest.js';
 import { examples } from './examples.js';
 
 const traceInput = document.querySelector('#trace-input');
 const explainButton = document.querySelector('#explain-button');
 const loadJsButton = document.querySelector('#load-js-button');
 const loadPythonButton = document.querySelector('#load-python-button');
+const loadDigestButton = document.querySelector('#load-digest-button');
 const copyButton = document.querySelector('#copy-button');
 const caption = document.querySelector('#example-caption');
 
@@ -16,23 +18,22 @@ const tagsValue = document.querySelector('#tags-value');
 const signatureValue = document.querySelector('#signature-value');
 const supportFramesValue = document.querySelector('#support-frames-value');
 const summaryValue = document.querySelector('#summary-value');
+const digestGroupsValue = document.querySelector('#digest-groups-value');
 const checklistValue = document.querySelector('#checklist-value');
 
 const jsExample = examples.find((item) => item.label === 'JavaScript undefined property');
 const pythonExample = examples.find((item) => item.label === 'Python missing key');
+const digestExample = examples.find((item) => item.label === 'Repeated incident digest');
 
 function renderDiagnosis() {
   const traceText = traceInput.value.trim();
   if (!traceText) {
-    headlineValue.textContent = 'Paste a trace to get started';
-    runtimeValue.textContent = 'Awaiting trace';
-    culpritValue.textContent = 'No frame selected yet';
-    confidenceValue.textContent = '-';
-    tagsValue.textContent = '-';
-    signatureValue.textContent = '-';
-    supportFramesValue.innerHTML = '<li>Support frames will appear here when Stack Sleuth finds nearby app frames.</li>';
-    summaryValue.textContent = 'Your diagnosis summary will appear here.';
-    checklistValue.innerHTML = '<li>Run an example or paste a real trace to see actionable next steps.</li>';
+    resetEmptyState();
+    return;
+  }
+
+  if (splitTraceChunks(traceText).length > 1) {
+    renderDigest(traceText);
     return;
   }
 
@@ -46,12 +47,57 @@ function renderDiagnosis() {
   tagsValue.textContent = diagnosis.tags.join(', ');
   signatureValue.textContent = report.signature;
   summaryValue.textContent = diagnosis.summary;
+  digestGroupsValue.replaceChildren(...buildListItems([
+    'Repeated incidents will appear here when Stack Sleuth detects multiple traces.'
+  ]));
   supportFramesValue.replaceChildren(...buildListItems(
     report.supportFrames.length
       ? report.supportFrames.map((frame) => formatFrame(frame))
       : ['No nearby application frames beyond the culprit were detected.']
   ));
   checklistValue.replaceChildren(...buildListItems(diagnosis.checklist));
+}
+
+function renderDigest(traceText) {
+  const digest = analyzeTraceDigest(traceText);
+
+  runtimeValue.textContent = `${digest.groupCount} grouped incident${digest.groupCount === 1 ? '' : 's'}`;
+  headlineValue.textContent = `${digest.totalTraces} traces collapsed into ${digest.groupCount} incident groups`;
+  culpritValue.textContent = formatFrame(digest.groups[0]?.representative?.culpritFrame ?? null);
+  confidenceValue.textContent = digest.groups[0]?.representative?.diagnosis?.confidence ?? 'unknown';
+  tagsValue.textContent = digest.groups[0]?.tags?.join(', ') ?? '-';
+  signatureValue.textContent = digest.groups[0]?.signature ?? '-';
+  summaryValue.textContent = digest.groups[0]?.representative?.diagnosis?.summary ?? 'No digest summary available yet.';
+  digestGroupsValue.replaceChildren(...buildListItems(
+    digest.groups.map((group) => `${group.count}x ${group.runtime} ${group.errorName} at ${formatFrame(group.representative.culpritFrame)}`)
+  ));
+  supportFramesValue.replaceChildren(...buildListItems(
+    digest.groups[0]?.representative?.supportFrames?.length
+      ? digest.groups[0].representative.supportFrames.map((frame) => formatFrame(frame))
+      : ['Open the top incident to inspect its nearby application frames.']
+  ));
+  checklistValue.replaceChildren(...buildListItems(
+    digest.groups[0]?.representative?.diagnosis?.checklist ?? ['Inspect the top repeated incident first.']
+  ));
+}
+
+function resetEmptyState() {
+  headlineValue.textContent = 'Paste a trace to get started';
+  runtimeValue.textContent = 'Awaiting trace';
+  culpritValue.textContent = 'No frame selected yet';
+  confidenceValue.textContent = '-';
+  tagsValue.textContent = '-';
+  signatureValue.textContent = '-';
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Support frames will appear here when Stack Sleuth finds nearby app frames.'
+  ]));
+  digestGroupsValue.replaceChildren(...buildListItems([
+    'Repeated incidents will appear here when Stack Sleuth detects multiple traces.'
+  ]));
+  summaryValue.textContent = 'Your diagnosis summary will appear here.';
+  checklistValue.replaceChildren(...buildListItems([
+    'Run an example or paste a real trace to see actionable next steps.'
+  ]));
 }
 
 function loadExample(example) {
@@ -65,17 +111,10 @@ function loadExample(example) {
 }
 
 async function copyDiagnosis() {
-  const payload = [
-    `Runtime: ${runtimeValue.textContent}`,
-    `Error headline: ${headlineValue.textContent}`,
-    `Culprit frame: ${culpritValue.textContent}`,
-    `Confidence: ${confidenceValue.textContent}`,
-    `Tags: ${tagsValue.textContent}`,
-    `Signature: ${signatureValue.textContent}`,
-    `Support frames: ${(Array.from(supportFramesValue.querySelectorAll('li')).map((item) => item.textContent).join(' | '))}`,
-    `Summary: ${summaryValue.textContent}`,
-    `Checklist: ${(Array.from(checklistValue.querySelectorAll('li')).map((item) => item.textContent).join(' | '))}`
-  ].join('\n');
+  const traceText = traceInput.value.trim();
+  const payload = splitTraceChunks(traceText).length > 1
+    ? renderDigestTextSummary(analyzeTraceDigest(traceText))
+    : renderTextSummary(analyzeTrace(traceText));
 
   try {
     await navigator.clipboard.writeText(payload);
@@ -93,22 +132,15 @@ function buildListItems(items) {
   });
 }
 
-function formatFrame(frame) {
-  if (!frame?.file) {
-    return 'No application frame detected';
-  }
-
-  const location = frame.line ? `${frame.file}:${frame.line}` : frame.file;
-  return frame.functionName ? `${frame.functionName} (${location})` : location;
-}
-
 explainButton?.addEventListener('click', renderDiagnosis);
 loadJsButton?.addEventListener('click', () => loadExample(jsExample));
 loadPythonButton?.addEventListener('click', () => loadExample(pythonExample));
+loadDigestButton?.addEventListener('click', () => loadExample(digestExample));
 copyButton?.addEventListener('click', copyDiagnosis);
 traceInput?.addEventListener('input', () => {
   if (!traceInput.value.trim()) {
     caption.textContent = '';
+    resetEmptyState();
   }
 });
 

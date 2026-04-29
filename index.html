@@ -21,6 +21,7 @@
           <button id="explain-button" type="button">Explain trace</button>
           <button id="load-js-button" type="button" class="secondary">Load JS example</button>
           <button id="load-python-button" type="button" class="secondary">Load Python example</button>
+          <button id="load-digest-button" type="button" class="secondary">Load digest example</button>
           <button id="copy-button" type="button" class="ghost">Copy diagnosis</button>
         </div>
         <p id="example-caption" class="caption" aria-live="polite"></p>
@@ -54,6 +55,12 @@
         <article class="card result-card wide">
           <span class="result-label">Summary</span>
           <p id="summary-value">Your diagnosis summary will appear here.</p>
+        </article>
+        <article class="card result-card wide">
+          <span class="result-label">Incident digest</span>
+          <ul id="digest-groups-value" class="checklist">
+            <li>Repeated incidents will appear here when Stack Sleuth detects multiple traces.</li>
+          </ul>
         </article>
         <article class="card result-card wide">
           <span class="result-label">Support frames</span>

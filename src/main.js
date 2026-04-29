@@ -1,5 +1,4 @@
-import { parseTrace } from './parse.js';
-import { diagnoseTrace } from './diagnose.js';
+import { analyzeTrace } from './analyze.js';
 import { examples } from './examples.js';
 
 const traceInput = document.querySelector('#trace-input');
@@ -14,6 +13,8 @@ const headlineValue = document.querySelector('#headline-value');
 const culpritValue = document.querySelector('#culprit-value');
 const confidenceValue = document.querySelector('#confidence-value');
 const tagsValue = document.querySelector('#tags-value');
+const signatureValue = document.querySelector('#signature-value');
+const supportFramesValue = document.querySelector('#support-frames-value');
 const summaryValue = document.querySelector('#summary-value');
 const checklistValue = document.querySelector('#checklist-value');
 
@@ -28,25 +29,29 @@ function renderDiagnosis() {
     culpritValue.textContent = 'No frame selected yet';
     confidenceValue.textContent = '-';
     tagsValue.textContent = '-';
+    signatureValue.textContent = '-';
+    supportFramesValue.innerHTML = '<li>Support frames will appear here when Stack Sleuth finds nearby app frames.</li>';
     summaryValue.textContent = 'Your diagnosis summary will appear here.';
     checklistValue.innerHTML = '<li>Run an example or paste a real trace to see actionable next steps.</li>';
     return;
   }
 
-  const report = parseTrace(traceText);
-  const diagnosis = diagnoseTrace(report);
+  const report = analyzeTrace(traceText);
+  const diagnosis = report.diagnosis;
 
   runtimeValue.textContent = report.runtime;
   headlineValue.textContent = `${report.errorName}: ${report.message}`;
   culpritValue.textContent = formatFrame(report.culpritFrame);
   confidenceValue.textContent = diagnosis.confidence;
   tagsValue.textContent = diagnosis.tags.join(', ');
+  signatureValue.textContent = report.signature;
   summaryValue.textContent = diagnosis.summary;
-  checklistValue.replaceChildren(...diagnosis.checklist.map((item) => {
-    const li = document.createElement('li');
-    li.textContent = item;
-    return li;
-  }));
+  supportFramesValue.replaceChildren(...buildListItems(
+    report.supportFrames.length
+      ? report.supportFrames.map((frame) => formatFrame(frame))
+      : ['No nearby application frames beyond the culprit were detected.']
+  ));
+  checklistValue.replaceChildren(...buildListItems(diagnosis.checklist));
 }
 
 function loadExample(example) {
@@ -66,6 +71,8 @@ async function copyDiagnosis() {
     `Culprit frame: ${culpritValue.textContent}`,
     `Confidence: ${confidenceValue.textContent}`,
     `Tags: ${tagsValue.textContent}`,
+    `Signature: ${signatureValue.textContent}`,
+    `Support frames: ${(Array.from(supportFramesValue.querySelectorAll('li')).map((item) => item.textContent).join(' | '))}`,
     `Summary: ${summaryValue.textContent}`,
     `Checklist: ${(Array.from(checklistValue.querySelectorAll('li')).map((item) => item.textContent).join(' | '))}`
   ].join('\n');
@@ -76,6 +83,14 @@ async function copyDiagnosis() {
   } catch {
     caption.textContent = 'Clipboard copy unavailable here, but the diagnosis is ready to copy manually.';
   }
+}
+
+function buildListItems(items) {
+  return items.map((item) => {
+    const li = document.createElement('li');
+    li.textContent = item;
+    return li;
+  });
 }
 
 function formatFrame(frame) {

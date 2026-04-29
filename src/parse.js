@@ -24,7 +24,7 @@ function detectRuntime(text) {
     return 'javascript';
   }
 
-  if (/^\s*from .*:\d+:in /m.test(text)) {
+  if (/^(?:\s*from\s+)?[^\n]+:\d+:in `.*'/m.test(text)) {
     return 'ruby';
   }
 
@@ -91,26 +91,28 @@ function parsePythonTrace(text) {
 function parseRubyTrace(text) {
   const lines = text.split('\n');
   const frames = lines
-    .filter((line) => /^\s*from .*:\d+:in /.test(line))
-    .map((line) => {
-      const match = line.match(/^\s*from (?<file>.*?):(?<line>\d+):in `(?<functionName>.*)'$/);
-      return match && {
-        functionName: match.groups.functionName || null,
-        file: match.groups.file,
-        line: Number(match.groups.line),
-        column: null,
-        internal: isInternalFile(match.groups.file),
-      };
-    })
+    .map(parseRubyFrame)
     .filter(Boolean);
 
+  const headerMatch = lines[0]?.match(/^(?:\s*from\s+)?[^\n]+:\d+:in `.*':\s*(?<message>.*)\s+\((?<name>\S+(?:Error|Exception))\)$/);
   const errorLine = [...lines].reverse().find((line) => /^\S+(Error|Exception): /.test(line)) ?? lines[0] ?? '';
   const errorMatch = errorLine.match(/^(?<name>\S+(?:Error|Exception)):\s*(?<message>.*)$/);
 
   return {
-    errorName: errorMatch?.groups?.name ?? 'Error',
-    message: errorMatch?.groups?.message ?? errorLine,
+    errorName: headerMatch?.groups?.name ?? errorMatch?.groups?.name ?? 'Error',
+    message: headerMatch?.groups?.message ?? errorMatch?.groups?.message ?? errorLine,
     frames,
+  };
+}
+
+function parseRubyFrame(line) {
+  const match = line.match(/^(?:\s*from\s+)?(?<file>.*?):(?<line>\d+):in `(?<functionName>.*)'(?:\:\s+.*)?$/);
+  return match && {
+    functionName: match.groups.functionName || null,
+    file: match.groups.file,
+    line: Number(match.groups.line),
+    column: null,
+    internal: isInternalFile(match.groups.file),
   };
 }
 

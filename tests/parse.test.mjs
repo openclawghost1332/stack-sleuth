@@ -20,3 +20,14 @@ test('detects Python traces and selects the deepest project frame before the err
   assert.equal(report.culpritFrame.file, 'service.py');
   assert.equal(report.culpritFrame.line, 17);
 });
+
+test('detects Ruby traces from a first-line backtrace header and extracts the exception name', () => {
+  const report = parseTrace("app/service.rb:7:in `run': undefined method `email' for nil:NilClass (NoMethodError)\n\tfrom app/controller.rb:3:in `call'");
+
+  assert.equal(report.runtime, 'ruby');
+  assert.equal(report.errorName, 'NoMethodError');
+  assert.match(report.message, /undefined method `email'/);
+  assert.equal(report.culpritFrame.file, 'app/service.rb');
+  assert.equal(report.culpritFrame.line, 7);
+  assert.equal(report.culpritFrame.functionName, 'run');
+});

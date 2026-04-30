@@ -1,10 +1,11 @@
 import { analyzeTraceDigest } from './digest.js';
 import { formatFrame } from './analyze.js';
 import { parseLabeledTraceBatches } from './labeled.js';
+import { parseDatasetHistory } from './dataset.js';
 
 export function analyzeCasebook({ current, history }) {
   const currentDigest = analyzeTraceDigest(current);
-  const historyBatches = Array.isArray(history) ? history : parseLabeledTraceBatches(history);
+  const historyBatches = parseCasebookHistoryInput(history);
   const currentSignals = collectDigestSignals(currentDigest);
   const historicalCases = historyBatches
     .map((batch, historyIndex) => {
@@ -57,6 +58,19 @@ export function analyzeCasebook({ current, history }) {
       topCaseLabel: historicalCases[0]?.label ?? null,
     },
   };
+}
+
+export function parseCasebookHistoryInput(history) {
+  if (Array.isArray(history)) {
+    return history;
+  }
+
+  const datasetHistory = parseDatasetHistory(history);
+  if (datasetHistory?.length) {
+    return datasetHistory;
+  }
+
+  return parseLabeledTraceBatches(history);
 }
 
 export function renderCasebookTextSummary(casebook) {

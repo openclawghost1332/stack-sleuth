@@ -191,7 +191,8 @@ textarea {
   line-height: 1.6;
 }
 
-#forge-export-value {
+#forge-export-value,
+#merge-export-value {
   white-space: pre-wrap;
 }
 

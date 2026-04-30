@@ -144,6 +144,7 @@ const requiredIds = [
   'load-digest-button',
   'load-pack-button',
   'load-portfolio-button',
+  'load-merge-button',
   'copy-button',
   'example-caption',
   'compare-baseline-input',
@@ -192,6 +193,9 @@ const requiredIds = [
   'portfolio-recurring-hotspots-value',
   'forge-summary-value',
   'forge-export-value',
+  'merge-summary-value',
+  'merge-conflicts-value',
+  'merge-export-value',
 ];
 
 class FakeElement {
@@ -331,76 +335,86 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, />Analyze casebook</i);
   assert.match(indexHtml, />Copy casebook summary</i);
   assert.match(indexHtml, />Load portfolio example</i);
+  assert.match(indexHtml, />Load Casebook Merge example</i);
   assert.match(indexHtml, />Copy result</i);
 });
 
-test('browser Casebook Forge export styling preserves multiline formatting for manual copy', () => {
-  assert.match(stylesCss, /#forge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
+test('browser Casebook export styling preserves multiline formatting for manual copy', () => {
+  assert.match(stylesCss, /#forge-export-value,\s*#merge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
 });
 
-test('browser portfolio flow surfaces Casebook Forge cards alongside Portfolio Radar details', async () => {
+test('browser portfolio flow surfaces Casebook Forge and Casebook Merge cards alongside Portfolio Radar details', async () => {
   const harness = await loadBrowserHarness();
 
   try {
     await harness.input('trace-input', portfolioInput);
     await harness.click('explain-button');
 
-    assert.equal(harness.get('runtime-value').textContent, 'casebook forge');
-    assert.match(harness.get('headline-value').textContent, /Forged \d+ reusable case/i);
-    assert.match(harness.get('summary-value').textContent, /forged/i);
-    assert.match(harness.get('summary-value').textContent, /reusable case/i);
+    assert.equal(harness.get('runtime-value').textContent, 'casebook merge');
+    assert.match(harness.get('headline-value').textContent, /Merged 3 casebook entries/i);
+    assert.match(harness.get('summary-value').textContent, /Merged 3 casebook entries/i);
+    assert.match(harness.get('summary-value').textContent, /No merge conflicts detected/i);
     assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
     assert.match(harness.get('portfolio-priority-value').children[0].textContent, /profile-rollout/);
     assert.match(harness.get('portfolio-recurring-incidents-value').children[0].textContent, /packs:/i);
     assert.match(harness.get('portfolio-recurring-hotspots-value').children[0].textContent, /profile\.js/i);
     assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
     assert.match(harness.get('forge-export-value').textContent, /=== release-2026-04-15 ===/);
+    assert.match(harness.get('merge-summary-value').textContent, /Merged 3 casebook entries/i);
+    assert.match(harness.get('merge-conflicts-value').children[0].textContent, /No merge conflicts detected/i);
+    assert.match(harness.get('merge-export-value').textContent, />>> seen-count: 3/);
   } finally {
     harness.restore();
   }
 });
 
-test('browser portfolio copy support prefers the forged Casebook Forge export on the clipboard', async () => {
+test('browser portfolio copy support prefers the Casebook Merge export on the clipboard when history is present', async () => {
   const harness = await loadBrowserHarness();
 
   try {
     await harness.input('trace-input', portfolioInput);
     await harness.click('copy-button');
 
-    assert.match(harness.clipboard.text, /Stack Sleuth Casebook Forge/);
+    assert.match(harness.clipboard.text, /Stack Sleuth Casebook Merge/);
     assert.match(harness.clipboard.text, /=== release-2026-04-15 ===/);
-    assert.equal(harness.get('example-caption').textContent, 'Casebook Forge export copied to clipboard.');
+    assert.match(harness.clipboard.text, />>> seen-count: 3/);
+    assert.equal(harness.get('example-caption').textContent, 'Casebook Merge export copied to clipboard.');
   } finally {
     harness.restore();
   }
 });
 
-test('browser portfolio Casebook Forge cards reset when switching back to a non-portfolio workflow', async () => {
+test('browser portfolio Casebook Forge and Casebook Merge cards reset when switching back to a non-portfolio workflow', async () => {
   const harness = await loadBrowserHarness();
 
   try {
     await harness.input('trace-input', portfolioInput);
     await harness.click('explain-button');
     assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
+    assert.match(harness.get('merge-summary-value').textContent, /Merged 3 casebook entries/i);
 
     await harness.input('trace-input', casebookCurrentInput);
     await harness.click('explain-button');
 
-    assert.notEqual(harness.get('runtime-value').textContent, 'casebook forge');
+    assert.notEqual(harness.get('runtime-value').textContent, 'casebook merge');
     assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');
     assert.equal(harness.get('forge-export-value').textContent, 'Forged Casebook export text will appear here after Casebook Forge runs.');
+    assert.equal(harness.get('merge-summary-value').textContent, 'Paste several labeled incident packs with embedded history to update a living casebook.');
+    assert.equal(harness.get('merge-export-value').textContent, 'Merged Casebook export text will appear here after Casebook Merge runs.');
   } finally {
     harness.restore();
   }
 });
 
-test('browser dedicated radar controls clear stale portfolio and forge cards after a portfolio result', async () => {
+test('browser dedicated radar controls clear stale portfolio, forge, and merge cards after a portfolio result', async () => {
   const harness = await loadBrowserHarness();
   const assertPortfolioCardsReset = () => {
     assert.equal(harness.get('portfolio-summary-value').textContent, 'Paste several labeled incident packs to rank the release-level triage queue.');
     assert.equal(harness.get('portfolio-pack-count-value').textContent, '-');
     assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');
     assert.equal(harness.get('forge-export-value').textContent, 'Forged Casebook export text will appear here after Casebook Forge runs.');
+    assert.equal(harness.get('merge-summary-value').textContent, 'Paste several labeled incident packs with embedded history to update a living casebook.');
+    assert.equal(harness.get('merge-export-value').textContent, 'Merged Casebook export text will appear here after Casebook Merge runs.');
   };
 
   try {
@@ -408,6 +422,7 @@ test('browser dedicated radar controls clear stale portfolio and forge cards aft
     await harness.click('explain-button');
     assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
     assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
+    assert.match(harness.get('merge-summary-value').textContent, /Merged 3 casebook entries/i);
 
     await harness.input('casebook-current-input', casebookCurrentInput);
     await harness.input('casebook-history-input', casebookHistoryInput);

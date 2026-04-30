@@ -1,13 +1,15 @@
 import { analyzeTrace, formatFrame, renderTextSummary } from './analyze.js';
-import { analyzeTraceDigest, splitTraceChunks, renderDigestTextSummary } from './digest.js';
+import { analyzeTraceDigest, renderDigestTextSummary } from './digest.js';
 import { analyzeRegression } from './regression.js';
 import { analyzeTimeline, renderTimelineTextSummary } from './timeline.js';
+import { extractTraceSet } from './extract.js';
 import { examples } from './examples.js';
 
 const traceInput = document.querySelector('#trace-input');
 const explainButton = document.querySelector('#explain-button');
 const loadJsButton = document.querySelector('#load-js-button');
 const loadPythonButton = document.querySelector('#load-python-button');
+const loadRawLogButton = document.querySelector('#load-raw-log-button');
 const loadDigestButton = document.querySelector('#load-digest-button');
 const copyButton = document.querySelector('#copy-button');
 const caption = document.querySelector('#example-caption');
@@ -24,6 +26,7 @@ const loadTimelineButton = document.querySelector('#load-timeline-button');
 const copyTimelineButton = document.querySelector('#copy-timeline-button');
 const timelineCaption = document.querySelector('#timeline-caption');
 
+const excavationValue = document.querySelector('#excavation-value');
 const runtimeValue = document.querySelector('#runtime-value');
 const headlineValue = document.querySelector('#headline-value');
 const culpritValue = document.querySelector('#culprit-value');
@@ -44,6 +47,7 @@ const timelineHotspotsValue = document.querySelector('#timeline-hotspots-value')
 
 const jsExample = examples.find((item) => item.label === 'JavaScript undefined property');
 const pythonExample = examples.find((item) => item.label === 'Python missing key');
+const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
 const digestExample = examples.find((item) => item.label === 'Repeated incident digest');
 const regressionExample = examples.find((item) => item.label === 'Regression radar');
 const timelineExample = examples.find((item) => item.label === 'Timeline radar');
@@ -55,12 +59,20 @@ function renderDiagnosis() {
     return;
   }
 
-  if (splitTraceChunks(traceText).length > 1) {
+  const extraction = extractTraceSet(traceText);
+  excavationValue.textContent = describeExcavation(extraction);
+
+  if (extraction.traceCount === 0) {
+    renderNoTraceExcavated(extraction);
+    return;
+  }
+
+  if (extraction.traceCount > 1) {
     renderDigest(traceText);
     return;
   }
 
-  const report = analyzeTrace(traceText);
+  const report = analyzeTrace(extraction.traces[0]);
   const diagnosis = report.diagnosis;
 
   runtimeValue.textContent = report.runtime;
@@ -85,6 +97,7 @@ function renderDiagnosis() {
 function renderDigest(traceText) {
   const digest = analyzeTraceDigest(traceText);
 
+  excavationValue.textContent = describeExcavation(digest.extraction);
   runtimeValue.textContent = `${digest.groupCount} grouped incident${digest.groupCount === 1 ? '' : 's'}`;
   headlineValue.textContent = `${digest.totalTraces} traces collapsed into ${digest.groupCount} incident groups`;
   culpritValue.textContent = formatFrame(digest.groups[0]?.representative?.culpritFrame ?? null);
@@ -120,6 +133,7 @@ function renderRegressionWorkflow() {
   const topIncident = regression.incidents[0] ?? null;
   const topReport = topIncident?.representative ?? null;
 
+  excavationValue.textContent = `${describeExcavation(regression.baselineDigest.extraction, 'Baseline')} | ${describeExcavation(regression.candidateDigest.extraction, 'Candidate')}`;
   runtimeValue.textContent = 'comparison';
   headlineValue.textContent = `${summary.totalCandidateTraces} candidate traces vs ${summary.totalBaselineTraces} baseline traces`;
   culpritValue.textContent = formatFrame(topReport?.culpritFrame ?? null);
@@ -176,6 +190,7 @@ function renderTimelineWorkflow() {
 
   const timeline = analyzeTimeline(timelineText);
   if (timeline.summary.snapshotCount < 2) {
+    excavationValue.textContent = 'Paste at least two labeled snapshots before Stack Sleuth can compare rollout movement.';
     timelineSummaryValue.textContent = 'Add at least two labeled snapshots like === canary === and === full-rollout ===.';
     timelineIncidentsValue.replaceChildren(...buildListItems([
       'Timeline trend calls and hotspot movement will appear here after at least two labeled snapshots.'
@@ -191,6 +206,9 @@ function renderTimelineWorkflow() {
   const topReport = topIncident?.representative ?? null;
   const latestDigest = timeline.snapshots.at(-1)?.digest ?? { hotspots: [] };
 
+  excavationValue.textContent = timeline.snapshots
+    .map((snapshot) => `${snapshot.label}: ${describeExcavation(snapshot.digest.extraction)}`)
+    .join(' | ');
   runtimeValue.textContent = `${summary.snapshotCount} snapshots`;
   headlineValue.textContent = `${summary.latestLabel} rollout snapshot (${summary.latestTotalTraces} traces)`;
   culpritValue.textContent = formatFrame(topReport?.culpritFrame ?? null);
@@ -214,8 +232,32 @@ function renderTimelineWorkflow() {
   timelineHotspotsValue.replaceChildren(...buildListItems(buildTimelineHotspotItems(timeline.hotspots)));
 }
 
+function renderNoTraceExcavated(extraction) {
+  runtimeValue.textContent = 'No trace excavated';
+  headlineValue.textContent = 'Stack Sleuth did not find a JavaScript, Python, or Ruby trace in this input yet';
+  culpritValue.textContent = 'No application frame detected';
+  confidenceValue.textContent = '-';
+  tagsValue.textContent = '-';
+  signatureValue.textContent = '-';
+  summaryValue.textContent = `Stack Sleuth ignored ${extraction.ignoredLineCount} non-trace lines and did not excavate a usable trace. Paste a fuller stack trace or noisier log section that still contains the embedded exception.`;
+  digestGroupsValue.replaceChildren(...buildListItems([
+    'Excavated traces will appear here when Stack Sleuth detects more than one trace in the current input.'
+  ]));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Support frames will appear here when Stack Sleuth finds a usable excavated trace.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems([
+    'Suspect hotspots will appear here after Stack Sleuth excavates at least one trace.'
+  ]));
+  checklistValue.replaceChildren(...buildListItems([
+    'Paste a wider raw log section that still includes the exception header and stack frames.',
+    'If the logs were already scrubbed, paste a direct stack trace instead.',
+  ]));
+}
+
 function resetEmptyState() {
-  headlineValue.textContent = 'Paste one or more traces to get started';
+  excavationValue.textContent = 'Awaiting trace or raw log input';
+  headlineValue.textContent = 'Paste one or more traces or raw logs to get started';
   runtimeValue.textContent = 'Awaiting trace';
   culpritValue.textContent = 'No frame selected yet';
   confidenceValue.textContent = '-';
@@ -292,9 +334,16 @@ function loadTimelineExample(example) {
 
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
-  const payload = splitTraceChunks(traceText).length > 1
+  const extraction = extractTraceSet(traceText);
+
+  if (extraction.traceCount === 0) {
+    caption.textContent = 'No excavated trace found yet. Paste a fuller stack trace or raw log snippet first.';
+    return;
+  }
+
+  const payload = extraction.traceCount > 1
     ? renderDigestTextSummary(analyzeTraceDigest(traceText))
-    : renderTextSummary(analyzeTrace(traceText));
+    : [describeExcavation(extraction), renderTextSummary(analyzeTrace(extraction.traces[0]))].join('\n');
 
   try {
     await navigator.clipboard.writeText(payload);
@@ -326,6 +375,20 @@ function buildListItems(items) {
     li.textContent = item;
     return li;
   });
+}
+
+function describeExcavation(extraction, label = null) {
+  const prefix = label ? `${label}: ` : '';
+
+  if (!extraction) {
+    return `${prefix}awaiting input`;
+  }
+
+  if (extraction.mode === 'extracted') {
+    return `${prefix}Excavated ${extraction.traceCount} ${extraction.traceCount === 1 ? 'trace' : 'traces'} from raw logs, ignored ${extraction.ignoredLineCount} ${extraction.ignoredLineCount === 1 ? 'non-trace line' : 'non-trace lines'}`;
+  }
+
+  return `${prefix}Analyzed ${extraction.traceCount} direct ${extraction.traceCount === 1 ? 'trace' : 'traces'}`;
 }
 
 function formatDelta(delta) {
@@ -406,6 +469,7 @@ function buildTimelineChecklist(summary, topIncident) {
 explainButton?.addEventListener('click', renderDiagnosis);
 loadJsButton?.addEventListener('click', () => loadExample(jsExample));
 loadPythonButton?.addEventListener('click', () => loadExample(pythonExample));
+loadRawLogButton?.addEventListener('click', () => loadExample(rawLogExample));
 loadDigestButton?.addEventListener('click', () => loadExample(digestExample));
 loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));
 compareButton?.addEventListener('click', renderRegressionWorkflow);
@@ -421,13 +485,13 @@ traceInput?.addEventListener('input', () => {
 });
 compareBaselineInput?.addEventListener('input', () => {
   if (!compareBaselineInput.value.trim() || !compareCandidateInput.value.trim()) {
-    compareCaption.textContent = 'Paste baseline and candidate traces to spot new, resolved, and worsening incidents.';
+    compareCaption.textContent = 'Paste baseline and candidate traces or raw logs to spot new, resolved, and worsening incidents.';
     resetRegressionState();
   }
 });
 compareCandidateInput?.addEventListener('input', () => {
   if (!compareBaselineInput.value.trim() || !compareCandidateInput.value.trim()) {
-    compareCaption.textContent = 'Paste baseline and candidate traces to spot new, resolved, and worsening incidents.';
+    compareCaption.textContent = 'Paste baseline and candidate traces or raw logs to spot new, resolved, and worsening incidents.';
     resetRegressionState();
   }
 });

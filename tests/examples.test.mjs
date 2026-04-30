@@ -13,9 +13,14 @@ test('examples expose distinct single-trace, digest, regression, and timeline de
 
   assert.ok(labels.includes('JavaScript undefined property'));
   assert.ok(labels.includes('Python missing key'));
+  assert.ok(labels.includes('Raw log excavation'));
   assert.ok(labels.includes('Repeated incident digest'));
   assert.ok(labels.includes('Regression radar'));
   assert.ok(labels.includes('Timeline radar'));
+
+  const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
+  assert.match(rawLogExample.caption, /raw log|excavat/i);
+  assert.match(rawLogExample.trace, /INFO|ERROR/);
 
   const digestExample = examples.find((item) => item.label === 'Repeated incident digest');
   assert.match(digestExample.caption, /repeat/i);

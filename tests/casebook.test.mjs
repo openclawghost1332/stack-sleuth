@@ -36,6 +36,18 @@ const historicalProfileNeighbor = `ProfileHydrationError: Profile hydration retu
     at updateView (/app/src/view.js:42:5)
     at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
 
+const annotatedHistory = [
+  '=== release-2026-04-15 ===',
+  '>>> summary: Checkout profile payload dropped account metadata before render',
+  '>>> fix: Guard renderProfile before reading account.name',
+  '>>> owner: web-platform',
+  '>>> runbook: https://example.com/runbooks/profile-null',
+  [profileTrace, invoiceTrace, alertTrace].join('\n\n'),
+  '',
+  '=== profile-rewrite ===',
+  historicalProfileNeighbor,
+].join('\n');
+
 test('analyzeCasebook classifies current incidents as known or novel and ranks historical cases deterministically', () => {
   const current = [profileTrace, invoiceTrace, currentNovelTrace].join('\n\n');
   const history = [
@@ -150,4 +162,40 @@ test('renderCasebook helpers produce copy-ready text and markdown summaries', ()
   assert.match(markdown, /- \*\*release-2026-04-15:\*\* exact 2, culprit paths 2, tags 2/);
   assert.match(markdown, /## Current incident classifications/);
   assert.match(markdown, /- \*\*Classification:\*\* novel/);
+});
+
+test('analyzeCasebook surfaces matched remediation guidance from annotated history entries', () => {
+  const casebook = analyzeCasebook({
+    current: [profileTrace, currentNovelTrace].join('\n\n'),
+    history: annotatedHistory,
+  });
+
+  const knownIncident = casebook.incidents.find((incident) => incident.classification === 'known');
+  assert.ok(knownIncident);
+  assert.deepEqual(knownIncident.matchingGuidance, [
+    {
+      label: 'release-2026-04-15',
+      summary: 'Checkout profile payload dropped account metadata before render',
+      fix: 'Guard renderProfile before reading account.name',
+      owner: 'web-platform',
+      runbook: 'https://example.com/runbooks/profile-null',
+    }
+  ]);
+  assert.deepEqual(casebook.historicalCases[0].metadata, {
+    summary: 'Checkout profile payload dropped account metadata before render',
+    fix: 'Guard renderProfile before reading account.name',
+    owner: 'web-platform',
+    runbook: 'https://example.com/runbooks/profile-null',
+  });
+
+  const text = renderCasebookTextSummary(casebook);
+  const markdown = renderCasebookMarkdownSummary(casebook);
+
+  assert.match(text, /Known in: release-2026-04-15/);
+  assert.match(text, /Fix: Guard renderProfile before reading account\.name/);
+  assert.match(text, /Owner: web-platform/);
+  assert.match(text, /Runbook: https:\/\/example\.com\/runbooks\/profile-null/);
+  assert.match(markdown, /- \*\*Fix:\*\* Guard renderProfile before reading account\.name/);
+  assert.match(markdown, /- \*\*Owner:\*\* web-platform/);
+  assert.match(markdown, /- \*\*Runbook:\*\* https:\/\/example\.com\/runbooks\/profile-null/);
 });

@@ -1,6 +1,6 @@
 # Stack Sleuth
 
-Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a likely culprit frame, a reusable issue signature, nearby support frames, ranked suspect hotspots, blast radius summaries for affected services, parsed first-seen and last-seen windows, and a practical next-step checklist. It can excavate embedded traces from noisy raw logs before grouping repeated incidents, looking up known versus novel failures in an incident memory, comparing releases, mapping rollout drift, or ranking several incident packs into one cross-pack release queue.
+Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a likely culprit frame, a reusable issue signature, nearby support frames, ranked suspect hotspots, blast radius summaries for affected services, parsed first-seen and last-seen windows, and a practical next-step checklist. It can excavate embedded traces from noisy raw logs before grouping repeated incidents, looking up known versus novel failures in an incident memory, recalling remembered fixes and owners from annotated casebooks, comparing releases, mapping rollout drift, or ranking several incident packs into one cross-pack release queue.
 
 ## Browser demo
 
@@ -10,7 +10,7 @@ Use the built-in example buttons to compare ten modes:
 - single-trace diagnosis with suspect hotspots
 - raw log excavation from noisy production logs with blast radius service spread and parsed windows
 - repeated traces grouped into an Incident Digest with shared hotspots
-- known-versus-novel incident lookup in Casebook Radar mode with labeled prior incidents
+- known-versus-novel incident lookup in Casebook Radar mode with labeled prior incidents plus remembered fix, owner, and runbook recall
 - baseline and candidate batches compared in Regression Radar mode with hotspot shifts
 - labeled rollout snapshots analyzed in Timeline Radar mode with trend calls and hotspot movement
 - one structured Incident Pack Briefing that composes current, history, regression, and rollout context in a single pass
@@ -224,7 +224,7 @@ In the browser, paste the full labeled portfolio into the shared workspace, then
 
 ## Casebook Radar
 
-Casebook Radar compares a current incident batch against labeled historical cases so you can tell which failures are known repeats versus novel incidents. It works with direct traces or noisy raw logs, so the repo reads like a compact incident-memory tool instead of a one-off parser.
+Casebook Radar compares a current incident batch against labeled historical cases so you can tell which failures are known repeats versus novel incidents. It also supports optional runbook metadata on historical cases, so a known match can recall the last summary, fix, owner, or runbook link immediately. It works with direct traces or noisy raw logs, so the repo reads like a compact incident-memory tool instead of a one-off parser.
 
 ### Compare current stdin against a labeled history file
 
@@ -248,6 +248,10 @@ Label each prior incident case with the same `=== label ===` format used elsewhe
 
 ```text
 === release-2026-04-15 ===
+>>> summary: Checkout profile payload dropped account metadata before render
+>>> fix: Guard renderProfile before reading account.name
+>>> owner: web-platform
+>>> runbook: https://example.com/runbooks/profile-null
 TypeError: Cannot read properties of undefined (reading 'name')
     at renderProfile (/app/src/profile.js:88:17)
 
@@ -258,6 +262,8 @@ TypeError: Cannot read properties of undefined (reading 'name')
 TypeError: Cannot read properties of undefined (reading 'email')
     at renderInvoice (/app/src/invoice.js:19:7)
 ```
+
+The `>>> key: value` lines are optional. Today Stack Sleuth recognizes `summary`, `fix`, `owner`, and `runbook`, and it surfaces those fields whenever a current incident exactly matches that known case.
 
 In the browser, paste the current incident batch into **Current incident batch**, paste labeled prior incidents into **Labeled history casebook**, then press **Analyze casebook** to see known versus novel matches and the closest historical case.
 

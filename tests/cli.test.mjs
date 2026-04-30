@@ -16,6 +16,16 @@ const multiTraceInput = [sampleTrace, sampleTrace, `Traceback (most recent call 
   File "service.py", line 17, in run
     return user["email"]
 KeyError: 'email'`].join('\n\n');
+const timelineInput = [
+  '=== canary ===',
+  sampleTrace,
+  '',
+  '=== partial ===',
+  [sampleTrace, sampleTrace].join('\n\n'),
+  '',
+  '=== full-rollout ===',
+  [sampleTrace, comparisonTrace].join('\n\n'),
+].join('\n');
 
 function runCli(args = [], options = {}) {
   return spawnSync(process.execPath, [cliPath.pathname, ...args], {
@@ -172,5 +182,39 @@ test('CLI compare mode exits non-zero when a compare flag is missing its value',
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Missing value for --baseline/i);
+  assert.equal(result.stdout, '');
+});
+
+test('CLI reads a labeled timeline file and prints the timeline radar summary', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-timeline-'));
+  const timelinePath = path.join(tempDir, 'timeline.txt');
+  await fs.promises.writeFile(timelinePath, timelineInput, 'utf8');
+
+  const result = runCli(['--timeline', timelinePath]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Timeline Radar/);
+  assert.match(result.stdout, /Latest snapshot: full-rollout/i);
+});
+
+test('CLI supports --timeline - from stdin in json mode', () => {
+  const result = runCli(['--timeline', '-', '--json'], { input: timelineInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.summary.snapshotCount, 3);
+  assert.equal(parsed.summary.latestLabel, 'full-rollout');
+  assert.equal(parsed.summary.newCount, 1);
+});
+
+test('CLI timeline mode exits non-zero for a document with fewer than two labeled snapshots', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-timeline-'));
+  const timelinePath = path.join(tempDir, 'timeline.txt');
+  await fs.promises.writeFile(timelinePath, ['=== only ===', sampleTrace].join('\n'), 'utf8');
+
+  const result = runCli(['--timeline', timelinePath]);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /at least two labeled snapshots/i);
   assert.equal(result.stdout, '');
 });

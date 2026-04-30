@@ -27,3 +27,11 @@ test('README documents regression radar workflows for browser and CLI compare mo
   assert.match(readme, /--candidate/);
   assert.match(readme, /baseline and candidate/i);
 });
+
+test('README documents timeline radar workflows for browser and CLI timeline mode', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Timeline Radar/i);
+  assert.match(readme, /--timeline/);
+  assert.match(readme, /=== canary ===/);
+  assert.match(readme, /labeled snapshots|rollout snapshots/i);
+});

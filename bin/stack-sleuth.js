@@ -13,27 +13,50 @@ import {
   renderRegressionTextSummary,
   renderRegressionMarkdownSummary
 } from '../src/regression.js';
+import {
+  analyzeTimeline,
+  renderTimelineTextSummary,
+  renderTimelineMarkdownSummary,
+} from '../src/timeline.js';
 
 const args = process.argv.slice(2);
 const mode = args.includes('--json') ? 'json' : args.includes('--markdown') ? 'markdown' : 'text';
 const wantsDigest = args.includes('--digest');
 const compareArgumentError = validateCompareArguments(args);
+const timelineArgumentError = validateOptionValue(args, '--timeline');
 const baselinePath = readOptionValue(args, '--baseline');
 const candidatePath = readOptionValue(args, '--candidate');
+const timelinePath = readOptionValue(args, '--timeline');
 const filePath = args.find((arg, index) => {
   if (arg.startsWith('--')) {
     return false;
   }
 
   const previous = args[index - 1] ?? '';
-  return previous !== '--baseline' && previous !== '--candidate';
+  return previous !== '--baseline' && previous !== '--candidate' && previous !== '--timeline';
 }) ?? null;
 
 if (compareArgumentError) {
   fail(compareArgumentError);
 }
 
+if (timelineArgumentError) {
+  fail(timelineArgumentError);
+}
+
 try {
+  if (timelinePath) {
+    const timelineInput = timelinePath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(timelinePath, 'timeline');
+    const timeline = analyzeTimeline(timelineInput);
+
+    if (timeline.summary.snapshotCount < 2) {
+      fail('Timeline mode requires at least two labeled snapshots.');
+    }
+
+    writeOutput(timeline, mode, renderTimelineTextSummary, renderTimelineMarkdownSummary);
+    process.exit(0);
+  }
+
   if (baselinePath || candidatePath) {
     if (!baselinePath || !candidatePath) {
       fail('Compare mode requires both --baseline and --candidate inputs.');
@@ -72,6 +95,10 @@ try {
     writeOutput(report, mode, renderTextSummary, renderMarkdownSummary);
   }
 } catch (error) {
+  if (timelinePath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read timeline input: ${error.message}`);
+  }
+
   if (baselinePath || candidatePath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read compare input: ${error.message}`);
   }
@@ -95,15 +122,24 @@ function readOptionValue(list, flag) {
 
 function validateCompareArguments(list) {
   for (const flag of ['--baseline', '--candidate']) {
-    const index = list.indexOf(flag);
-    if (index === -1) {
-      continue;
+    const error = validateOptionValue(list, flag);
+    if (error) {
+      return error;
     }
+  }
 
-    const value = list[index + 1] ?? null;
-    if (!value || value.startsWith('--')) {
-      return `Missing value for ${flag}.`;
-    }
+  return null;
+}
+
+function validateOptionValue(list, flag) {
+  const index = list.indexOf(flag);
+  if (index === -1) {
+    return null;
+  }
+
+  const value = list[index + 1] ?? null;
+  if (!value || value.startsWith('--')) {
+    return `Missing value for ${flag}.`;
   }
 
   return null;

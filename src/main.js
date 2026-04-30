@@ -1,6 +1,7 @@
 import { analyzeTrace, formatFrame, renderTextSummary } from './analyze.js';
 import { analyzeTraceDigest, splitTraceChunks, renderDigestTextSummary } from './digest.js';
 import { analyzeRegression } from './regression.js';
+import { analyzeTimeline, renderTimelineTextSummary } from './timeline.js';
 import { examples } from './examples.js';
 
 const traceInput = document.querySelector('#trace-input');
@@ -17,6 +18,12 @@ const compareButton = document.querySelector('#compare-button');
 const loadRegressionButton = document.querySelector('#load-regression-button');
 const compareCaption = document.querySelector('#compare-caption');
 
+const timelineInput = document.querySelector('#timeline-input');
+const timelineButton = document.querySelector('#timeline-button');
+const loadTimelineButton = document.querySelector('#load-timeline-button');
+const copyTimelineButton = document.querySelector('#copy-timeline-button');
+const timelineCaption = document.querySelector('#timeline-caption');
+
 const runtimeValue = document.querySelector('#runtime-value');
 const headlineValue = document.querySelector('#headline-value');
 const culpritValue = document.querySelector('#culprit-value');
@@ -31,11 +38,15 @@ const checklistValue = document.querySelector('#checklist-value');
 const regressionSummaryValue = document.querySelector('#regression-summary-value');
 const regressionIncidentsValue = document.querySelector('#regression-incidents-value');
 const hotspotShiftsValue = document.querySelector('#hotspot-shifts-value');
+const timelineSummaryValue = document.querySelector('#timeline-summary-value');
+const timelineIncidentsValue = document.querySelector('#timeline-incidents-value');
+const timelineHotspotsValue = document.querySelector('#timeline-hotspots-value');
 
 const jsExample = examples.find((item) => item.label === 'JavaScript undefined property');
 const pythonExample = examples.find((item) => item.label === 'Python missing key');
 const digestExample = examples.find((item) => item.label === 'Repeated incident digest');
 const regressionExample = examples.find((item) => item.label === 'Regression radar');
+const timelineExample = examples.find((item) => item.label === 'Timeline radar');
 
 function renderDiagnosis() {
   const traceText = traceInput.value.trim();
@@ -156,6 +167,53 @@ function renderRegressionWorkflow() {
   ));
 }
 
+function renderTimelineWorkflow() {
+  const timelineText = timelineInput.value.trim();
+  if (!timelineText) {
+    resetTimelineState();
+    return;
+  }
+
+  const timeline = analyzeTimeline(timelineText);
+  if (timeline.summary.snapshotCount < 2) {
+    timelineSummaryValue.textContent = 'Add at least two labeled snapshots like === canary === and === full-rollout ===.';
+    timelineIncidentsValue.replaceChildren(...buildListItems([
+      'Timeline trend calls and hotspot movement will appear here after at least two labeled snapshots.'
+    ]));
+    timelineHotspotsValue.replaceChildren(...buildListItems([
+      'Timeline hotspot movement between labeled snapshots will appear here once a rollout timeline is pasted.'
+    ]));
+    return;
+  }
+
+  const summary = timeline.summary;
+  const topIncident = timeline.incidents[0] ?? null;
+  const topReport = topIncident?.representative ?? null;
+  const latestDigest = timeline.snapshots.at(-1)?.digest ?? { hotspots: [] };
+
+  runtimeValue.textContent = `${summary.snapshotCount} snapshots`;
+  headlineValue.textContent = `${summary.latestLabel} rollout snapshot (${summary.latestTotalTraces} traces)`;
+  culpritValue.textContent = formatFrame(topReport?.culpritFrame ?? null);
+  confidenceValue.textContent = topReport?.diagnosis?.confidence ?? 'timeline';
+  tagsValue.textContent = topIncident
+    ? [topIncident.trend, ...(topReport?.diagnosis?.tags ?? [])].join(', ')
+    : '-';
+  signatureValue.textContent = topIncident?.signature ?? '-';
+  summaryValue.textContent = `Timeline Radar found ${summary.newCount} new, ${summary.risingCount} rising, ${summary.flappingCount} flapping, ${summary.steadyCount} steady, ${summary.fallingCount} falling, and ${summary.resolvedCount} resolved incidents across ${summary.snapshotCount} labeled snapshots.`;
+  digestGroupsValue.replaceChildren(...buildListItems(buildTimelineIncidentItems(timeline.incidents)));
+  supportFramesValue.replaceChildren(...buildListItems(
+    topReport?.supportFrames?.length
+      ? topReport.supportFrames.map((frame) => formatFrame(frame))
+      : ['Open the top timeline incident to inspect nearby supporting frames.']
+  ));
+  hotspotsValue.replaceChildren(...buildListItems(buildHotspotItems(latestDigest.hotspots)));
+  checklistValue.replaceChildren(...buildListItems(buildTimelineChecklist(summary, topIncident)));
+
+  timelineSummaryValue.textContent = `Latest snapshot ${summary.latestLabel} carries ${summary.latestTotalTraces} traces across ${summary.activeLatestCount} active incidents. Trend mix: ${summary.newCount} new, ${summary.risingCount} rising, ${summary.flappingCount} flapping, ${summary.steadyCount} steady, ${summary.fallingCount} falling, ${summary.resolvedCount} resolved.`;
+  timelineIncidentsValue.replaceChildren(...buildListItems(buildTimelineIncidentItems(timeline.incidents)));
+  timelineHotspotsValue.replaceChildren(...buildListItems(buildTimelineHotspotItems(timeline.hotspots)));
+}
+
 function resetEmptyState() {
   headlineValue.textContent = 'Paste one or more traces to get started';
   runtimeValue.textContent = 'Awaiting trace';
@@ -191,6 +249,16 @@ function resetRegressionState() {
   ]));
 }
 
+function resetTimelineState() {
+  timelineSummaryValue.textContent = 'Paste labeled rollout snapshots to see incident trends across more than two batches.';
+  timelineIncidentsValue.replaceChildren(...buildListItems([
+    'Timeline trend calls and hotspot movement will appear here after at least two labeled snapshots.'
+  ]));
+  timelineHotspotsValue.replaceChildren(...buildListItems([
+    'Timeline hotspot movement between labeled snapshots will appear here once a rollout timeline is pasted.'
+  ]));
+}
+
 function loadExample(example) {
   if (!example) {
     return;
@@ -212,6 +280,16 @@ function loadRegressionExample(example) {
   renderRegressionWorkflow();
 }
 
+function loadTimelineExample(example) {
+  if (!example) {
+    return;
+  }
+
+  timelineInput.value = example.timeline;
+  timelineCaption.textContent = example.caption;
+  renderTimelineWorkflow();
+}
+
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
   const payload = splitTraceChunks(traceText).length > 1
@@ -223,6 +301,22 @@ async function copyDiagnosis() {
     caption.textContent = 'Diagnosis copied to clipboard.';
   } catch {
     caption.textContent = 'Clipboard copy unavailable here, but the diagnosis is ready to copy manually.';
+  }
+}
+
+async function copyTimelineSummary() {
+  const timelineText = timelineInput.value.trim();
+  const timeline = analyzeTimeline(timelineText);
+  if (timeline.summary.snapshotCount < 2) {
+    timelineCaption.textContent = 'Add at least two labeled snapshots before copying a timeline summary.';
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(renderTimelineTextSummary(timeline));
+    timelineCaption.textContent = 'Timeline Radar summary copied to clipboard.';
+  } catch {
+    timelineCaption.textContent = 'Clipboard copy unavailable here, but the timeline summary is ready to copy manually.';
   }
 }
 
@@ -248,6 +342,26 @@ function buildHotspotItems(hotspots) {
   ));
 }
 
+function buildTimelineIncidentItems(incidents) {
+  if (!incidents.length) {
+    return ['No incident trends detected yet.'];
+  }
+
+  return incidents.slice(0, 6).map((incident) => (
+    `${incident.trend}: ${incident.latestCount} latest (${incident.series.join(' → ')}) at ${formatFrame(incident.representative?.culpritFrame ?? null)}`
+  ));
+}
+
+function buildTimelineHotspotItems(hotspots) {
+  if (!hotspots.length) {
+    return ['No hotspot movement detected yet.'];
+  }
+
+  return hotspots.slice(0, 6).map((hotspot) => (
+    `${hotspot.trend}: ${hotspot.label} (${hotspot.series.join(' → ')})`
+  ));
+}
+
 function buildRegressionChecklist(summary, topIncident) {
   const checklist = [];
 
@@ -267,13 +381,38 @@ function buildRegressionChecklist(summary, topIncident) {
   return checklist.length ? checklist : ['Review the compared batches for signature drift or parsing mismatches.'];
 }
 
+function buildTimelineChecklist(summary, topIncident) {
+  const checklist = [];
+
+  if (summary.newCount > 0) {
+    checklist.push('Inspect brand-new incidents at the latest snapshot before widening the rollout.');
+  }
+  if (summary.risingCount > 0) {
+    checklist.push('Compare payload shape, release flags, or cohort size for incidents that climbed with each snapshot.');
+  }
+  if (summary.flappingCount > 0) {
+    checklist.push('Check segment-specific traffic or retry behavior for incidents that disappeared and returned.');
+  }
+  if (summary.resolvedCount > 0) {
+    checklist.push('Verify that resolved incidents really stayed absent in production telemetry after rollout.');
+  }
+  if (topIncident?.representative?.diagnosis?.checklist?.length) {
+    checklist.push(...topIncident.representative.diagnosis.checklist.slice(0, 2));
+  }
+
+  return checklist.length ? checklist : ['Compare labeled snapshots for signature drift, parsing mismatches, or missing traces.'];
+}
+
 explainButton?.addEventListener('click', renderDiagnosis);
 loadJsButton?.addEventListener('click', () => loadExample(jsExample));
 loadPythonButton?.addEventListener('click', () => loadExample(pythonExample));
 loadDigestButton?.addEventListener('click', () => loadExample(digestExample));
 loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));
 compareButton?.addEventListener('click', renderRegressionWorkflow);
+loadTimelineButton?.addEventListener('click', () => loadTimelineExample(timelineExample));
+timelineButton?.addEventListener('click', renderTimelineWorkflow);
 copyButton?.addEventListener('click', copyDiagnosis);
+copyTimelineButton?.addEventListener('click', copyTimelineSummary);
 traceInput?.addEventListener('input', () => {
   if (!traceInput.value.trim()) {
     caption.textContent = '';
@@ -292,6 +431,13 @@ compareCandidateInput?.addEventListener('input', () => {
     resetRegressionState();
   }
 });
+timelineInput?.addEventListener('input', () => {
+  if (!timelineInput.value.trim()) {
+    timelineCaption.textContent = 'Paste labeled rollout snapshots like === canary === and === full-rollout === to track trend movement.';
+    resetTimelineState();
+  }
+});
 
 loadExample(jsExample);
 resetRegressionState();
+resetTimelineState();

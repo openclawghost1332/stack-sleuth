@@ -10,8 +10,8 @@
     <main class="app-shell">
       <section class="hero card">
         <p class="eyebrow">Stack Sleuth</p>
-        <h1>Paste one or more stack traces, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, or compare two batches with a Regression Radar.</h1>
-        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, collapsing a noisy incident bundle, or asking what got worse after a release.</p>
+        <h1>Paste one or more stack traces, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, compare two batches with a Regression Radar, or map rollout drift with a Timeline Radar.</h1>
+        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, collapsing a noisy incident bundle, asking what got worse after a release, or tracking a canary rollout across multiple snapshots.</p>
       </section>
 
       <section class="workspace card">
@@ -46,6 +46,18 @@
         <p id="compare-caption" class="caption" aria-live="polite">Paste baseline and candidate traces to spot new, resolved, and worsening incidents.</p>
       </section>
 
+      <section class="workspace card">
+        <p class="field-label">Timeline Radar</p>
+        <label class="field-label" for="timeline-input">Rollout snapshots</label>
+        <textarea id="timeline-input" rows="14" spellcheck="false" placeholder="Paste labeled snapshots like === canary ===, === 25-percent ===, and === full-rollout === here..."></textarea>
+        <div class="actions">
+          <button id="timeline-button" type="button">Analyze timeline</button>
+          <button id="load-timeline-button" type="button" class="secondary">Load timeline example</button>
+          <button id="copy-timeline-button" type="button" class="ghost">Copy timeline summary</button>
+        </div>
+        <p id="timeline-caption" class="caption" aria-live="polite">Paste labeled rollout snapshots like === canary === and === full-rollout === to track trend movement.</p>
+      </section>
+
       <section class="results" aria-live="polite">
         <article class="card result-card wide">
           <span class="result-label">Regression Radar</span>
@@ -61,6 +73,22 @@
           <span class="result-label">Hotspot shifts</span>
           <ul id="hotspot-shifts-value" class="checklist">
             <li>Hotspot shifts between baseline and candidate batches will appear here after a comparison.</li>
+          </ul>
+        </article>
+        <article class="card result-card wide">
+          <span class="result-label">Timeline Radar</span>
+          <p id="timeline-summary-value">Paste labeled rollout snapshots to see incident trends across more than two batches.</p>
+        </article>
+        <article class="card result-card wide">
+          <span class="result-label">Timeline trend calls</span>
+          <ul id="timeline-incidents-value" class="checklist">
+            <li>Timeline trend calls and hotspot movement will appear here after at least two labeled snapshots.</li>
+          </ul>
+        </article>
+        <article class="card result-card wide">
+          <span class="result-label">Timeline hotspot movement</span>
+          <ul id="timeline-hotspots-value" class="checklist">
+            <li>Timeline hotspot movement between labeled snapshots will appear here once a rollout timeline is pasted.</li>
           </ul>
         </article>
         <article class="card result-card">

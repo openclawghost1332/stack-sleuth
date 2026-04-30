@@ -15,6 +15,29 @@ const regressionTrace = `TypeError: Cannot read properties of undefined (reading
     at refreshBilling (/app/src/billing.js:57:3)
     at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
 
+const dashboardTrace = `TypeError: Cannot read properties of undefined (reading 'id')
+    at loadDashboard (/app/src/dashboard.js:14:9)
+    at bootstrap (/app/src/index.js:3:1)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
+
+const alertTrace = `TypeError: Cannot read properties of undefined (reading 'title')
+    at showAlert (/app/src/alerts/toast.js:11:4)
+    at refreshAlerts (/app/src/alerts/index.js:5:2)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
+
+const rubyTrace = "app/service.rb:7:in `run': undefined method `email' for nil:NilClass (NoMethodError)\n\tfrom app/controller.rb:3:in `call'";
+
+const timelineTrace = [
+  '=== canary ===',
+  [javascriptTrace, dashboardTrace, dashboardTrace, dashboardTrace, pythonTrace, rubyTrace].join('\n\n'),
+  '',
+  '=== 25-percent ===',
+  [javascriptTrace, javascriptTrace, dashboardTrace, dashboardTrace, pythonTrace, rubyTrace, alertTrace, alertTrace].join('\n\n'),
+  '',
+  '=== full-rollout ===',
+  [javascriptTrace, javascriptTrace, javascriptTrace, dashboardTrace, rubyTrace, regressionTrace, alertTrace].join('\n\n'),
+].join('\n');
+
 export const examples = [
   {
     label: 'JavaScript undefined property',
@@ -36,5 +59,10 @@ export const examples = [
     caption: 'The candidate batch introduces a brand-new billing failure while the profile crash spikes and the old backend key miss disappears, making the hotspot shifts easy to scan.',
     baseline: `${javascriptTrace}\n\n${pythonTrace}`,
     candidate: `${javascriptTrace}\n\n${javascriptTrace}\n\n${regressionTrace}`
+  },
+  {
+    label: 'Timeline radar',
+    caption: 'A rollout timeline across canary, 25-percent, and full-rollout snapshots exposes one new incident, one rising incident, one flapping incident, one steady incident, one falling incident, and one resolved incident.',
+    timeline: timelineTrace,
   }
 ];

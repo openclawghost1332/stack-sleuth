@@ -28,6 +28,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.ok(labels.includes('Incident pack briefing'));
   assert.ok(labels.includes('Portfolio radar'));
   assert.ok(labels.includes('Casebook Forge'));
+  assert.ok(labels.includes('Casebook Dataset'));
 
   const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
   assert.match(rawLogExample.caption, /raw log|excavat/i);
@@ -128,6 +129,11 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(forge.summary.caseCount, 3);
   assert.match(forge.exportText, /=== release-2026-04-15 ===/);
   assert.match(forge.exportText, /=== profile-js-generic-runtime-error ===/);
+
+  const datasetExample = examples.find((item) => item.label === 'Casebook Dataset');
+  assert.match(datasetExample.caption, /portable dataset|dataset handoff|merged casebook export/i);
+  assert.match(datasetExample.portfolio, /@@@ checkout-prod @@@/i);
+  assert.match(datasetExample.portfolio, /@@@ billing-canary @@@/i);
 });
 
 test('browser main uses the shared Casebook Radar example instead of a duplicate fixture', () => {

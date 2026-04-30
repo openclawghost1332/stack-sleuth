@@ -19,6 +19,7 @@ import {
 } from '../src/regression.js';
 import {
   analyzeCasebook,
+  parseCasebookHistoryInput,
   renderCasebookTextSummary,
   renderCasebookMarkdownSummary,
 } from '../src/casebook.js';
@@ -43,8 +44,8 @@ import {
   renderCasebookMergeTextSummary,
   renderCasebookMergeMarkdownSummary,
 } from '../src/merge.js';
+import { buildCasebookDataset } from '../src/dataset.js';
 import { extractTraceSet, formatExtractionMarkdown, formatExtractionText } from '../src/extract.js';
-import { parseLabeledTraceBatches } from '../src/labeled.js';
 import {
   parseIncidentNotebook,
   renderNormalizedNotebookText,
@@ -62,6 +63,7 @@ const forgeArgumentError = validateOptionValue(args, '--forge');
 const notebookArgumentError = validateOptionValue(args, '--notebook');
 const mergeCasebookArgumentError = validateOptionValue(args, '--merge-casebook');
 const timelineArgumentError = validateOptionValue(args, '--timeline');
+const datasetArgumentError = validateOptionValue(args, '--dataset');
 const historyArgumentError = validateOptionValue(args, '--history');
 const currentArgumentError = validateOptionValue(args, '--current');
 const baselinePath = readOptionValue(args, '--baseline');
@@ -72,16 +74,17 @@ const forgePath = readOptionValue(args, '--forge');
 const notebookPath = readOptionValue(args, '--notebook');
 const mergeCasebookPath = readOptionValue(args, '--merge-casebook');
 const timelinePath = readOptionValue(args, '--timeline');
+const datasetPath = readOptionValue(args, '--dataset');
 const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
-const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, mergeCasebookPath, timelinePath, historyPath });
+const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, mergeCasebookPath, timelinePath, datasetPath, historyPath });
 const filePath = args.find((arg, index) => {
   if (arg.startsWith('--')) {
     return false;
   }
 
   const previous = args[index - 1] ?? '';
-  return !['--baseline', '--candidate', '--pack', '--portfolio', '--forge', '--notebook', '--merge-casebook', '--timeline', '--history', '--current'].includes(previous);
+  return !['--baseline', '--candidate', '--pack', '--portfolio', '--forge', '--notebook', '--merge-casebook', '--timeline', '--dataset', '--history', '--current'].includes(previous);
 }) ?? null;
 
 if (compareArgumentError) {
@@ -110,6 +113,10 @@ if (mergeCasebookArgumentError) {
 
 if (timelineArgumentError) {
   fail(timelineArgumentError);
+}
+
+if (datasetArgumentError) {
+  fail(datasetArgumentError);
 }
 
 if (historyArgumentError) {
@@ -198,6 +205,23 @@ try {
     process.exit(0);
   }
 
+  if (datasetPath) {
+    const datasetInput = datasetPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(datasetPath, 'dataset');
+    const portfolio = parseIncidentPortfolio(datasetInput);
+    if (!portfolio.packOrder.length) {
+      fail('Casebook Dataset mode requires @@@ label @@@ blocks around one or more incident packs.');
+    }
+
+    const portfolioReport = analyzeIncidentPortfolio(portfolio);
+    const report = buildCasebookDataset(portfolioReport);
+    if (!report.cases.length) {
+      fail('Casebook Dataset mode requires at least one runnable labeled incident pack. Add at least one pack with @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
+    }
+
+    writeOutput(report, mode, renderDatasetCliTextSummary, renderDatasetCliMarkdownSummary);
+    process.exit(0);
+  }
+
   if (portfolioPath) {
     const portfolioInput = portfolioPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(portfolioPath, 'portfolio');
     const portfolio = parseIncidentPortfolio(portfolioInput);
@@ -240,12 +264,12 @@ try {
       fail('Casebook Radar requires non-empty current input. Pipe current traces or use --current <path|->.');
     }
 
-    const historyBatches = parseLabeledTraceBatches(historyInput);
+    const historyBatches = parseCasebookHistoryInput(historyInput);
     if (!historyBatches.length) {
       fail('Casebook Radar requires labeled historical cases like === release-2026-04-15 ===.');
     }
 
-    const casebook = analyzeCasebook({ current: currentInput, history: historyBatches });
+    const casebook = analyzeCasebook({ current: currentInput, history: historyInput });
     if (casebook.summary.currentTraceCount === 0) {
       fail('Casebook Radar could not excavate any current traces from the provided input.');
     }
@@ -337,6 +361,10 @@ try {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read timeline input: ${error.message}`);
   }
 
+  if (datasetPath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read dataset input: ${error.message}`);
+  }
+
   if (baselinePath || candidatePath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read compare input: ${error.message}`);
   }
@@ -383,7 +411,7 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, mergeCasebookPath, timelinePath, historyPath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, mergeCasebookPath, timelinePath, datasetPath, historyPath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     portfolioPath ? 'portfolio' : null,
@@ -392,11 +420,12 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
     mergeCasebookPath ? 'merge-casebook' : null,
     packPath ? 'incident-pack' : null,
     timelinePath ? 'timeline' : null,
+    datasetPath ? 'dataset' : null,
     baselinePath || candidatePath ? 'compare' : null,
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: forge, merge-casebook, portfolio, notebook, incident-pack, casebook, timeline, or compare.';
+    return 'Choose one workflow mode at a time: forge, merge-casebook, portfolio, notebook, incident-pack, casebook, timeline, dataset, or compare.';
   }
 
   return null;
@@ -438,6 +467,28 @@ function toSerializablePayload(payload) {
         summary: routedPayload.summary ?? null,
       },
       ...routedPayload,
+    };
+  }
+
+  if (payload?.kind === 'stack-sleuth-casebook-dataset' && typeof payload?.version === 'number') {
+    return {
+      kind: payload.kind,
+      version: payload.version,
+      summary: payload.summary,
+      portfolio: {
+        packOrder: payload.portfolio?.packOrder ?? [],
+      },
+      responseQueue: payload.responseQueue ?? [],
+      recurringIncidents: payload.recurringIncidents ?? [],
+      recurringHotspots: payload.recurringHotspots ?? [],
+      cases: (payload.cases ?? []).map((entry) => ({
+        label: entry.label,
+        signature: entry.signature,
+        sourcePacks: entry.sourcePacks,
+        metadata: entry.metadata,
+        conflicts: entry.conflicts,
+      })),
+      exportText: payload.exportText,
     };
   }
 
@@ -690,6 +741,39 @@ function renderMergeCliMarkdownSummary(report) {
     renderCasebookMergeMarkdownSummary(report),
     '',
     '## Merged casebook export',
+    '```text',
+    report.exportText,
+    '```',
+  ].join('\n').trim();
+}
+
+function renderDatasetCliTextSummary(report) {
+  return [
+    'Stack Sleuth Casebook Dataset',
+    report.summary.headline,
+    `Portfolio packs: ${report.summary.packCount}`,
+    `Runnable packs: ${report.summary.runnablePackCount}`,
+    `Response owners: ${report.summary.ownerCount}`,
+    `Merged cases: ${report.summary.mergedCaseCount}`,
+    `Conflicts: ${report.summary.conflictCount}`,
+    '',
+    'Reusable casebook export',
+    report.exportText,
+  ].join('\n').trim();
+}
+
+function renderDatasetCliMarkdownSummary(report) {
+  return [
+    '# Stack Sleuth Casebook Dataset',
+    '',
+    `- **Headline:** ${report.summary.headline}`,
+    `- **Portfolio packs:** ${report.summary.packCount}`,
+    `- **Runnable packs:** ${report.summary.runnablePackCount}`,
+    `- **Response owners:** ${report.summary.ownerCount}`,
+    `- **Merged cases:** ${report.summary.mergedCaseCount}`,
+    `- **Conflicts:** ${report.summary.conflictCount}`,
+    '',
+    '## Reusable casebook export',
     '```text',
     report.exportText,
     '```',

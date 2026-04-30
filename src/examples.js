@@ -183,6 +183,11 @@ export const examples = [
     portfolio: portfolioTrace,
   },
   {
+    label: 'Casebook Dataset',
+    caption: 'A labeled incident portfolio packages response routing, recurring hotspots, and a reusable merged casebook export into one portable dataset handoff.',
+    portfolio: portfolioTrace,
+  },
+  {
     label: 'Casebook Merge',
     caption: 'A labeled incident portfolio plus embedded history turns into a living casebook update that preserves human guidance, adds seen-count and source-packs metadata, and flags merge conflicts when older entries disagree.',
     portfolio: portfolioTrace,

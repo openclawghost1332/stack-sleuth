@@ -24,6 +24,10 @@ test('buildCasebookDataset packages merge and portfolio signals into a reusable 
   assert.equal(dataset.kind, 'stack-sleuth-casebook-dataset');
   assert.equal(dataset.version, 1);
   assert.match(dataset.summary.headline, /Casebook Dataset captured/i);
+  assert.equal(dataset.summary.packCount, 2);
+  assert.equal(dataset.summary.runnablePackCount, 2);
+  assert.ok(dataset.summary.mergedCaseCount >= 1);
+  assert.equal(dataset.summary.conflictCount, 0);
   assert.ok(dataset.responseQueue.length >= 1);
   assert.ok(dataset.cases.length >= 1);
   assert.match(dataset.exportText, /^=== release-2026-04-15 ===/m);

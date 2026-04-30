@@ -15,6 +15,7 @@ import {
 import { analyzeCasebook, renderCasebookTextSummary } from './casebook.js';
 import { analyzeCasebookForge, renderCasebookForgeTextSummary } from './forge.js';
 import { analyzeCasebookMerge, renderCasebookMergeTextSummary } from './merge.js';
+import { buildCasebookDataset } from './dataset.js';
 import { analyzeTraceDigest, renderDigestTextSummary } from './digest.js';
 import { parseIncidentPack } from './pack.js';
 import { analyzeRegression } from './regression.js';
@@ -91,6 +92,9 @@ const portfolioResponseQueueValue = document.querySelector('#portfolio-response-
 const portfolioRoutingGapsValue = document.querySelector('#portfolio-routing-gaps-value');
 const forgeSummaryValue = document.querySelector('#forge-summary-value');
 const forgeExportValue = document.querySelector('#forge-export-value');
+const datasetSummaryValue = document.querySelector('#dataset-summary-value');
+const datasetPackCountValue = document.querySelector('#dataset-pack-count-value');
+const datasetExportValue = document.querySelector('#dataset-export-value');
 const mergeSummaryValue = document.querySelector('#merge-summary-value');
 const mergeConflictsValue = document.querySelector('#merge-conflicts-value');
 const mergeExportValue = document.querySelector('#merge-export-value');
@@ -128,6 +132,7 @@ function renderDiagnosis() {
 
   resetPortfolioState();
   resetForgeState();
+  resetDatasetState();
   resetMergeState();
 
   const incidentPack = parseIncidentPack(traceText);
@@ -219,6 +224,7 @@ function renderDigest(traceText) {
 function renderPortfolioWorkflow(input) {
   const report = input?.priorityQueue ? input : analyzeIncidentPortfolio(input);
   const forge = analyzeCasebookForge(report);
+  const dataset = buildCasebookDataset(report);
   const merge = analyzeCasebookMerge(report);
   const topPack = report.priorityQueue[0] ?? null;
   const primaryIncident = selectPrimaryPortfolioIncident(topPack);
@@ -234,8 +240,8 @@ function renderPortfolioWorkflow(input) {
   culpritValue.textContent = summarizePortfolioPrimaryCulprit(report);
   confidenceValue.textContent = topPack ? 'portfolio' : '-';
   tagsValue.textContent = topPack
-    ? ['portfolio-radar', 'casebook-forge', 'casebook-merge', 'incident-pack'].join(', ')
-    : ['portfolio-radar', 'casebook-forge', 'casebook-merge'].join(', ');
+    ? ['portfolio-radar', 'casebook-forge', 'casebook-dataset', 'casebook-merge', 'incident-pack'].join(', ')
+    : ['portfolio-radar', 'casebook-forge', 'casebook-dataset', 'casebook-merge'].join(', ');
   signatureValue.textContent = topPack ? `top pack: ${topPackLabel}` : '-';
   summaryValue.textContent = buildPortfolioSummary(report);
   blastRadiusValue.textContent = buildPortfolioBlastRadiusSummary(topPack, primaryIncident);
@@ -257,6 +263,9 @@ function renderPortfolioWorkflow(input) {
   portfolioRoutingGapsValue.replaceChildren(...buildListItems(buildPortfolioRoutingGapItems(report.unownedPacks, report.runbookGaps)));
   forgeSummaryValue.textContent = `${forge.summary.headline} Reusable cases are ready to paste into a labeled history casebook.`;
   forgeExportValue.textContent = forge.exportText || 'No forged export available yet.';
+  datasetSummaryValue.textContent = `${dataset.summary.headline} Saved datasets round-trip back through Casebook Radar with the existing history path.`;
+  datasetPackCountValue.textContent = `${dataset.summary.runnablePackCount} / ${dataset.summary.packCount}`;
+  datasetExportValue.textContent = dataset.exportText || 'No dataset export available yet.';
   mergeSummaryValue.textContent = `${merge.summary.headline} ${merge.summary.reviewHeadline}`;
   mergeConflictsValue.replaceChildren(...buildListItems(
     merge.cases.some((entry) => entry.conflicts.length)
@@ -383,6 +392,7 @@ function renderUnsupportedIncidentPack(incidentPack) {
 function renderRegressionWorkflow() {
   resetPortfolioState();
   resetForgeState();
+  resetDatasetState();
   resetMergeState();
 
   const baseline = compareBaselineInput.value.trim();
@@ -450,6 +460,7 @@ function renderRegressionWorkflow() {
 function renderCasebookWorkflow() {
   resetPortfolioState();
   resetForgeState();
+  resetDatasetState();
   resetMergeState();
 
   const current = casebookCurrentInput.value.trim();
@@ -512,6 +523,7 @@ function renderCasebookWorkflow() {
 function renderTimelineWorkflow() {
   resetPortfolioState();
   resetForgeState();
+  resetDatasetState();
   resetMergeState();
 
   const timelineText = timelineInput.value.trim();
@@ -593,6 +605,7 @@ function renderNoTraceExcavated(extraction) {
 function resetEmptyState() {
   resetPortfolioState();
   resetForgeState();
+  resetDatasetState();
   resetMergeState();
   excavationValue.textContent = 'Awaiting trace or raw log input';
   headlineValue.textContent = 'Paste one or more traces or raw logs to get started';
@@ -640,6 +653,12 @@ function resetPortfolioState() {
 function resetForgeState() {
   forgeSummaryValue.textContent = 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.';
   forgeExportValue.textContent = 'Forged Casebook export text will appear here after Casebook Forge runs.';
+}
+
+function resetDatasetState() {
+  datasetSummaryValue.textContent = 'Paste several labeled incident packs to package a reusable Casebook Dataset from the portfolio flow.';
+  datasetPackCountValue.textContent = '-';
+  datasetExportValue.textContent = 'Dataset export text will appear here after Casebook Dataset runs.';
 }
 
 function resetMergeState() {
@@ -1396,8 +1415,9 @@ timelineInput?.addEventListener('input', () => {
 
 loadExample(jsExample);
 resetPortfolioState();
-resetForgeState();
-resetMergeState();
+  resetForgeState();
+  resetDatasetState();
+  resetMergeState();
 resetRegressionState();
 resetCasebookState();
 resetTimelineState();

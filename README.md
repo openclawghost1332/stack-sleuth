@@ -6,7 +6,7 @@ Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a 
 
 Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so excavation status, culprit detection, signatures, support frames, suspect hotspots, blast radius summaries, incident digest output, casebook lookup, regression comparison, and timeline trend calls stay aligned across every workflow.
 
-Use the built-in example buttons to compare eleven modes:
+Use the built-in example buttons to compare the main workflows:
 - single-trace diagnosis with suspect hotspots
 - raw log excavation from noisy production logs with blast radius service spread and parsed windows
 - repeated traces grouped into an Incident Digest with shared hotspots
@@ -17,6 +17,7 @@ Use the built-in example buttons to compare eleven modes:
 - one structured Incident Pack Briefing that composes current, history, regression, and rollout context in a single pass
 - several structured incident packs ranked in Portfolio Radar mode with an owner-aware response queue, explicit routing gaps, runbook gaps, recurring incidents, and shared hotspots
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
+- Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory
 - Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
 - browser copy that includes excavation-aware summaries plus notebook normalization when the input started as a markdown handoff
 
@@ -280,6 +281,38 @@ Save that forged export as a history file and reuse it with `--history`, or past
 
 In the browser, paste the full labeled portfolio into the shared workspace, then press **Explain trace(s)** or **Load Casebook Forge example** to inspect the reusable casebook flow.
 
+## Casebook Dataset
+
+Casebook Dataset is the CLI-friendly handoff artifact between Portfolio Radar, Casebook Forge, and later Casebook Radar runs. Feed it the same labeled portfolio and it will package the ranked portfolio signals, response queue, recurring hotspots, merged case list, and a reusable casebook export into one saved JSON blob.
+
+### Build a reusable dataset from a labeled portfolio file
+
+```bash
+node ./bin/stack-sleuth.js --dataset ./portfolio.txt
+```
+
+### Build a dataset from stdin in JSON mode
+
+```bash
+cat portfolio.txt | node ./bin/stack-sleuth.js --dataset - --json
+```
+
+### Build a dataset in Markdown
+
+```bash
+node ./bin/stack-sleuth.js --dataset ./portfolio.txt --markdown
+```
+
+The JSON payload includes the reusable `exportText` casebook plus summary fields you can keep in source control or attach to an incident handoff. Save that JSON artifact and later reuse it directly with `--history`:
+
+```bash
+cat current.log | node ./bin/stack-sleuth.js --history ./casebook-dataset.json
+```
+
+That makes the dataset a durable casebook snapshot instead of a one-time report.
+
+In the browser, Portfolio Radar now surfaces the same dataset summary and reusable export text in dedicated Casebook Dataset cards, so the visible triage view and the saved CLI artifact stay aligned.
+
 ## Casebook Merge
 
 Casebook Merge takes the next step after Casebook Forge. Feed it the same labeled portfolio, including any embedded `@@ history @@` sections, and it will produce an updated living casebook export that keeps human-authored `summary`, `fix`, `owner`, and `runbook` guidance when possible, adds fresh `seen-count` and `source-packs` metadata, and flags merge conflicts when two historical entries disagree about the same signature.
@@ -321,7 +354,7 @@ In the browser, paste the full labeled portfolio into the shared workspace, then
 
 ## Casebook Radar
 
-Casebook Radar compares a current incident batch against labeled historical cases so you can tell which failures are known repeats versus novel incidents. It also supports optional runbook metadata on historical cases, so a known match can recall the last summary, fix, owner, or runbook link immediately. It works with direct traces or noisy raw logs, so the repo reads like a compact incident-memory tool instead of a one-off parser.
+Casebook Radar compares a current incident batch against labeled historical cases so you can tell which failures are known repeats versus novel incidents. It also supports optional runbook metadata on historical cases, so a known match can recall the last summary, fix, owner, or runbook link immediately. It works with direct traces or noisy raw logs, and `--history` can read either the labeled `=== case ===` format or a saved Casebook Dataset JSON artifact, so the repo reads like a compact incident-memory tool instead of a one-off parser.
 
 ### Compare current stdin against a labeled history file
 

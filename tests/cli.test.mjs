@@ -415,6 +415,46 @@ test('CLI portfolio mode supports --json and --markdown output', () => {
   assert.match(markdownResult.stdout, /## Routing gaps/);
 });
 
+test('CLI reads a portfolio with --dataset and prints a Casebook Dataset summary', () => {
+  const result = runCli(['--dataset', '-'], { input: portfolioInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Casebook Dataset/);
+  assert.match(result.stdout, /Runnable packs: 3/);
+  assert.match(result.stdout, /Merged cases: 3/);
+  assert.match(result.stdout, /Reusable casebook export/);
+});
+
+test('CLI Casebook Radar accepts a saved dataset JSON file through --history', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-dataset-'));
+  const datasetPath = path.join(tempDir, 'history.json');
+  const datasetResult = runCli(['--dataset', '-', '--json'], { input: portfolioInput });
+  await fs.promises.writeFile(datasetPath, datasetResult.stdout, 'utf8');
+
+  const result = runCli(['--history', datasetPath], { input: casebookCurrentInput });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Casebook Radar/);
+  assert.match(result.stdout, /Known incidents: 2/);
+  assert.match(result.stdout, /Known in: profile-js-generic-runtime-error/);
+});
+
+test('CLI dataset mode supports --json and --markdown output', () => {
+  const jsonResult = runCli(['--dataset', '-', '--json'], { input: portfolioInput });
+  assert.equal(jsonResult.status, 0, jsonResult.stderr);
+  const parsed = JSON.parse(jsonResult.stdout);
+  assert.equal(parsed.kind, 'stack-sleuth-casebook-dataset');
+  assert.equal(parsed.version, 1);
+  assert.equal(parsed.summary.packCount, 3);
+  assert.equal(parsed.summary.runnablePackCount, 3);
+  assert.equal(parsed.summary.mergedCaseCount, 3);
+  assert.match(parsed.exportText, /=== profile-js-generic-runtime-error ===/);
+
+  const markdownResult = runCli(['--dataset', '-', '--markdown'], { input: portfolioInput });
+  assert.equal(markdownResult.status, 0, markdownResult.stderr);
+  assert.match(markdownResult.stdout, /^# Stack Sleuth Casebook Dataset/m);
+  assert.match(markdownResult.stdout, /## Reusable casebook export/);
+});
+
 test('CLI reads a portfolio with --forge and prints a forged casebook export', () => {
   const result = runCli(['--forge', '-'], { input: portfolioInput });
 

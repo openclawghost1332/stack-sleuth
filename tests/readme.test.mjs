@@ -115,6 +115,15 @@ test('README documents Casebook Forge workflows for browser and CLI reuse', () =
   assert.match(readme, /reusable casebook|incident memory/i);
 });
 
+test('README documents Casebook Dataset workflows for browser and CLI handoff', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Casebook Dataset/i);
+  assert.match(readme, /--dataset/);
+  assert.match(readme, /saved JSON blob|JSON artifact/i);
+  assert.match(readme, /exportText/i);
+  assert.match(readme, /--history .*casebook-dataset\.json|casebook-dataset\.json/i);
+});
+
 test('README documents Casebook Merge workflows for browser and CLI living-casebook updates', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.match(readme, /Casebook Merge/i);

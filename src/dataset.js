@@ -66,11 +66,17 @@ function parseDatasetInput(input) {
 
 function buildDatasetSummary(portfolioReport, mergeReport) {
   const packCount = portfolioReport.summary?.packCount ?? portfolioReport.packReports?.length ?? 0;
+  const runnablePackCount = portfolioReport.summary?.runnablePackCount ?? portfolioReport.priorityQueue?.length ?? 0;
   const mergedCaseCount = mergeReport.summary?.mergedCaseCount ?? mergeReport.cases?.length ?? 0;
+  const conflictCount = mergeReport.summary?.conflictCount ?? 0;
   const ownerCount = portfolioReport.responseQueue?.length ?? 0;
 
   return {
     headline: `Casebook Dataset captured ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'} from ${packCount} pack${packCount === 1 ? '' : 's'}.`,
+    packCount,
+    runnablePackCount,
+    mergedCaseCount,
+    conflictCount,
     portfolioHeadline: portfolioReport.summary?.headline ?? 'No portfolio headline available.',
     mergeHeadline: mergeReport.summary?.headline ?? 'No merge headline available.',
     ownerCount,

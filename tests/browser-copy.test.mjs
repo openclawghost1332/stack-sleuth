@@ -264,6 +264,9 @@ const requiredIds = [
   'portfolio-routing-gaps-value',
   'forge-summary-value',
   'forge-export-value',
+  'dataset-summary-value',
+  'dataset-pack-count-value',
+  'dataset-export-value',
   'merge-summary-value',
   'merge-conflicts-value',
   'merge-export-value',
@@ -471,6 +474,7 @@ test('browser multi-pack notebook analyze flow routes # Pack headings into portf
     assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
     assert.match(harness.get('portfolio-priority-value').children[0].textContent, /profile-rollout/);
     assert.match(harness.get('forge-export-value').textContent, /=== release-2026-04-15 ===/);
+    assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
     assert.match(harness.get('merge-export-value').textContent, />>> seen-count: 3/);
   } finally {
     harness.restore();
@@ -494,14 +498,14 @@ test('browser multi-pack notebook copy flow includes normalization plus portfoli
 });
 
 test('browser Casebook Forge export styling preserves multiline formatting for manual copy', () => {
-  assert.match(stylesCss, /#forge-export-value,\s*#merge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
+  assert.match(stylesCss, /#forge-export-value,\s*#dataset-export-value,\s*#merge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
 });
 
 test('browser Casebook export styling preserves multiline formatting for manual copy', () => {
-  assert.match(stylesCss, /#forge-export-value,\s*#merge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
+  assert.match(stylesCss, /#forge-export-value,\s*#dataset-export-value,\s*#merge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
 });
 
-test('browser portfolio flow keeps Portfolio Radar as the primary runtime while surfacing Casebook Forge and Casebook Merge cards', async () => {
+test('browser portfolio flow keeps Portfolio Radar as the primary runtime while surfacing Casebook Forge, Dataset, and Merge cards', async () => {
   const harness = await loadBrowserHarness();
 
   try {
@@ -519,6 +523,9 @@ test('browser portfolio flow keeps Portfolio Radar as the primary runtime while 
     assert.match(harness.get('portfolio-routing-gaps-value').children[0].textContent, /billing-canary|checkout-prod/i);
     assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
     assert.match(harness.get('forge-export-value').textContent, /=== release-2026-04-15 ===/);
+    assert.match(harness.get('dataset-summary-value').textContent, /Casebook Dataset captured 3 merged cases from 3 packs/i);
+    assert.equal(harness.get('dataset-pack-count-value').textContent, '3 / 3');
+    assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
     assert.match(harness.get('merge-summary-value').textContent, /Merged 3 casebook entries/i);
     assert.match(harness.get('merge-conflicts-value').children[0].textContent, /No merge conflicts detected/i);
     assert.match(harness.get('merge-export-value').textContent, />>> seen-count: 3/);
@@ -543,13 +550,14 @@ test('browser portfolio copy support keeps Portfolio Radar as the clipboard arti
   }
 });
 
-test('browser portfolio Casebook Forge and Casebook Merge cards reset when switching back to a non-portfolio workflow', async () => {
+test('browser portfolio Casebook Forge, Dataset, and Merge cards reset when switching back to a non-portfolio workflow', async () => {
   const harness = await loadBrowserHarness();
 
   try {
     await harness.input('trace-input', portfolioInput);
     await harness.click('explain-button');
     assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
+    assert.match(harness.get('dataset-summary-value').textContent, /Casebook Dataset captured 3 merged cases/i);
     assert.match(harness.get('merge-summary-value').textContent, /Merged 3 casebook entries/i);
 
     await harness.input('trace-input', casebookCurrentInput);
@@ -558,6 +566,9 @@ test('browser portfolio Casebook Forge and Casebook Merge cards reset when switc
     assert.notEqual(harness.get('runtime-value').textContent, 'casebook merge');
     assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');
     assert.equal(harness.get('forge-export-value').textContent, 'Forged Casebook export text will appear here after Casebook Forge runs.');
+    assert.equal(harness.get('dataset-summary-value').textContent, 'Paste several labeled incident packs to package a reusable Casebook Dataset from the portfolio flow.');
+    assert.equal(harness.get('dataset-pack-count-value').textContent, '-');
+    assert.equal(harness.get('dataset-export-value').textContent, 'Dataset export text will appear here after Casebook Dataset runs.');
     assert.equal(harness.get('merge-summary-value').textContent, 'Paste several labeled incident packs with embedded history to update a living casebook.');
     assert.equal(harness.get('merge-export-value').textContent, 'Merged Casebook export text will appear here after Casebook Merge runs.');
   } finally {
@@ -574,6 +585,9 @@ test('browser dedicated radar controls clear stale portfolio, forge, and merge c
     assert.equal(harness.get('portfolio-routing-gaps-value').children[0].textContent, 'Routing gaps and missing runbooks will appear here after Portfolio Radar runs.');
     assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');
     assert.equal(harness.get('forge-export-value').textContent, 'Forged Casebook export text will appear here after Casebook Forge runs.');
+    assert.equal(harness.get('dataset-summary-value').textContent, 'Paste several labeled incident packs to package a reusable Casebook Dataset from the portfolio flow.');
+    assert.equal(harness.get('dataset-pack-count-value').textContent, '-');
+    assert.equal(harness.get('dataset-export-value').textContent, 'Dataset export text will appear here after Casebook Dataset runs.');
     assert.equal(harness.get('merge-summary-value').textContent, 'Paste several labeled incident packs with embedded history to update a living casebook.');
     assert.equal(harness.get('merge-export-value').textContent, 'Merged Casebook export text will appear here after Casebook Merge runs.');
   };
@@ -583,6 +597,7 @@ test('browser dedicated radar controls clear stale portfolio, forge, and merge c
     await harness.click('explain-button');
     assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
     assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
+    assert.match(harness.get('dataset-summary-value').textContent, /Casebook Dataset captured 3 merged cases/i);
     assert.match(harness.get('merge-summary-value').textContent, /Merged 3 casebook entries/i);
 
     await harness.input('casebook-current-input', casebookCurrentInput);

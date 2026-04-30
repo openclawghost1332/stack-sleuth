@@ -47,6 +47,26 @@ const timelineInput = [
   [profileTrace, profileTrace, profileTrace, dashboardTrace, rubyTrace, invoiceTrace, alertTrace].join('\n\n'),
 ].join('\n');
 
+const noisyTimelineInput = [
+  '=== canary ===',
+  '2026-04-30T01:40:00Z INFO boot complete',
+  `2026-04-30T01:40:01Z ERROR web ${profileTrace.split('\n').join('\n2026-04-30T01:40:01Z ERROR web ')}`,
+  `2026-04-30T01:40:02Z ERROR api ${dashboardTrace.split('\n').join('\n2026-04-30T01:40:02Z ERROR api ')}`,
+  '',
+  '=== 25-percent ===',
+  '2026-04-30T01:41:00Z INFO boot complete',
+  `2026-04-30T01:41:01Z ERROR web ${profileTrace.split('\n').join('\n2026-04-30T01:41:01Z ERROR web ')}`,
+  `2026-04-30T01:41:02Z ERROR web ${profileTrace.split('\n').join('\n2026-04-30T01:41:02Z ERROR web ')}`,
+  `2026-04-30T01:41:03Z ERROR api ${dashboardTrace.split('\n').join('\n2026-04-30T01:41:03Z ERROR api ')}`,
+  '',
+  '=== full-rollout ===',
+  '2026-04-30T01:42:00Z INFO boot complete',
+  `2026-04-30T01:42:01Z ERROR web ${profileTrace.split('\n').join('\n2026-04-30T01:42:01Z ERROR web ')}`,
+  `2026-04-30T01:42:02Z ERROR web ${profileTrace.split('\n').join('\n2026-04-30T01:42:02Z ERROR web ')}`,
+  `2026-04-30T01:42:03Z ERROR web ${profileTrace.split('\n').join('\n2026-04-30T01:42:03Z ERROR web ')}`,
+  `2026-04-30T01:42:04Z ERROR billing ${invoiceTrace.split('\n').join('\n2026-04-30T01:42:04Z ERROR billing ')}`,
+].join('\n');
+
 test('parseTimelineSnapshots splits labeled snapshots and preserves order', () => {
   const snapshots = parseTimelineSnapshots(timelineInput);
 
@@ -124,6 +144,17 @@ test('analyzeTimeline classifies incident and hotspot trends across snapshots', 
       { trend: 'resolved', label: 'service.py', series: [3, 3, 0] },
     ]
   );
+});
+
+test('analyzeTimeline trends noisy labeled rollout snapshots', () => {
+  const timeline = analyzeTimeline(noisyTimelineInput);
+
+  assert.equal(timeline.summary.snapshotCount, 3);
+  assert.equal(timeline.snapshots[0].digest.extraction.mode, 'extracted');
+  assert.equal(timeline.snapshots[1].digest.extraction.mode, 'extracted');
+  assert.equal(timeline.snapshots[2].digest.extraction.mode, 'extracted');
+  assert.equal(timeline.summary.newCount, 1);
+  assert.equal(timeline.summary.risingCount, 1);
 });
 
 test('renderTimeline helpers produce copy-ready text and markdown summaries', () => {

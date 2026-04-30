@@ -1,5 +1,6 @@
 import { analyzeTraceDigest } from './digest.js';
 import { formatFrame } from './analyze.js';
+import { formatExtractionMarkdown, formatExtractionText } from './extract.js';
 
 const TREND_PRIORITY = {
   new: 0,
@@ -56,6 +57,7 @@ export function renderTimelineTextSummary(timeline) {
   const sections = [
     'Stack Sleuth Timeline Radar',
     `Snapshots: ${timeline.labels.join(' → ')}`,
+    `Excavation: ${formatTimelineExtractionText(timeline.snapshots)}`,
     `Latest snapshot: ${summary.latestLabel} (${summary.latestTotalTraces} traces)`,
     `new: ${summary.newCount}`,
     `rising: ${summary.risingCount}`,
@@ -82,6 +84,7 @@ export function renderTimelineMarkdownSummary(timeline) {
     '# Stack Sleuth Timeline Radar',
     '',
     `- **Snapshots:** ${escapeMarkdownText(timeline.labels.join(' → '))}`,
+    formatTimelineExtractionMarkdown(timeline.snapshots),
     `- **Latest snapshot:** ${escapeMarkdownText(summary.latestLabel)} (${summary.latestTotalTraces} traces)`,
     `- **New incidents:** ${summary.newCount}`,
     `- **Rising incidents:** ${summary.risingCount}`,
@@ -243,6 +246,19 @@ function formatMarkdownHotspots(hotspots) {
     .slice(0, 5)
     .map((hotspot) => `- ${formatMarkdownCode(hotspot.label)} (${escapeMarkdownText(hotspot.trend)}, ${escapeMarkdownText(formatSeries(hotspot.series))})`)
     .join('\n');
+}
+
+function formatTimelineExtractionText(snapshots) {
+  return snapshots
+    .map((snapshot) => `${snapshot.label}: ${formatExtractionText(snapshot.digest.extraction, 'input').replace(/^input:\s*/i, '').replace(/\.$/, '')}`)
+    .join('; ');
+}
+
+function formatTimelineExtractionMarkdown(snapshots) {
+  const combined = snapshots
+    .map((snapshot) => `${snapshot.label}: ${formatExtractionText(snapshot.digest.extraction, 'input').replace(/^input:\s*/i, '').replace(/\.$/, '')}`)
+    .join('; ');
+  return formatExtractionMarkdown({ mode: 'extracted', traceCount: 0, ignoredLineCount: 0 }, 'Excavation').replace('excavated 0 traces from raw logs, ignored 0 non-trace lines', escapeMarkdownText(combined));
 }
 
 function escapeMarkdownText(value) {

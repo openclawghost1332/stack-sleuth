@@ -1,6 +1,7 @@
 import { analyzeTraceDigest } from './digest.js';
 import { formatFrame } from './analyze.js';
 import { buildHotspotShifts } from './hotspots.js';
+import { formatExtractionMarkdown, formatExtractionText } from './extract.js';
 
 const STATUS_PRIORITY = {
   new: 0,
@@ -34,6 +35,8 @@ export function analyzeRegression({ baseline, candidate }) {
 export function renderRegressionTextSummary(regression) {
   const sections = [
     'Stack Sleuth Regression Radar',
+    formatExtractionText(regression.baselineDigest.extraction, 'Baseline input'),
+    formatExtractionText(regression.candidateDigest.extraction, 'Candidate input'),
     `Baseline traces: ${regression.summary.totalBaselineTraces}`,
     `Candidate traces: ${regression.summary.totalCandidateTraces}`,
     `new: ${regression.summary.newCount}`,
@@ -68,6 +71,8 @@ export function renderRegressionMarkdownSummary(regression) {
   const lines = [
     '# Stack Sleuth Regression Radar',
     '',
+    formatExtractionMarkdown(regression.baselineDigest.extraction, 'Baseline input'),
+    formatExtractionMarkdown(regression.candidateDigest.extraction, 'Candidate input'),
     `- **Baseline traces:** ${regression.summary.totalBaselineTraces}`,
     `- **Candidate traces:** ${regression.summary.totalCandidateTraces}`,
     `- **New incidents:** ${regression.summary.newCount}`,

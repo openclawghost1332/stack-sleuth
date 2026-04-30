@@ -116,6 +116,25 @@ test('README documents portfolio radar workflows for browser and CLI multi-pack 
   assert.match(readme, /recurring hotspots|shared hotspots/i);
 });
 
+test('README documents Handoff Briefing workflows for browser and CLI handoff mode', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Handoff Briefing/i);
+  assert.match(readme, /--handoff/);
+  assert.match(readme, /owner packets|owner-specific handoff packets/i);
+  assert.match(readme, /gap packets|ownership-gap|runbook-gap/i);
+  assert.match(readme, /Load Handoff Briefing example/i);
+  assert.match(readme, /Owner: web-platform/);
+});
+
+test('README documents Handoff Briefing workflows for browser and CLI owner packets', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Handoff Briefing/i);
+  assert.match(readme, /--handoff/);
+  assert.match(readme, /owner packets|owner-specific handoff packets/i);
+  assert.match(readme, /routing gaps|runbook gaps/i);
+  assert.match(readme, /Slack|ticket|shift/i);
+});
+
 test('README documents Casebook Forge workflows for browser and CLI reuse', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.match(readme, /Casebook Forge/i);

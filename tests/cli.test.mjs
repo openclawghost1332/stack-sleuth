@@ -415,6 +415,41 @@ test('CLI portfolio mode supports --json and --markdown output', () => {
   assert.match(markdownResult.stdout, /## Routing gaps/);
 });
 
+test('CLI handoff mode reads a portfolio and prints a copy-ready handoff briefing', () => {
+  const result = runCli(['--handoff', '-'], { input: portfolioInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Handoff Briefing/);
+  assert.match(result.stdout, /Owner: web-platform/);
+  assert.match(result.stdout, /Gap: ownership/);
+  assert.match(result.stdout, /Gap: runbook/);
+});
+
+test('CLI handoff mode supports --json and --markdown output', () => {
+  const jsonResult = runCli(['--handoff', '-', '--json'], { input: portfolioInput });
+  assert.equal(jsonResult.status, 0, jsonResult.stderr);
+  const parsed = JSON.parse(jsonResult.stdout);
+  assert.equal(parsed.summary.packetCount, 5);
+  assert.equal(parsed.ownerPackets[0].owner, 'web-platform');
+  assert.equal(parsed.gapPackets[0].kind, 'ownership-gap');
+  assert.match(parsed.exportText, /Owner: web-platform/);
+
+  const markdownResult = runCli(['--handoff', '-', '--markdown'], { input: portfolioInput });
+  assert.equal(markdownResult.status, 0, markdownResult.stderr);
+  assert.match(markdownResult.stdout, /^# Stack Sleuth Handoff Briefing/m);
+  assert.match(markdownResult.stdout, /## Handoff packet export/);
+});
+
+test('CLI handoff mode exits non-zero when no labeled packs or runnable analyses are present', () => {
+  const unlabeled = runCli(['--handoff', '-'], { input: incidentPackInput });
+  assert.notEqual(unlabeled.status, 0);
+  assert.match(unlabeled.stderr, /Handoff mode requires @@@ label @@@ blocks/i);
+
+  const unrunnable = runCli(['--handoff', '-'], { input: '@@@ missing-current @@@\n@@ history @@\n=== release ===\n' + sampleTrace });
+  assert.notEqual(unrunnable.status, 0);
+  assert.match(unrunnable.stderr, /Handoff mode requires at least one runnable labeled incident pack/i);
+});
+
 test('CLI reads a portfolio with --dataset and prints a Casebook Dataset summary', () => {
   const result = runCli(['--dataset', '-'], { input: portfolioInput });
 

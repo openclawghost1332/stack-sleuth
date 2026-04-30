@@ -12,6 +12,7 @@ import {
   summarizePortfolioPrimaryCulprit,
   selectPrimaryPortfolioIncident,
 } from './portfolio.js';
+import { buildHandoffBriefing } from './handoff.js';
 import { analyzeCasebook, renderCasebookTextSummary } from './casebook.js';
 import { analyzeCasebookForge, renderCasebookForgeTextSummary } from './forge.js';
 import { analyzeCasebookMerge, renderCasebookMergeTextSummary } from './merge.js';
@@ -37,6 +38,7 @@ const loadDigestButton = document.querySelector('#load-digest-button');
 const loadNotebookButton = document.querySelector('#load-notebook-button');
 const loadPackButton = document.querySelector('#load-pack-button');
 const loadPortfolioButton = document.querySelector('#load-portfolio-button');
+const loadHandoffButton = document.querySelector('#load-handoff-button');
 const loadDatasetButton = document.querySelector('#load-dataset-button');
 const loadMergeButton = document.querySelector('#load-merge-button');
 const copyButton = document.querySelector('#copy-button');
@@ -91,6 +93,8 @@ const portfolioRecurringIncidentsValue = document.querySelector('#portfolio-recu
 const portfolioRecurringHotspotsValue = document.querySelector('#portfolio-recurring-hotspots-value');
 const portfolioResponseQueueValue = document.querySelector('#portfolio-response-queue-value');
 const portfolioRoutingGapsValue = document.querySelector('#portfolio-routing-gaps-value');
+const handoffSummaryValue = document.querySelector('#handoff-summary-value');
+const handoffExportValue = document.querySelector('#handoff-export-value');
 const forgeSummaryValue = document.querySelector('#forge-summary-value');
 const forgeExportValue = document.querySelector('#forge-export-value');
 const datasetSummaryValue = document.querySelector('#dataset-summary-value');
@@ -107,6 +111,7 @@ const digestExample = examples.find((item) => item.label === 'Repeated incident 
 const notebookExample = examples.find((item) => item.label === 'Notebook ingest');
 const incidentPackExample = examples.find((item) => item.label === 'Incident pack briefing');
 const portfolioExample = examples.find((item) => item.label === 'Portfolio radar');
+const handoffExample = examples.find((item) => item.label === 'Handoff Briefing');
 const datasetExample = examples.find((item) => item.label === 'Casebook Dataset');
 const mergeExample = examples.find((item) => item.label === 'Casebook Merge');
 const casebookExample = examples.find((item) => item.label === 'Casebook Radar');
@@ -228,6 +233,7 @@ function renderPortfolioWorkflow(input) {
   const forge = analyzeCasebookForge(report);
   const dataset = buildCasebookDataset(report);
   const merge = analyzeCasebookMerge(report);
+  const handoff = buildHandoffBriefing(report);
   const topPack = report.priorityQueue[0] ?? null;
   const primaryIncident = selectPrimaryPortfolioIncident(topPack);
   const topPackLabel = topPack?.label ?? 'none';
@@ -242,8 +248,8 @@ function renderPortfolioWorkflow(input) {
   culpritValue.textContent = summarizePortfolioPrimaryCulprit(report);
   confidenceValue.textContent = topPack ? 'portfolio' : '-';
   tagsValue.textContent = topPack
-    ? ['portfolio-radar', 'casebook-forge', 'casebook-dataset', 'casebook-merge', 'incident-pack'].join(', ')
-    : ['portfolio-radar', 'casebook-forge', 'casebook-dataset', 'casebook-merge'].join(', ');
+    ? ['portfolio-radar', 'handoff-briefing', 'casebook-forge', 'casebook-dataset', 'casebook-merge', 'incident-pack'].join(', ')
+    : ['portfolio-radar', 'handoff-briefing', 'casebook-forge', 'casebook-dataset', 'casebook-merge'].join(', ');
   signatureValue.textContent = topPack ? `top pack: ${topPackLabel}` : '-';
   summaryValue.textContent = buildPortfolioSummary(report);
   blastRadiusValue.textContent = buildPortfolioBlastRadiusSummary(topPack, primaryIncident);
@@ -263,6 +269,8 @@ function renderPortfolioWorkflow(input) {
   portfolioRecurringHotspotsValue.replaceChildren(...buildListItems(buildPortfolioRecurringHotspotItems(report.recurringHotspots)));
   portfolioResponseQueueValue.replaceChildren(...buildListItems(buildPortfolioResponseQueueItems(report.responseQueue)));
   portfolioRoutingGapsValue.replaceChildren(...buildListItems(buildPortfolioRoutingGapItems(report.unownedPacks, report.runbookGaps)));
+  handoffSummaryValue.textContent = `${handoff.summary.headline} Owner packets carry recalled fixes and runbooks, while gap packets make missing routing explicit.`;
+  handoffExportValue.textContent = handoff.exportText || 'No handoff export available yet.';
   forgeSummaryValue.textContent = `${forge.summary.headline} Reusable cases are ready to paste into a labeled history casebook.`;
   forgeExportValue.textContent = forge.exportText || 'No forged export available yet.';
   datasetSummaryValue.textContent = `${dataset.summary.headline} Saved datasets round-trip back through Casebook Radar with the existing history path.`;
@@ -650,6 +658,8 @@ function resetPortfolioState() {
   portfolioRoutingGapsValue.replaceChildren(...buildListItems([
     'Routing gaps and missing runbooks will appear here after Portfolio Radar runs.'
   ]));
+  handoffSummaryValue.textContent = 'Paste several labeled incident packs to prepare owner and gap handoff packets.';
+  handoffExportValue.textContent = 'Handoff packet export text will appear here after Handoff Briefing runs.';
 }
 
 function resetForgeState() {
@@ -1366,6 +1376,7 @@ loadDigestButton?.addEventListener('click', () => loadExample(digestExample));
 loadNotebookButton?.addEventListener('click', () => loadNotebookExample(notebookExample));
 loadPackButton?.addEventListener('click', () => loadIncidentPackExample(incidentPackExample));
 loadPortfolioButton?.addEventListener('click', () => loadPortfolioExample(portfolioExample));
+loadHandoffButton?.addEventListener('click', () => loadPortfolioExample(handoffExample));
 loadDatasetButton?.addEventListener('click', () => loadPortfolioExample(datasetExample));
 loadMergeButton?.addEventListener('click', () => loadMergeExample(mergeExample));
 loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));

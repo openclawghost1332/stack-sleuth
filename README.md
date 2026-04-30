@@ -16,6 +16,7 @@ Use the built-in example buttons to compare the main workflows:
 - labeled rollout snapshots analyzed in Timeline Radar mode with trend calls and hotspot movement
 - one structured Incident Pack Briefing that composes current, history, regression, and rollout context in a single pass
 - several structured incident packs ranked in Portfolio Radar mode with an owner-aware response queue, explicit routing gaps, runbook gaps, recurring incidents, and shared hotspots
+- Handoff Briefing turning a labeled portfolio into owner-specific handoff packets plus explicit ownership-gap and runbook-gap follow-ups
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
 - Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory
 - Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
@@ -291,6 +292,32 @@ Portfolio Radar now adds a deterministic owner-aware response queue on top of th
 - keeps recurring incidents and shared hotspots visible across packs
 
 In the browser, paste the full labeled portfolio into the shared workspace, then press **Explain trace(s)** or **Load portfolio example** to generate one Portfolio Radar summary with the response queue, routing gaps, and runbook gaps.
+
+## Handoff Briefing
+
+Handoff Briefing turns the same labeled portfolio into copy-ready owner packets and explicit gap packets. Use it when the ranking is no longer enough and you need something you can paste into Slack, a ticket queue, or a shift handoff without rewriting the Portfolio Radar output by hand.
+
+### Build a handoff briefing from a labeled portfolio file
+
+```bash
+node ./bin/stack-sleuth.js --handoff ./portfolio.txt
+```
+
+### Build a handoff briefing from stdin in JSON mode
+
+```bash
+cat portfolio.txt | node ./bin/stack-sleuth.js --handoff - --json
+```
+
+### Build a handoff briefing in Markdown
+
+```bash
+node ./bin/stack-sleuth.js --handoff ./portfolio.txt --markdown
+```
+
+Handoff Briefing reuses the same `@@@ label @@@` portfolio wrapper as Portfolio Radar. The output groups recalled owners into owner packets, carries remembered summaries, fixes, and runbook links forward, and emits explicit routing gaps or runbook gaps when Stack Sleuth cannot recall those handoff details yet. A real packet can read like `Owner: web-platform`, followed by the affected packs, the recalled fix, and the runbook link that should travel with the handoff.
+
+In the browser, paste the same labeled portfolio into the shared workspace, then press **Explain trace(s)** or **Load Handoff Briefing example** to keep Portfolio Radar as the main view while the Handoff Briefing cards surface the copy-ready packet export alongside it.
 
 ## Casebook Forge
 

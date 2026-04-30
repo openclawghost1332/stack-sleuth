@@ -35,6 +35,11 @@ import {
   renderIncidentPortfolioMarkdownSummary,
 } from '../src/portfolio.js';
 import {
+  buildHandoffBriefing,
+  renderHandoffTextSummary,
+  renderHandoffMarkdownSummary,
+} from '../src/handoff.js';
+import {
   analyzeCasebookForge,
   renderCasebookForgeTextSummary,
   renderCasebookForgeMarkdownSummary,
@@ -61,6 +66,7 @@ const compareArgumentError = validateCompareArguments(args);
 const packArgumentError = validateOptionValue(args, '--pack');
 const portfolioArgumentError = validateOptionValue(args, '--portfolio');
 const forgeArgumentError = validateOptionValue(args, '--forge');
+const handoffArgumentError = validateOptionValue(args, '--handoff');
 const notebookArgumentError = validateOptionValue(args, '--notebook');
 const mergeCasebookArgumentError = validateOptionValue(args, '--merge-casebook');
 const timelineArgumentError = validateOptionValue(args, '--timeline');
@@ -73,6 +79,7 @@ const candidatePath = readOptionValue(args, '--candidate');
 const packPath = readOptionValue(args, '--pack');
 const portfolioPath = readOptionValue(args, '--portfolio');
 const forgePath = readOptionValue(args, '--forge');
+const handoffPath = readOptionValue(args, '--handoff');
 const notebookPath = readOptionValue(args, '--notebook');
 const mergeCasebookPath = readOptionValue(args, '--merge-casebook');
 const timelinePath = readOptionValue(args, '--timeline');
@@ -86,6 +93,7 @@ const workflowArgumentError = validateWorkflowArguments({
   packPath,
   portfolioPath,
   forgePath,
+  handoffPath,
   notebookPath,
   mergeCasebookPath,
   timelinePath,
@@ -105,6 +113,7 @@ const filePath = args.find((arg, index) => {
     '--pack',
     '--portfolio',
     '--forge',
+    '--handoff',
     '--notebook',
     '--merge-casebook',
     '--timeline',
@@ -129,6 +138,10 @@ if (portfolioArgumentError) {
 
 if (forgeArgumentError) {
   fail(forgeArgumentError);
+}
+
+if (handoffArgumentError) {
+  fail(handoffArgumentError);
 }
 
 if (notebookArgumentError) {
@@ -244,6 +257,22 @@ try {
     }
 
     writeOutput(report, mode, renderForgeCliTextSummary, renderForgeCliMarkdownSummary);
+    process.exit(0);
+  }
+
+  if (handoffPath) {
+    const handoffInput = handoffPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(handoffPath, 'handoff');
+    const portfolio = parseIncidentPortfolio(handoffInput);
+    if (!portfolio.packOrder.length) {
+      fail('Handoff mode requires @@@ label @@@ blocks around one or more incident packs.');
+    }
+
+    const report = buildHandoffBriefing(portfolio);
+    if (!report.summary.runnablePackCount) {
+      fail('Handoff mode requires at least one runnable labeled incident pack. Add at least one pack with @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
+    }
+
+    writeOutput(report, mode, renderHandoffTextSummary, renderHandoffMarkdownSummary);
     process.exit(0);
   }
 
@@ -420,6 +449,10 @@ try {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read forge input: ${error.message}`);
   }
 
+  if (handoffPath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read handoff input: ${error.message}`);
+  }
+
   if (packPath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read incident pack input: ${error.message}`);
   }
@@ -482,11 +515,12 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, mergeCasebookPath, timelinePath, datasetPath, historyPath, workspacePath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, datasetPath, historyPath, workspacePath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     portfolioPath ? 'portfolio' : null,
     forgePath ? 'forge' : null,
+    handoffPath ? 'handoff' : null,
     notebookPath ? 'notebook' : null,
     workspacePath ? 'workspace' : null,
     mergeCasebookPath ? 'merge-casebook' : null,
@@ -497,7 +531,7 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: forge, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, dataset, or compare.';
+    return 'Choose one workflow mode at a time: forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, dataset, or compare.';
   }
 
   return null;
@@ -618,6 +652,19 @@ function toSerializablePayload(payload) {
         sourcePacks: entry.sourcePacks,
         matchedHistoryLabels: entry.matchedHistoryLabels,
       })),
+      exportText: payload.exportText,
+    };
+  }
+
+  if (Array.isArray(payload?.ownerPackets) && Array.isArray(payload?.gapPackets) && typeof payload?.exportText === 'string' && payload?.summary?.packetCount !== undefined) {
+    return {
+      portfolio: {
+        packOrder: payload.portfolio?.packOrder ?? [],
+      },
+      summary: payload.summary,
+      ownerPackets: payload.ownerPackets,
+      gapPackets: payload.gapPackets,
+      packets: payload.packets,
       exportText: payload.exportText,
     };
   }

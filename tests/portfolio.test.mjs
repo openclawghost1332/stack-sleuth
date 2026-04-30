@@ -77,6 +77,60 @@ const portfolioFixtureWithOwners = [
   annotatedHistory,
 ].join('\n');
 
+const queueOrderingFixture = [
+  '@@@ zzz-first-pack @@@',
+  '@@ current @@',
+  sampleTrace,
+  '',
+  '@@ history @@',
+  [
+    '=== zzz-first-case ===',
+    '>>> owner: zzz-team',
+    sampleTrace,
+  ].join('\n'),
+  '',
+  '@@@ aaa-second-pack @@@',
+  '@@ current @@',
+  sampleTrace,
+  '',
+  '@@ history @@',
+  [
+    '=== aaa-second-case ===',
+    '>>> owner: aaa-team',
+    sampleTrace,
+  ].join('\n'),
+].join('\n');
+
+const multiGuidanceFixture = [
+  '@@@ first-owner-pack @@@',
+  '@@ current @@',
+  sampleTrace,
+  '',
+  '@@ history @@',
+  [
+    '=== first-owner-case ===',
+    '>>> summary: First summary',
+    '>>> fix: First fix',
+    '>>> owner: web-platform',
+    '>>> runbook: https://example.com/runbooks/first',
+    sampleTrace,
+  ].join('\n'),
+  '',
+  '@@@ second-owner-pack @@@',
+  '@@ current @@',
+  sampleTrace,
+  '',
+  '@@ history @@',
+  [
+    '=== second-owner-case ===',
+    '>>> summary: Second summary',
+    '>>> fix: Second fix',
+    '>>> owner: web-platform',
+    '>>> runbook: https://example.com/runbooks/second',
+    sampleTrace,
+  ].join('\n'),
+].join('\n');
+
 test('parseIncidentPortfolio splits @@@ label @@@ blocks and preserves labels', () => {
   const portfolio = parseIncidentPortfolio([
     '@@@ checkout-prod @@@',
@@ -142,4 +196,24 @@ test('portfolio renderers include response queue and routing gaps', () => {
   assert.match(text, /Routing gaps/);
   assert.match(markdown, /## Response queue/);
   assert.match(markdown, /## Routing gaps/);
+});
+
+test('response queue ordering follows the main priority queue when packs tie', () => {
+  const report = analyzeIncidentPortfolio(queueOrderingFixture);
+
+  assert.deepEqual(report.priorityQueue.map((item) => item.label), ['zzz-first-pack', 'aaa-second-pack']);
+  assert.deepEqual(report.responseQueue.map((item) => item.owner), ['zzz-team', 'aaa-team']);
+});
+
+test('response queue rendering preserves multiple recalled summaries, fixes, and runbooks', () => {
+  const report = analyzeIncidentPortfolio(multiGuidanceFixture);
+  const text = renderIncidentPortfolioTextSummary(report);
+  const markdown = renderIncidentPortfolioMarkdownSummary(report);
+
+  assert.equal(report.responseQueue.length, 1);
+  assert.match(text, /First summary \| Second summary/);
+  assert.match(text, /First fix \| Second fix/);
+  assert.match(text, /runbooks\/first \| https:\/\/example\.com\/runbooks\/second/);
+  assert.match(markdown, /First summary \\| Second summary/);
+  assert.match(markdown, /First fix \\| Second fix/);
 });

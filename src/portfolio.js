@@ -270,7 +270,7 @@ function collectResponseSignals(priorityQueue) {
   const runbookGaps = [];
   const unownedPacks = [];
 
-  for (const packReport of priorityQueue) {
+  for (const [queueIndex, packReport] of priorityQueue.entries()) {
     const guidance = collectPackGuidance(packReport.report);
     const packOwners = new Set(guidance.map((item) => item.owner).filter(Boolean));
     const hasRunbook = guidance.some((item) => item.runbook);
@@ -282,6 +282,7 @@ function collectResponseSignals(priorityQueue) {
         priorityScore: packReport.priorityScore,
         priorityReasons: packReport.priorityReasons,
         novelCount,
+        queueIndex,
       });
     }
 
@@ -291,6 +292,7 @@ function collectResponseSignals(priorityQueue) {
         priorityScore: packReport.priorityScore,
         priorityReasons: packReport.priorityReasons,
         novelCount,
+        queueIndex,
       });
     }
 
@@ -302,11 +304,13 @@ function collectResponseSignals(priorityQueue) {
         guidance: [],
         highestPriorityScore: -1,
         novelIncidentCount: 0,
+        bestQueueIndex: Number.POSITIVE_INFINITY,
       };
       entry.labels.push(packReport.label);
       entry.guidance.push(...ownerGuidance);
       entry.highestPriorityScore = Math.max(entry.highestPriorityScore, packReport.priorityScore);
       entry.novelIncidentCount += novelCount;
+      entry.bestQueueIndex = Math.min(entry.bestQueueIndex, queueIndex);
       owners.set(owner, entry);
     }
   }
@@ -319,7 +323,7 @@ function collectResponseSignals(priorityQueue) {
         guidance: dedupeGuidance(entry.guidance),
         packCount: unique(entry.labels).length,
       }))
-      .sort((left, right) => right.highestPriorityScore - left.highestPriorityScore
+      .sort((left, right) => left.bestQueueIndex - right.bestQueueIndex
         || right.novelIncidentCount - left.novelIncidentCount
         || right.packCount - left.packCount
         || left.owner.localeCompare(right.owner)),
@@ -354,7 +358,7 @@ function unique(items) {
 }
 
 function compareGapEntries(left, right) {
-  return right.priorityScore - left.priorityScore
+  return left.queueIndex - right.queueIndex
     || right.novelCount - left.novelCount
     || left.label.localeCompare(right.label);
 }
@@ -456,30 +460,46 @@ function formatResponseQueue(responseQueue) {
     return ['- None'];
   }
 
-  return responseQueue.map((entry) => {
-    const details = [];
-    if (entry.guidance[0]?.fix) {
-      details.push(`fix ${entry.guidance[0].fix}`);
-    }
-    if (entry.guidance[0]?.runbook) {
-      details.push(`runbook ${entry.guidance[0].runbook}`);
-    }
-    return `- ${entry.owner}: ${entry.labels.join(', ')}${details.length ? ` (${details.join('; ')})` : ''}`;
-  });
+  return responseQueue.map((entry) => `- ${describeResponseQueueEntry(entry)}`);
 }
 
 function formatRoutingGaps(unownedPacks, runbookGaps) {
   const lines = [];
 
   if (unownedPacks?.length) {
-    lines.push(...unownedPacks.map((item) => `- No recalled owner: ${item.label}`));
+    lines.push(...unownedPacks.map((item) => `- ${describeRoutingGap('owner', item)}`));
   }
 
   if (runbookGaps?.length) {
-    lines.push(...runbookGaps.map((item) => `- No recalled runbook: ${item.label}`));
+    lines.push(...runbookGaps.map((item) => `- ${describeRoutingGap('runbook', item)}`));
   }
 
   return lines.length ? lines : ['- None'];
+}
+
+export function describeResponseQueueEntry(entry) {
+  const details = [];
+  const summaries = unique(entry.guidance.map((item) => item.summary).filter(Boolean));
+  const fixes = unique(entry.guidance.map((item) => item.fix).filter(Boolean));
+  const runbooks = unique(entry.guidance.map((item) => item.runbook).filter(Boolean));
+
+  if (summaries.length) {
+    details.push(`summary ${summaries.join(' | ')}`);
+  }
+  if (fixes.length) {
+    details.push(`fix ${fixes.join(' | ')}`);
+  }
+  if (runbooks.length) {
+    details.push(`runbook ${runbooks.join(' | ')}`);
+  }
+
+  return `${entry.owner}: ${entry.labels.join(', ')}${details.length ? ` (${details.join('; ')})` : ''}`;
+}
+
+export function describeRoutingGap(kind, item) {
+  return kind === 'owner'
+    ? `No recalled owner: ${item.label}`
+    : `No recalled runbook: ${item.label}`;
 }
 
 function emptyPortfolio(source = '') {

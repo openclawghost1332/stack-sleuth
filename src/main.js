@@ -5,6 +5,8 @@ import {
 } from './briefing.js';
 import {
   analyzeIncidentPortfolio,
+  describeResponseQueueEntry,
+  describeRoutingGap,
   parseIncidentPortfolio,
   summarizePortfolioPrimaryCulprit,
   selectPrimaryPortfolioIncident,
@@ -915,27 +917,18 @@ function buildPortfolioResponseQueueItems(responseQueue) {
     return ['No recalled owners yet across runnable packs.'];
   }
 
-  return responseQueue.map((entry) => {
-    const details = [];
-    if (entry.guidance?.[0]?.fix) {
-      details.push(`fix ${entry.guidance[0].fix}`);
-    }
-    if (entry.guidance?.[0]?.runbook) {
-      details.push(`runbook ${entry.guidance[0].runbook}`);
-    }
-    return `${entry.owner}: ${entry.labels.join(', ')}${details.length ? ` (${details.join('; ')})` : ''}`;
-  });
+  return responseQueue.map((entry) => describeResponseQueueEntry(entry));
 }
 
 function buildPortfolioRoutingGapItems(unownedPacks, runbookGaps) {
   const items = [];
 
   if (unownedPacks?.length) {
-    items.push(...unownedPacks.map((item) => `No recalled owner: ${item.label}`));
+    items.push(...unownedPacks.map((item) => describeRoutingGap('owner', item)));
   }
 
   if (runbookGaps?.length) {
-    items.push(...runbookGaps.map((item) => `No recalled runbook: ${item.label}`));
+    items.push(...runbookGaps.map((item) => describeRoutingGap('runbook', item)));
   }
 
   return items.length ? items : ['No routing gaps or runbook gaps detected across runnable packs.'];

@@ -378,6 +378,37 @@ test('browser notebook flow routes markdown incident notes into notebook mode an
   }
 });
 
+test('browser notebook analyze flow renders the routed incident pack briefing instead of re-analyzing an analyzed report', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', notebookPackInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'incident pack briefing');
+    assert.equal(harness.get('headline-value').textContent, 'Casebook Radar flagged 1 novel incident in the current batch.');
+    assert.match(harness.get('summary-value').textContent, /Casebook Radar matched 1 known incident and flagged 1 novel incident/i);
+    assert.match(harness.get('casebook-summary-value').textContent, /matched 1 known incident and flagged 1 novel incident/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser notebook example button loads a markdown notebook and renders its routed briefing', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.click('load-notebook-button');
+
+    assert.match(harness.get('trace-input').value, /## Current incident/);
+    assert.equal(harness.get('runtime-value').textContent, 'incident pack briefing');
+    assert.match(harness.get('headline-value').textContent, /Casebook Radar flagged 1 novel incident/i);
+    assert.match(harness.get('example-caption').textContent, /markdown handoff note/i);
+  } finally {
+    harness.restore();
+  }
+});
+
 test('browser Casebook Forge export styling preserves multiline formatting for manual copy', () => {
   assert.match(stylesCss, /#forge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
 });

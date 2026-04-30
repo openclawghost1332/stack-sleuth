@@ -243,8 +243,10 @@ function renderPortfolioWorkflow(input) {
   forgeExportValue.textContent = forge.exportText || 'No forged export available yet.';
 }
 
-function renderIncidentPackWorkflow(incidentPack) {
-  const briefing = analyzeIncidentPack(incidentPack);
+function renderIncidentPackWorkflow(input) {
+  const briefing = input?.availableAnalyses && input?.summary
+    ? input
+    : analyzeIncidentPack(input);
   const primaryAnalysis = selectIncidentPackPrimaryAnalysis(briefing);
   const primaryReport = selectIncidentPackPrimaryReport(briefing);
   const primaryRepresentative = primaryReport?.representative ?? null;

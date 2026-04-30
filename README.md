@@ -14,7 +14,7 @@ Use the built-in example buttons to compare ten modes:
 - baseline and candidate batches compared in Regression Radar mode with hotspot shifts
 - labeled rollout snapshots analyzed in Timeline Radar mode with trend calls and hotspot movement
 - one structured Incident Pack Briefing that composes current, history, regression, and rollout context in a single pass
-- several structured incident packs ranked in Portfolio Radar mode with recurring incidents and shared hotspots
+- several structured incident packs ranked in Portfolio Radar mode with an owner-aware response queue, explicit routing gaps, runbook gaps, recurring incidents, and shared hotspots
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
 - browser copy that includes excavation-aware summaries
 
@@ -132,7 +132,7 @@ In the browser, paste the full pack into the shared workspace, then press **Expl
 
 ## Portfolio Radar
 
-Portfolio Radar wraps several Incident Pack Briefings into one release-level queue. Use it when one deploy, rollout, or incident-review thread already has multiple packs and you want one ranked answer about which pack deserves attention first, which signatures recur across packs, and which hotspot files keep showing up.
+Portfolio Radar wraps several Incident Pack Briefings into one release-level queue. Use it when one deploy, rollout, or incident-review thread already has multiple packs and you want one ranked answer about which pack deserves attention first, which signatures recur across packs, which hotspot files keep showing up, who likely owns the known incidents, and where the dangerous routing gaps still need fresh triage.
 
 ### Analyze a labeled portfolio from a file
 
@@ -167,6 +167,10 @@ ProfileHydrationError: Profile payload missing account metadata
 
 @@ history @@
 === release-2026-04-15 ===
+>>> summary: Checkout profile payload dropped account metadata before render
+>>> fix: Guard renderProfile before reading account.name
+>>> owner: web-platform
+>>> runbook: https://example.com/runbooks/profile-null
 TypeError: Cannot read properties of undefined (reading 'name')
     at renderProfile (/app/src/profile.js:88:17)
 
@@ -180,9 +184,15 @@ TypeError: Cannot read properties of undefined (reading 'email')
     at renderInvoice (/app/src/invoice.js:19:7)
 ```
 
-Portfolio Radar highlights the top-ranked packs first, then calls out recurring incidents and recurring hotspots across runnable packs so cross-pack failure patterns stay obvious.
+Portfolio Radar now adds a deterministic owner-aware response queue on top of the ranking:
 
-In the browser, paste the full labeled portfolio into the shared workspace, then press **Explain trace(s)** or **Load portfolio example** to generate one Portfolio Radar summary.
+- groups recalled owners by impacted pack label
+- carries remembered fixes and runbook links into the queue entry
+- flags routing gaps when a runnable pack has no recalled owner
+- flags runbook gaps when a runnable pack has no recalled runbook
+- keeps recurring incidents and shared hotspots visible across packs
+
+In the browser, paste the full labeled portfolio into the shared workspace, then press **Explain trace(s)** or **Load portfolio example** to generate one Portfolio Radar summary with the response queue, routing gaps, and runbook gaps.
 
 ## Casebook Forge
 

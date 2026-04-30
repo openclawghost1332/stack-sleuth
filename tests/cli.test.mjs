@@ -79,13 +79,7 @@ const portfolioInput = [
   [sampleTrace, `ProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`].join('\n\n'),
   '',
   '@@ history @@',
-  [
-    '=== release-2026-04-15 ===',
-    [sampleTrace, comparisonTrace].join('\n\n'),
-    '',
-    '=== profile-rewrite ===',
-    sampleTrace,
-  ].join('\n'),
+  annotatedCasebookHistoryInput,
   '',
   '@@@ billing-canary @@@',
   '@@ baseline @@',
@@ -352,12 +346,20 @@ test('CLI portfolio mode supports --json and --markdown output', () => {
   assert.equal(jsonResult.status, 0, jsonResult.stderr);
   const parsed = JSON.parse(jsonResult.stdout);
   assert.equal(parsed.summary.runnablePackCount, 3);
+  assert.equal(parsed.summary.ownedPackCount, 1);
+  assert.equal(parsed.summary.runbookGapCount, 2);
   assert.equal(parsed.priorityQueue[0].label, 'profile-rollout');
+  assert.equal(parsed.responseQueue[0].owner, 'web-platform');
+  assert.deepEqual(parsed.responseQueue[0].labels, ['profile-rollout']);
+  assert.deepEqual(parsed.unownedPacks.map((item) => item.label).sort(), ['billing-canary', 'checkout-prod']);
   assert.ok(parsed.recurringHotspots.some((item) => item.packCount >= 2));
 
   const markdownResult = runCli(['--portfolio', '-', '--markdown'], { input: portfolioInput });
   assert.equal(markdownResult.status, 0, markdownResult.stderr);
   assert.match(markdownResult.stdout, /^# Stack Sleuth Portfolio Radar/m);
+  assert.match(markdownResult.stdout, /## Response queue/);
+  assert.match(markdownResult.stdout, /web\\-platform/);
+  assert.match(markdownResult.stdout, /## Routing gaps/);
 });
 
 test('CLI reads a portfolio with --forge and prints a forged casebook export', () => {

@@ -86,6 +86,11 @@ test('README documents portfolio radar workflows for browser and CLI multi-pack 
   assert.match(readme, /Portfolio Radar/i);
   assert.match(readme, /--portfolio/);
   assert.match(readme, /@@@ checkout-prod @@@/);
+  assert.match(readme, /response queue|owner-aware queue/i);
+  assert.match(readme, /routing gaps|missing owners/i);
+  assert.match(readme, /runbook gaps|missing runbooks/i);
+  assert.match(readme, />>> owner: web-platform/);
+  assert.match(readme, />>> runbook: https:\/\/example\.com\/runbooks\/profile-null/);
   assert.match(readme, /recurring incidents|cross-pack/i);
   assert.match(readme, /recurring hotspots|shared hotspots/i);
 });

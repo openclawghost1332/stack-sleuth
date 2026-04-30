@@ -150,7 +150,7 @@ export const examples = [
   },
   {
     label: 'Portfolio radar',
-    caption: 'Several labeled incident packs roll up into one Portfolio Radar queue, making recurring incidents, shared hotspots, and the highest-priority release breakage obvious.',
+    caption: 'Several labeled incident packs roll up into one owner-aware Portfolio Radar queue, surfacing recalled owners, runbook gaps, routing gaps, recurring incidents, and shared hotspots in one release-level view.',
     portfolio: portfolioTrace,
   },
   {

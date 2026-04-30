@@ -96,13 +96,16 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(briefing.summary.counts.regressionNew, 1);
 
   const portfolioExample = examples.find((item) => item.label === 'Portfolio radar');
-  assert.match(portfolioExample.caption, /portfolio|release|ranked/i);
+  assert.match(portfolioExample.caption, /owner-aware queue|routing gap|runbook gap/i);
   assert.match(portfolioExample.portfolio, /@@@ checkout-prod @@@/i);
   assert.match(portfolioExample.portfolio, /@@@ profile-rollout @@@/i);
+  assert.match(portfolioExample.portfolio, />>> owner: web-platform/i);
 
   const portfolio = analyzeIncidentPortfolio(portfolioExample.portfolio);
   assert.equal(portfolio.summary.runnablePackCount, 3);
+  assert.equal(portfolio.summary.ownedPackCount, 1);
   assert.equal(portfolio.priorityQueue[0].label, 'profile-rollout');
+  assert.equal(portfolio.responseQueue[0].owner, 'web-platform');
   assert.ok(portfolio.recurringIncidents.some((item) => item.packCount >= 2));
 
   const forgeExample = examples.find((item) => item.label === 'Casebook Forge');

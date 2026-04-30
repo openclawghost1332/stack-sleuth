@@ -369,6 +369,16 @@ function toSerializablePayload(payload) {
         availableAnalyses: item.report.availableAnalyses,
         headline: item.report.summary.headline,
       })),
+      responseQueue: (payload.responseQueue ?? []).map((item) => ({
+        owner: item.owner,
+        labels: item.labels,
+        guidance: item.guidance,
+        highestPriorityScore: item.highestPriorityScore,
+        novelIncidentCount: item.novelIncidentCount,
+        packCount: item.packCount,
+      })),
+      runbookGaps: payload.runbookGaps ?? [],
+      unownedPacks: payload.unownedPacks ?? [],
       recurringIncidents: payload.recurringIncidents,
       recurringHotspots: payload.recurringHotspots,
       packReports: payload.packReports.map((item) => ({

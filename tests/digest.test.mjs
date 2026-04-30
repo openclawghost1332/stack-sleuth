@@ -130,6 +130,25 @@ test('analyzeTraceDigest excavates traces from noisy logs before grouping them',
   assert.deepEqual(digest.groups.map((group) => group.runtime), ['javascript', 'python']);
 });
 
+test('analyzeTraceDigest aggregates blast radius services and windows per incident group', () => {
+  const digest = analyzeTraceDigest([
+    "2026-04-30T03:00:00Z ERROR web TypeError: Cannot read properties of undefined (reading 'name')",
+    '2026-04-30T03:00:00Z ERROR web     at renderProfile (/app/src/profile.js:88:17)',
+    "2026-04-30T03:00:03Z ERROR web TypeError: Cannot read properties of undefined (reading 'email')",
+    '2026-04-30T03:00:03Z ERROR web     at renderProfile (/app/src/profile.js:88:17)',
+    "2026-04-30T03:00:04Z ERROR billing TypeError: Cannot read properties of undefined (reading 'id')",
+    '2026-04-30T03:00:04Z ERROR billing     at renderProfile (/app/src/profile.js:88:17)'
+  ].join('\n'));
+
+  assert.deepEqual(digest.groups[0].blastRadius.services, [
+    { name: 'web', count: 2 },
+    { name: 'billing', count: 1 }
+  ]);
+  assert.equal(digest.groups[0].blastRadius.firstSeen, '2026-04-30T03:00:00.000Z');
+  assert.equal(digest.groups[0].blastRadius.lastSeen, '2026-04-30T03:00:04.000Z');
+  assert.equal(digest.groups[0].blastRadius.origin, 'extracted');
+});
+
 test('analyzeTraceDigest groups reports by signature and sorts by repeat count', () => {
   const digest = analyzeTraceDigest(multiTraceInput);
 
@@ -215,6 +234,19 @@ test('digest renderers produce copy-ready text and markdown summaries', () => {
   assert.match(markdown, /## Suspect hotspots\n- `profile\.js` \(score 6, culprit 2x, support 0x\)\n- `service\.py` \(score 3, culprit 1x, support 0x\)\n- `view\.js` \(score 2, culprit 0x, support 2x\)/);
   assert.match(markdown, /## Incident 1 \(2 traces\)/);
   assert.match(markdown, /`javascript\|TypeError\|app\/src\/profile\.js:88\|nullish-data,undefined-property-access`/);
+});
+
+test('digest renderers include blast radius details for noisy digests', () => {
+  const digest = analyzeTraceDigest([
+    "2026-04-30T03:00:00Z ERROR web TypeError: Cannot read properties of undefined (reading 'name')",
+    '2026-04-30T03:00:00Z ERROR web     at renderProfile (/app/src/profile.js:88:17)',
+    "2026-04-30T03:00:04Z ERROR billing TypeError: Cannot read properties of undefined (reading 'email')",
+    '2026-04-30T03:00:04Z ERROR billing     at renderProfile (/app/src/profile.js:88:17)'
+  ].join('\n'));
+
+  assert.match(renderDigestTextSummary(digest), /Blast radius: web 1x, billing 1x/);
+  assert.match(renderDigestTextSummary(digest), /Window: 2026-04-30T03:00:00.000Z → 2026-04-30T03:00:04.000Z/);
+  assert.match(renderDigestMarkdownSummary(digest), /\*\*Blast radius:\*\* web 1x, billing 1x/);
 });
 
 test('single valid trace produces a one-group digest', () => {

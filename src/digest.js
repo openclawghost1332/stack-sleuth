@@ -8,13 +8,17 @@ export function splitTraceChunks(input) {
 
 export function analyzeTraceDigest(input) {
   const extraction = extractTraceSet(input);
-  const traces = extraction.traces
-    .map((chunk) => analyzeTrace(chunk))
-    .filter((report) => !report.empty);
+  const traces = extraction.entries
+    .map((entry) => ({ entry, report: analyzeTrace(entry.trace) }))
+    .filter(({ report }) => !report.empty)
+    .map(({ entry, report }) => ({
+      ...report,
+      sourceContext: normalizeSourceContext(entry.context, extraction.mode),
+    }));
 
   const groupsBySignature = new Map();
 
-  traces.forEach((report, index) => {
+  for (const [index, report] of traces.entries()) {
     const existing = groupsBySignature.get(report.signature);
     if (existing) {
       existing.count += 1;
@@ -22,7 +26,8 @@ export function analyzeTraceDigest(input) {
       existing.runtimes = mergeSortedUnique(existing.runtimes, [report.runtime]);
       existing.errorNames = mergeSortedUnique(existing.errorNames, [report.errorName]);
       existing.confidences = mergeSortedUnique(existing.confidences, [report.diagnosis?.confidence ?? 'unknown']);
-      return;
+      existing.blastRadius = mergeBlastRadius(existing.blastRadius, report.sourceContext);
+      continue;
     }
 
     groupsBySignature.set(report.signature, {
@@ -35,9 +40,10 @@ export function analyzeTraceDigest(input) {
       runtimes: [report.runtime],
       errorNames: [report.errorName],
       confidences: [report.diagnosis?.confidence ?? 'unknown'],
-      representative: report
+      representative: report,
+      blastRadius: cloneBlastRadius(report.sourceContext),
     });
-  });
+  }
 
   const groups = [...groupsBySignature.values()].sort((a, b) => b.count - a.count || a.firstSeenIndex - b.firstSeenIndex);
 
@@ -47,7 +53,8 @@ export function analyzeTraceDigest(input) {
     groupCount: groups.length,
     groups,
     traces,
-    hotspots: buildHotspots(traces)
+    hotspots: buildHotspots(traces),
+    blastRadius: traces.reduce((aggregate, report) => mergeBlastRadius(aggregate, report.sourceContext), createEmptyBlastRadius(extraction.mode))
   };
 }
 
@@ -58,6 +65,7 @@ export function renderDigestTextSummary(digest) {
     `Total traces: ${digest.totalTraces}`,
     `Unique incidents: ${digest.groupCount}`,
     `Suspect hotspots: ${formatTextHotspots(digest.hotspots)}`,
+    ...formatBlastRadiusTextLines(digest.blastRadius),
     '',
     ...digest.groups.flatMap((group, index) => [
       `Incident ${index + 1}: ${group.count}x ${group.runtime} ${group.errorName}`,
@@ -66,6 +74,7 @@ export function renderDigestTextSummary(digest) {
       `Confidence: ${group.representative.diagnosis.confidence}`,
       `Tags: ${group.tags.join(', ')}`,
       `Summary: ${group.representative.diagnosis.summary}`,
+      ...formatBlastRadiusTextLines(group.blastRadius),
       ''
     ])
   ].join('\n').trim();
@@ -81,6 +90,7 @@ export function renderDigestMarkdownSummary(digest) {
     '',
     '## Suspect hotspots',
     formatMarkdownHotspots(digest.hotspots),
+    ...formatBlastRadiusMarkdownLines(digest.blastRadius),
     '',
     ...digest.groups.flatMap((group, index) => [
       `## Incident ${index + 1} (${group.count} traces)`,
@@ -91,11 +101,61 @@ export function renderDigestMarkdownSummary(digest) {
       `- **Culprit:** ${formatMarkdownCode(formatFrame(group.representative.culpritFrame))}`,
       `- **Confidence:** ${escapeMarkdownText(group.representative.diagnosis.confidence)}`,
       `- **Tags:** ${escapeMarkdownText(group.tags.join(', '))}`,
+      ...formatBlastRadiusMarkdownLines(group.blastRadius),
       '',
       escapeMarkdownText(group.representative.diagnosis.summary),
       ''
     ])
   ].join('\n').trim();
+}
+
+export function normalizeSourceContext(context, mode = 'direct') {
+  const services = (context?.services ?? []).map((name) => ({ name, count: 1 }));
+  return {
+    origin: mode === 'extracted' ? 'extracted' : 'direct',
+    services,
+    levels: mergeSortedUnique([], context?.levels ?? []),
+    firstSeen: context?.firstSeen ?? null,
+    lastSeen: context?.lastSeen ?? null,
+  };
+}
+
+export function createEmptyBlastRadius(origin = 'direct') {
+  return {
+    origin,
+    services: [],
+    levels: [],
+    firstSeen: null,
+    lastSeen: null,
+  };
+}
+
+export function cloneBlastRadius(blastRadius) {
+  return {
+    origin: blastRadius?.origin ?? 'direct',
+    services: (blastRadius?.services ?? []).map((service) => ({ ...service })),
+    levels: [...(blastRadius?.levels ?? [])],
+    firstSeen: blastRadius?.firstSeen ?? null,
+    lastSeen: blastRadius?.lastSeen ?? null,
+  };
+}
+
+export function mergeBlastRadius(current, next) {
+  const aggregate = cloneBlastRadius(current ?? createEmptyBlastRadius(next?.origin ?? 'direct'));
+  const services = new Map(aggregate.services.map((service) => [service.name, { ...service }]));
+
+  for (const service of next?.services ?? []) {
+    const existing = services.get(service.name) ?? { name: service.name, count: 0 };
+    existing.count += service.count ?? 0;
+    services.set(service.name, existing);
+  }
+
+  aggregate.services = [...services.values()].sort((left, right) => right.count - left.count);
+  aggregate.levels = mergeSortedUnique(aggregate.levels, next?.levels ?? []);
+  aggregate.firstSeen = minTimestamp(aggregate.firstSeen, next?.firstSeen ?? null);
+  aggregate.lastSeen = maxTimestamp(aggregate.lastSeen, next?.lastSeen ?? null);
+  aggregate.origin = aggregate.origin === 'extracted' || next?.origin === 'extracted' ? 'extracted' : 'direct';
+  return aggregate;
 }
 
 function formatTextHotspots(hotspots) {
@@ -120,8 +180,84 @@ function formatMarkdownHotspots(hotspots) {
     .join('\n');
 }
 
+function formatBlastRadiusTextLines(blastRadius) {
+  const lines = [];
+  const services = formatServicesText(blastRadius.services);
+  if (services) {
+    lines.push(`Blast radius: ${services}`);
+  }
+
+  if (blastRadius.firstSeen || blastRadius.lastSeen) {
+    lines.push(`Window: ${formatWindow(blastRadius.firstSeen, blastRadius.lastSeen)}`);
+  }
+
+  if (blastRadius.origin) {
+    lines.push(`Source: ${blastRadius.origin}`);
+  }
+
+  return lines;
+}
+
+function formatBlastRadiusMarkdownLines(blastRadius) {
+  const lines = [];
+  const services = formatServicesText(blastRadius.services);
+  if (services) {
+    lines.push(`- **Blast radius:** ${escapeMarkdownText(services)}`);
+  }
+
+  if (blastRadius.firstSeen || blastRadius.lastSeen) {
+    lines.push(`- **Window:** ${escapeMarkdownText(formatWindow(blastRadius.firstSeen, blastRadius.lastSeen))}`);
+  }
+
+  if (blastRadius.origin) {
+    lines.push(`- **Source:** ${escapeMarkdownText(blastRadius.origin)}`);
+  }
+
+  return lines;
+}
+
+function formatServicesText(services) {
+  if (!(services?.length)) {
+    return '';
+  }
+
+  return services.map((service) => `${service.name} ${service.count}x`).join(', ');
+}
+
+function formatWindow(firstSeen, lastSeen) {
+  if (firstSeen && lastSeen) {
+    return `${firstSeen} → ${lastSeen}`;
+  }
+
+  return firstSeen ?? lastSeen ?? 'Unavailable';
+}
+
 function mergeSortedUnique(existing, next) {
   return [...new Set([...(existing ?? []), ...(next ?? [])])].sort();
+}
+
+function minTimestamp(left, right) {
+  if (!left) {
+    return right ?? null;
+  }
+
+  if (!right) {
+    return left;
+  }
+
+  return left < right ? left : right;
+}
+
+function maxTimestamp(left, right) {
+  if (!left) {
+    return right ?? null;
+  }
+
+  if (!right) {
+    return left;
+  }
+
+  return left > right ? left : right;
 }
 
 function formatMarkdownCode(value) {

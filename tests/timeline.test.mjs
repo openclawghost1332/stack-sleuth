@@ -157,6 +157,17 @@ test('analyzeTimeline trends noisy labeled rollout snapshots', () => {
   assert.equal(timeline.summary.risingCount, 1);
 });
 
+test('analyzeTimeline reuses blast radius metadata across snapshots', () => {
+  const timeline = analyzeTimeline(noisyTimelineInput);
+  const risingIncident = timeline.incidents.find((incident) => incident.trend === 'rising');
+
+  assert.deepEqual(risingIncident.blastRadius.services, [
+    { name: 'web', count: 6 }
+  ]);
+  assert.equal(risingIncident.blastRadius.firstSeen, '2026-04-30T01:40:01.000Z');
+  assert.equal(risingIncident.blastRadius.lastSeen, '2026-04-30T01:42:03.000Z');
+});
+
 test('renderTimeline helpers produce copy-ready text and markdown summaries', () => {
   const timeline = analyzeTimeline(timelineInput);
   const text = renderTimelineTextSummary(timeline);
@@ -174,4 +185,12 @@ test('renderTimeline helpers produce copy-ready text and markdown summaries', ()
   assert.match(markdown, /- `invoice\.js` \(new, 0 → 0 → 3\)/);
   assert.match(markdown, /## Incident trends/);
   assert.match(markdown, /- \*\*Trend:\*\* new/);
+});
+
+test('timeline renderers include blast radius details for noisy rollouts', () => {
+  const timeline = analyzeTimeline(noisyTimelineInput);
+
+  assert.match(renderTimelineTextSummary(timeline), /Blast radius: web 6x/);
+  assert.match(renderTimelineTextSummary(timeline), /Window: 2026-04-30T01:40:01.000Z → 2026-04-30T01:42:03.000Z/);
+  assert.match(renderTimelineMarkdownSummary(timeline), /\*\*Blast radius:\*\* web 6x/);
 });

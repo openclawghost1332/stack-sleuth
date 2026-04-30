@@ -1,4 +1,4 @@
-import { analyzeTraceDigest } from './digest.js';
+import { analyzeTraceDigest, createEmptyBlastRadius, mergeBlastRadius } from './digest.js';
 import { formatFrame } from './analyze.js';
 import { buildHotspotShifts } from './hotspots.js';
 import { formatExtractionMarkdown, formatExtractionText } from './extract.js';
@@ -60,6 +60,9 @@ export function renderRegressionTextSummary(regression) {
         `${incident.status}: ${incident.candidateCount} vs ${incident.baselineCount} (delta ${formatDelta(incident.delta)}) ${incident.signature}`,
       );
       sections.push(`  Culprit: ${formatFrame(incident.representative?.culpritFrame ?? null)}`);
+      for (const detail of formatBlastRadiusTextLines(incident.blastRadius)) {
+        sections.push(`  ${detail}`);
+      }
     });
     sections.push('');
   }
@@ -97,6 +100,9 @@ export function renderRegressionMarkdownSummary(regression) {
       lines.push(`- **Signature:** \`${escapeMarkdownCode(incident.signature)}\``);
       lines.push(`- **Counts:** candidate ${incident.candidateCount}, baseline ${incident.baselineCount}, delta ${escapeMarkdownText(formatDelta(incident.delta))}`);
       lines.push(`- **Culprit:** \`${escapeMarkdownCode(formatFrame(incident.representative?.culpritFrame ?? null))}\``);
+      for (const detail of formatBlastRadiusMarkdownLines(incident.blastRadius)) {
+        lines.push(detail);
+      }
       lines.push(`- **Summary:** ${escapeMarkdownText(incident.representative?.diagnosis?.summary ?? 'No summary available yet.')}`);
       lines.push('');
     });
@@ -121,6 +127,9 @@ function buildIncident(signature, baselineGroup, candidateGroup) {
       baselineGroup?.firstSeenIndex ?? Number.POSITIVE_INFINITY,
       candidateGroup?.firstSeenIndex ?? Number.POSITIVE_INFINITY,
     ),
+    blastRadius: [baselineGroup?.blastRadius, candidateGroup?.blastRadius]
+      .filter(Boolean)
+      .reduce((aggregate, blastRadius) => mergeBlastRadius(aggregate, blastRadius), createEmptyBlastRadius('direct')),
   };
 }
 
@@ -197,6 +206,42 @@ function formatTextHotspotShifts(hotspotShifts) {
     .slice(0, 3)
     .map((shift) => `${shift.label} (${formatDelta(shift.delta)})`)
     .join(', ');
+}
+
+function formatBlastRadiusTextLines(blastRadius) {
+  const lines = [];
+  const services = blastRadius?.services?.map((service) => `${service.name} ${service.count}x`).join(', ');
+  if (services) {
+    lines.push(`Blast radius: ${services}`);
+  }
+
+  if (blastRadius?.firstSeen || blastRadius?.lastSeen) {
+    lines.push(`Window: ${formatWindow(blastRadius.firstSeen, blastRadius.lastSeen)}`);
+  }
+
+  return lines;
+}
+
+function formatBlastRadiusMarkdownLines(blastRadius) {
+  const lines = [];
+  const services = blastRadius?.services?.map((service) => `${service.name} ${service.count}x`).join(', ');
+  if (services) {
+    lines.push(`- **Blast radius:** ${escapeMarkdownText(services)}`);
+  }
+
+  if (blastRadius?.firstSeen || blastRadius?.lastSeen) {
+    lines.push(`- **Window:** ${escapeMarkdownText(formatWindow(blastRadius.firstSeen, blastRadius.lastSeen))}`);
+  }
+
+  return lines;
+}
+
+function formatWindow(firstSeen, lastSeen) {
+  if (firstSeen && lastSeen) {
+    return `${firstSeen} → ${lastSeen}`;
+  }
+
+  return firstSeen ?? lastSeen ?? 'Unavailable';
 }
 
 function formatMarkdownHotspotShifts(hotspotShifts) {

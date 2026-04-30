@@ -160,6 +160,45 @@ const notebookPackInput = [
   dedicatedTimelineInput,
 ].join('\n');
 
+const notebookPortfolioInput = [
+  '# Pack: checkout-prod',
+  '',
+  '## Current incident',
+  [
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n\n'),
+  '',
+  '# Pack: profile-rollout',
+  '',
+  '## Current incident',
+  [
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `ProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n\n'),
+  '',
+  '## Prior incidents',
+  [
+    '=== release-2026-04-15 ===',
+    [
+      `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+      `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+    ].join('\n\n'),
+  ].join('\n'),
+  '',
+  '# Pack: billing-canary',
+  '',
+  '## Baseline',
+  `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+  '',
+  '## Candidate',
+  [
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n\n'),
+].join('\n');
+
 const requiredIds = [
   'trace-input',
   'explain-button',
@@ -404,6 +443,39 @@ test('browser notebook example button loads a markdown notebook and renders its 
     assert.equal(harness.get('runtime-value').textContent, 'incident pack briefing');
     assert.match(harness.get('headline-value').textContent, /Casebook Radar flagged 1 novel incident/i);
     assert.match(harness.get('example-caption').textContent, /markdown handoff note/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser multi-pack notebook analyze flow routes # Pack headings into portfolio radar cards', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', notebookPortfolioInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'casebook forge');
+    assert.match(harness.get('headline-value').textContent, /Forged \d+ reusable case/i);
+    assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
+    assert.match(harness.get('portfolio-priority-value').children[0].textContent, /profile-rollout/);
+    assert.match(harness.get('forge-export-value').textContent, /=== release-2026-04-15 ===/);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser multi-pack notebook copy flow includes normalization plus portfolio summary', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', notebookPortfolioInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Notebook normalization/);
+    assert.match(harness.clipboard.text, /@@@ checkout-prod @@@/);
+    assert.match(harness.clipboard.text, /Stack Sleuth Portfolio Radar/);
+    assert.equal(harness.get('example-caption').textContent, 'Notebook briefing copied to clipboard.');
   } finally {
     harness.restore();
   }

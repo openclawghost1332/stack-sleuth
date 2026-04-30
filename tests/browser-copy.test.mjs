@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const stylesCss = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
 const casebookHistoryInput = [
   '=== release-2026-04-15 ===',
@@ -326,6 +327,11 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, />Analyze casebook</i);
   assert.match(indexHtml, />Copy casebook summary</i);
   assert.match(indexHtml, />Load portfolio example</i);
+  assert.match(indexHtml, />Copy result</i);
+});
+
+test('browser Casebook Forge export styling preserves multiline formatting for manual copy', () => {
+  assert.match(stylesCss, /#forge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
 });
 
 test('browser portfolio flow surfaces Casebook Forge cards alongside Portfolio Radar details', async () => {

@@ -191,6 +191,10 @@ textarea {
   line-height: 1.6;
 }
 
+#forge-export-value {
+  white-space: pre-wrap;
+}
+
 .checklist {
   padding-left: 1.2rem;
   color: #d9e5f5;

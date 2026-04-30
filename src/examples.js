@@ -27,6 +27,12 @@ const alertTrace = `TypeError: Cannot read properties of undefined (reading 'tit
 
 const rubyTrace = "app/service.rb:7:in `run': undefined method `email' for nil:NilClass (NoMethodError)\n\tfrom app/controller.rb:3:in `call'";
 
+const rawLogTrace = [
+  '2026-04-30T01:50:00Z INFO api boot complete',
+  `2026-04-30T01:50:01Z ERROR web ${javascriptTrace.split('\n').join('\n2026-04-30T01:50:01Z ERROR web ')}`,
+  '2026-04-30T01:50:02Z INFO request complete',
+].join('\n');
+
 const timelineTrace = [
   '=== canary ===',
   [javascriptTrace, dashboardTrace, dashboardTrace, dashboardTrace, pythonTrace, rubyTrace].join('\n\n'),
@@ -48,6 +54,11 @@ export const examples = [
     label: 'Python missing key',
     caption: 'Backend payload arrives without an expected email key during account sync, centering the hotspot radar on service.py.',
     trace: pythonTrace
+  },
+  {
+    label: 'Raw log excavation',
+    caption: 'A noisy raw log dump still excavates the embedded production trace, making the before-and-after jump obvious in one click.',
+    trace: rawLogTrace
   },
   {
     label: 'Repeated incident digest',

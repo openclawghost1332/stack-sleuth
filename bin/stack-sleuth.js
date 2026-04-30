@@ -6,7 +6,6 @@ import {
   analyzeTraceDigest,
   renderDigestTextSummary,
   renderDigestMarkdownSummary,
-  splitTraceChunks
 } from '../src/digest.js';
 import {
   analyzeRegression,
@@ -18,6 +17,7 @@ import {
   renderTimelineTextSummary,
   renderTimelineMarkdownSummary,
 } from '../src/timeline.js';
+import { extractTraceSet, formatExtractionMarkdown, formatExtractionText } from '../src/extract.js';
 
 const args = process.argv.slice(2);
 const mode = args.includes('--json') ? 'json' : args.includes('--markdown') ? 'markdown' : 'text';
@@ -70,12 +70,17 @@ try {
     }
 
     const regression = analyzeRegression({ baseline: baselineInput, candidate: candidateInput });
+    if (regression.baselineDigest.totalTraces === 0 || regression.candidateDigest.totalTraces === 0) {
+      fail('Compare mode could not excavate any traces from one side of the comparison.');
+    }
+
     writeOutput(regression, mode, renderRegressionTextSummary, renderRegressionMarkdownSummary);
     process.exit(0);
   }
 
   const input = filePath ? fs.readFileSync(filePath, 'utf8') : fs.readFileSync(0, 'utf8');
-  const useDigest = wantsDigest || splitTraceChunks(input).length > 1;
+  const extraction = extractTraceSet(input);
+  const useDigest = wantsDigest || extraction.traceCount > 1;
 
   if (useDigest) {
     const digest = analyzeTraceDigest(input);
@@ -86,13 +91,13 @@ try {
 
     writeOutput(digest, mode, renderDigestTextSummary, renderDigestMarkdownSummary);
   } else {
-    const report = analyzeTrace(input);
-
-    if (report.empty) {
+    if (extraction.traceCount === 0) {
       fail('No trace provided. Pipe a stack trace or pass a file path.');
     }
 
-    writeOutput(report, mode, renderTextSummary, renderMarkdownSummary);
+    const report = analyzeTrace(extraction.traces[0]);
+    const payload = extraction.mode === 'extracted' ? { ...report, extraction } : report;
+    writeOutput(payload, mode, renderSingleTraceTextSummary, renderSingleTraceMarkdownSummary);
   }
 } catch (error) {
   if (timelinePath) {
@@ -161,6 +166,24 @@ function writeOutput(payload, outputMode, textRenderer, markdownRenderer) {
   } else {
     process.stdout.write(`${textRenderer(payload)}\n`);
   }
+}
+
+function renderSingleTraceTextSummary(report) {
+  const summary = renderTextSummary(report);
+  if (report?.extraction?.mode === 'extracted') {
+    return `${formatExtractionText(report.extraction)}\n${summary}`;
+  }
+
+  return summary;
+}
+
+function renderSingleTraceMarkdownSummary(report) {
+  const summary = renderMarkdownSummary(report);
+  if (report?.extraction?.mode === 'extracted') {
+    return ['# Stack Sleuth Report', '', formatExtractionMarkdown(report.extraction), '', ...summary.split('\n').slice(2)].join('\n');
+  }
+
+  return summary;
 }
 
 function fail(message) {

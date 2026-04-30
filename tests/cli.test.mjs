@@ -27,6 +27,12 @@ const timelineInput = [
   [sampleTrace, comparisonTrace].join('\n\n'),
 ].join('\n');
 
+const noisySingleTraceLog = [
+  '2026-04-30T01:50:00Z INFO api boot complete',
+  `2026-04-30T01:50:01Z ERROR web ${sampleTrace.split('\n').join('\n2026-04-30T01:50:01Z ERROR web ')}`,
+  '2026-04-30T01:50:02Z INFO request complete',
+].join('\n');
+
 function runCli(args = [], options = {}) {
   return spawnSync(process.execPath, [cliPath.pathname, ...args], {
     encoding: 'utf8',
@@ -67,6 +73,24 @@ test('CLI supports --json output', () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), analyzeTrace(sampleTrace));
+});
+
+test('CLI excavates a single trace from noisy logs in text mode', () => {
+  const result = runCli([], { input: noisySingleTraceLog });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Input: excavated 1 trace from raw logs, ignored 2 non-trace lines\./i);
+  assert.match(result.stdout, /Stack Sleuth Report/);
+  assert.match(result.stdout, /Runtime: javascript/);
+});
+
+test('CLI exposes extraction metadata in json mode for noisy single-trace logs', () => {
+  const result = runCli(['--json'], { input: noisySingleTraceLog });
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.extraction.mode, 'extracted');
+  assert.equal(parsed.extraction.traceCount, 1);
 });
 
 test('CLI supports --markdown output', () => {

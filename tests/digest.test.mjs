@@ -48,6 +48,20 @@ const multiTraceInput = [
   repeatedPythonTrace
 ].join('\n\n');
 
+const noisyLogInput = [
+  '2026-04-30T01:00:00Z INFO api boot complete',
+  "2026-04-30T01:00:01Z ERROR web TypeError: Cannot read properties of undefined (reading 'name')",
+  '2026-04-30T01:00:01Z ERROR web     at renderProfile (/app/src/profile.js:88:17)',
+  '2026-04-30T01:00:01Z ERROR web     at updateView (/app/src/view.js:42:5)',
+  '2026-04-30T01:00:02Z WARN worker heartbeat lagging',
+  '2026-04-30T01:00:03Z ERROR worker Traceback (most recent call last):',
+  '2026-04-30T01:00:03Z ERROR worker   File "app.py", line 42, in <module>',
+  '2026-04-30T01:00:03Z ERROR worker     run()',
+  '2026-04-30T01:00:03Z ERROR worker   File "service.py", line 17, in run',
+  '2026-04-30T01:00:03Z ERROR worker     return user["email"]',
+  "2026-04-30T01:00:03Z ERROR worker KeyError: 'email'"
+].join('\n');
+
 test('splitTraceChunks separates repeated runtime-shaped traces', () => {
   assert.deepEqual(splitTraceChunks(multiTraceInput), [
     repeatedJavascriptTrace,
@@ -80,6 +94,40 @@ test('splitTraceChunks keeps a chained Python exception as one logical trace', (
   const digest = analyzeTraceDigest(chainedPythonTrace);
   assert.equal(digest.totalTraces, 1);
   assert.equal(digest.groupCount, 1);
+});
+
+test('splitTraceChunks excavates trace-shaped chunks from noisy logs', () => {
+  assert.equal(splitTraceChunks(noisyLogInput).length, 2);
+
+  const digest = analyzeTraceDigest(noisyLogInput);
+  assert.equal(digest.extraction.mode, 'extracted');
+  assert.equal(digest.totalTraces, 2);
+  assert.equal(digest.groupCount, 2);
+});
+
+test('analyzeTraceDigest excavates traces from noisy logs before grouping them', () => {
+  const noisyLog = [
+    '2026-04-30T01:20:00.000Z INFO booting worker',
+    '[api] ERROR request failed TypeError: Cannot read properties of undefined (reading \'name\')',
+    '[api] ERROR request failed     at renderProfile (/app/src/profile.js:88:17)',
+    '[api] ERROR request failed     at updateView (/app/src/view.js:42:5)',
+    '[api] ERROR request failed     at processTicksAndRejections (node:internal/process/task_queues:95:5)',
+    '2026-04-30T01:20:05.000Z WARN retry scheduled',
+    '2026-04-30 01:20:06 ERROR Traceback (most recent call last):',
+    '2026-04-30 01:20:06 ERROR   File "worker.py", line 22, in sync_user',
+    '2026-04-30 01:20:06 ERROR     return parse_payload(payload)',
+    '2026-04-30 01:20:06 ERROR   File "parser.py", line 10, in parse_payload',
+    '2026-04-30 01:20:06 ERROR     return int(payload["user_id"])',
+    '2026-04-30 01:20:06 ERROR ValueError: invalid literal for int() with base 10: \'abc\'',
+    '2026-04-30T01:20:07.000Z INFO request complete'
+  ].join('\n');
+
+  const digest = analyzeTraceDigest(noisyLog);
+
+  assert.equal(digest.totalTraces, 2);
+  assert.equal(digest.groupCount, 2);
+  assert.deepEqual(digest.traces.map((trace) => trace.runtime), ['javascript', 'python']);
+  assert.deepEqual(digest.groups.map((group) => group.runtime), ['javascript', 'python']);
 });
 
 test('analyzeTraceDigest groups reports by signature and sorts by repeat count', () => {

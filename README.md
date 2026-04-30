@@ -1,28 +1,36 @@
 # Stack Sleuth
 
-Stack Sleuth turns raw JavaScript, Python, and Ruby stack traces into a likely culprit frame, a reusable issue signature, nearby support frames, ranked suspect hotspots, and a practical next-step checklist. When you paste multiple traces, it can collapse repeated failures into an Incident Digest with ranked groups and shared hotspots. When you compare a baseline batch against a candidate batch, it can also run a Regression Radar that surfaces new, resolved, and worsening incidents plus hotspot shifts. When you paste more than two labeled rollout snapshots, it can run a Timeline Radar that explains which incidents are new, rising, flapping, steady, falling, or resolved across the rollout.
+Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a likely culprit frame, a reusable issue signature, nearby support frames, ranked suspect hotspots, and a practical next-step checklist. It can excavate embedded traces from noisy raw logs before grouping repeated incidents, comparing releases, or mapping rollout drift.
 
 ## Browser demo
 
-Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so the runtime, culprit, signature, support frames, suspect hotspots, checklist, incident digest, regression comparison, and timeline trend calls stay aligned across every workflow.
+Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so excavation status, culprit detection, signatures, support frames, suspect hotspots, incident digest output, regression comparison, and timeline trend calls stay aligned across every workflow.
 
-Use the built-in example buttons to compare four modes:
+Use the built-in example buttons to compare six modes:
 - single-trace diagnosis with suspect hotspots
-- repeated traces grouped into digest incidents with shared hotspots
+- raw log excavation from noisy production logs
+- repeated traces grouped into an Incident Digest with shared hotspots
 - baseline and candidate batches compared in Regression Radar mode with hotspot shifts
 - labeled rollout snapshots analyzed in Timeline Radar mode with trend calls and hotspot movement
+- browser copy that includes excavation-aware summaries
 
 ## CLI
 
 Use the CLI when you want quick terminal triage from stdin or saved trace files.
 
-### Read from stdin
+### Read a direct trace from stdin
 
 ```bash
 cat trace.txt | node ./bin/stack-sleuth.js
 ```
 
-If stdin contains multiple traces separated by blank lines, Stack Sleuth automatically promotes the output into an Incident Digest and adds ranked suspect hotspots to the summary and JSON payload.
+### Read a noisy raw log from stdin
+
+```bash
+cat production.log | node ./bin/stack-sleuth.js
+```
+
+If stdin contains multiple traces or raw logs with multiple embedded exceptions, Stack Sleuth automatically promotes the output into an Incident Digest and adds ranked suspect hotspots to the summary and JSON payload.
 
 ### Read from a file path
 
@@ -33,30 +41,30 @@ node ./bin/stack-sleuth.js ./trace.txt
 ### Emit JSON
 
 ```bash
-cat trace.txt | node ./bin/stack-sleuth.js --json
+cat production.log | node ./bin/stack-sleuth.js --json
 ```
 
 ### Emit Markdown
 
 ```bash
-cat trace.txt | node ./bin/stack-sleuth.js --markdown
+cat production.log | node ./bin/stack-sleuth.js --markdown
 ```
 
 ### Force Incident Digest mode
 
 ```bash
-cat repeated-traces.txt | node ./bin/stack-sleuth.js --digest
+cat repeated-traces-or-logs.txt | node ./bin/stack-sleuth.js --digest
 ```
 
 ### Force Incident Digest Markdown
 
 ```bash
-cat repeated-traces.txt | node ./bin/stack-sleuth.js --digest --markdown
+cat repeated-traces-or-logs.txt | node ./bin/stack-sleuth.js --digest --markdown
 ```
 
 ## Regression Radar
 
-Regression Radar compares two trace batches by signature so you can see what is new, what disappeared, what got worse, and which culprit paths shifted the most.
+Regression Radar compares two trace batches or raw logs by signature so you can see what is new, what disappeared, what got worse, and which culprit paths shifted the most.
 
 ### Compare baseline and candidate files
 
@@ -67,20 +75,20 @@ node ./bin/stack-sleuth.js --baseline ./baseline.txt --candidate ./candidate.txt
 ### Compare a saved baseline against candidate stdin
 
 ```bash
-cat candidate.txt | node ./bin/stack-sleuth.js --baseline ./baseline.txt --candidate - --json
+cat candidate.log | node ./bin/stack-sleuth.js --baseline ./baseline.log --candidate - --json
 ```
 
 ### Compare in Markdown
 
 ```bash
-node ./bin/stack-sleuth.js --baseline ./baseline.txt --candidate ./candidate.txt --markdown
+node ./bin/stack-sleuth.js --baseline ./baseline.log --candidate ./candidate.log --markdown
 ```
 
-In the browser, paste baseline and candidate incident batches into the Regression Radar panel, then press **Compare batches** to populate both the incident changes list and the Hotspot shifts card.
+In the browser, paste baseline and candidate incident batches or raw logs into the Regression Radar panel, then press **Compare batches** to populate both the incident changes list and the Hotspot shifts card.
 
 ## Timeline Radar
 
-Timeline Radar compares three or more rollout snapshots so you can see what is brand new, what rose with each snapshot, what flapped during rollout, what stayed steady, what is falling back down, and what resolved before the latest batch.
+Timeline Radar compares three or more labeled rollout snapshots so you can see what is brand new, what rose with each snapshot, what flapped during rollout, what stayed steady, what is falling back down, and what resolved before the latest batch. Each labeled snapshot can contain direct traces or noisy raw logs.
 
 ### Analyze labeled snapshots from a file
 
@@ -91,31 +99,31 @@ node ./bin/stack-sleuth.js --timeline ./rollout-timeline.txt
 ### Analyze labeled snapshots from stdin in JSON mode
 
 ```bash
-cat rollout-timeline.txt | node ./bin/stack-sleuth.js --timeline - --json
+cat rollout-timeline.log | node ./bin/stack-sleuth.js --timeline - --json
 ```
 
 ### Analyze labeled snapshots in Markdown
 
 ```bash
-node ./bin/stack-sleuth.js --timeline ./rollout-timeline.txt --markdown
+node ./bin/stack-sleuth.js --timeline ./rollout-timeline.log --markdown
 ```
 
 Label each snapshot with a heading like this:
 
 ```text
 === canary ===
-TypeError: Cannot read properties of undefined (reading 'name')
-    at renderProfile (/app/src/profile.js:88:17)
+2026-04-30T01:40:01Z ERROR web TypeError: Cannot read properties of undefined (reading 'name')
+2026-04-30T01:40:01Z ERROR web     at renderProfile (/app/src/profile.js:88:17)
 
 === 25-percent ===
-TypeError: Cannot read properties of undefined (reading 'name')
-    at renderProfile (/app/src/profile.js:88:17)
-TypeError: Cannot read properties of undefined (reading 'email')
-    at renderInvoice (/app/src/invoice.js:19:7)
+2026-04-30T01:41:01Z ERROR web TypeError: Cannot read properties of undefined (reading 'name')
+2026-04-30T01:41:01Z ERROR web     at renderProfile (/app/src/profile.js:88:17)
+2026-04-30T01:41:03Z ERROR billing TypeError: Cannot read properties of undefined (reading 'email')
+2026-04-30T01:41:03Z ERROR billing     at renderInvoice (/app/src/invoice.js:19:7)
 
 === full-rollout ===
-TypeError: Cannot read properties of undefined (reading 'email')
-    at renderInvoice (/app/src/invoice.js:19:7)
+2026-04-30T01:42:03Z ERROR billing TypeError: Cannot read properties of undefined (reading 'email')
+2026-04-30T01:42:03Z ERROR billing     at renderInvoice (/app/src/invoice.js:19:7)
 ```
 
 In the browser, paste labeled snapshots into the Timeline Radar panel, then press **Analyze timeline** to populate both the Timeline trend calls card and the Timeline hotspot movement card.

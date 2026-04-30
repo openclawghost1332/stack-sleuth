@@ -30,6 +30,21 @@ const thirdJavascriptTrace = `TypeError: Cannot read properties of undefined (re
     at refreshBilling (/app/src/billing.js:57:3)
     at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
 
+const noisyBaseline = [
+  '2026-04-30T01:30:00Z INFO boot complete',
+  `2026-04-30T01:30:01Z ERROR web ${repeatedJavascriptTrace.split('\n').join('\n2026-04-30T01:30:01Z ERROR web ')}`,
+  '2026-04-30T01:30:02Z WARN retry scheduled',
+  `2026-04-30T01:30:03Z ERROR worker ${repeatedPythonTrace.split('\n').join('\n2026-04-30T01:30:03Z ERROR worker ')}`,
+].join('\n');
+
+const noisyCandidate = [
+  '2026-04-30T01:31:00Z INFO boot complete',
+  `2026-04-30T01:31:01Z ERROR web ${repeatedJavascriptTrace.split('\n').join('\n2026-04-30T01:31:01Z ERROR web ')}`,
+  `2026-04-30T01:31:02Z ERROR web ${repeatedJavascriptTrace.split('\n').join('\n2026-04-30T01:31:02Z ERROR web ')}`,
+  `2026-04-30T01:31:03Z ERROR billing ${thirdJavascriptTrace.split('\n').join('\n2026-04-30T01:31:03Z ERROR billing ')}`,
+  '2026-04-30T01:31:04Z INFO request complete',
+].join('\n');
+
 test('analyzeRegression classifies incidents and sorts them by status priority then delta', () => {
   const baseline = [
     repeatedJavascriptTrace,
@@ -162,6 +177,16 @@ test('analyzeRegression keeps a usable representative report on both candidate a
   assert.equal(regression.incidents[0].representative.errorName, 'TypeError');
   assert.equal(regression.incidents.at(-1).status, 'resolved');
   assert.equal(regression.incidents.at(-1).representative.errorName, 'KeyError');
+});
+
+test('analyzeRegression compares noisy baseline and candidate logs', () => {
+  const regression = analyzeRegression({ baseline: noisyBaseline, candidate: noisyCandidate });
+
+  assert.equal(regression.baselineDigest.extraction.mode, 'extracted');
+  assert.equal(regression.candidateDigest.extraction.mode, 'extracted');
+  assert.equal(regression.summary.newCount, 1);
+  assert.equal(regression.summary.resolvedCount, 1);
+  assert.equal(regression.summary.volumeUpCount, 1);
 });
 
 test('renderRegression helpers produce copy-ready text and markdown summaries', () => {

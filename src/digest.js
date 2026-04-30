@@ -1,43 +1,14 @@
 import { analyzeTrace, formatFrame } from './analyze.js';
-import { detectTraceStartRuntime } from './parse.js';
 import { buildHotspots } from './hotspots.js';
-
-const PYTHON_CHAIN_MARKER = /^(?:The above exception was the direct cause of the following exception:|During handling of the above exception, another exception occurred:)$/;
+import { extractTraceSet, formatExtractionText, formatExtractionMarkdown } from './extract.js';
 
 export function splitTraceChunks(input) {
-  const source = String(input ?? '').replace(/\r\n/g, '\n').trim();
-  if (!source) {
-    return [];
-  }
-
-  const sections = source
-    .split(/\n\s*\n/)
-    .map((section) => section.trim())
-    .filter(Boolean);
-
-  return sections.reduce((chunks, section) => {
-    if (chunks.length === 0) {
-      chunks.push(section);
-      return chunks;
-    }
-
-    const firstLine = section.split('\n')[0] ?? '';
-    const lastLine = chunks.at(-1)?.split('\n').at(-1) ?? '';
-    const startsNewTrace = Boolean(detectTraceStartRuntime(firstLine));
-    const continuesPythonChain = firstLine === 'Traceback (most recent call last):' && PYTHON_CHAIN_MARKER.test(lastLine);
-
-    if (startsNewTrace && !continuesPythonChain) {
-      chunks.push(section);
-      return chunks;
-    }
-
-    chunks[chunks.length - 1] = `${chunks.at(-1)}\n\n${section}`;
-    return chunks;
-  }, []);
+  return extractTraceSet(input).traces;
 }
 
 export function analyzeTraceDigest(input) {
-  const traces = splitTraceChunks(input)
+  const extraction = extractTraceSet(input);
+  const traces = extraction.traces
     .map((chunk) => analyzeTrace(chunk))
     .filter((report) => !report.empty);
 
@@ -71,6 +42,7 @@ export function analyzeTraceDigest(input) {
   const groups = [...groupsBySignature.values()].sort((a, b) => b.count - a.count || a.firstSeenIndex - b.firstSeenIndex);
 
   return {
+    extraction,
     totalTraces: traces.length,
     groupCount: groups.length,
     groups,
@@ -82,6 +54,7 @@ export function analyzeTraceDigest(input) {
 export function renderDigestTextSummary(digest) {
   return [
     'Stack Sleuth Incident Digest',
+    formatExtractionText(digest.extraction),
     `Total traces: ${digest.totalTraces}`,
     `Unique incidents: ${digest.groupCount}`,
     `Suspect hotspots: ${formatTextHotspots(digest.hotspots)}`,
@@ -102,6 +75,7 @@ export function renderDigestMarkdownSummary(digest) {
   return [
     '# Stack Sleuth Incident Digest',
     '',
+    formatExtractionMarkdown(digest.extraction),
     `- **Total traces:** ${digest.totalTraces}`,
     `- **Unique incidents:** ${digest.groupCount}`,
     '',

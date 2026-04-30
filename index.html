@@ -10,17 +10,18 @@
     <main class="app-shell">
       <section class="hero card">
         <p class="eyebrow">Stack Sleuth</p>
-        <h1>Paste one or more stack traces, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, compare two batches with a Regression Radar, or map rollout drift with a Timeline Radar.</h1>
-        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, collapsing a noisy incident bundle, asking what got worse after a release, or tracking a canary rollout across multiple snapshots.</p>
+        <h1>Paste one or more stack traces or raw logs, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, compare two batches with a Regression Radar, or map rollout drift with a Timeline Radar.</h1>
+        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, excavating a noisy raw log dump, collapsing an incident bundle, asking what got worse after a release, or tracking a canary rollout across multiple snapshots.</p>
       </section>
 
       <section class="workspace card">
-        <label class="field-label" for="trace-input">Stack trace or incident bundle</label>
-        <textarea id="trace-input" rows="14" spellcheck="false" placeholder="Paste one or more JavaScript, Python, or Ruby traces here..."></textarea>
+        <label class="field-label" for="trace-input">Stack trace, raw log, or incident bundle</label>
+        <textarea id="trace-input" rows="14" spellcheck="false" placeholder="Paste one or more JavaScript, Python, or Ruby traces or raw logs here..."></textarea>
         <div class="actions">
           <button id="explain-button" type="button">Explain trace(s)</button>
           <button id="load-js-button" type="button" class="secondary">Load JS example</button>
           <button id="load-python-button" type="button" class="secondary">Load Python example</button>
+          <button id="load-raw-log-button" type="button" class="secondary">Load raw log example</button>
           <button id="load-digest-button" type="button" class="secondary">Load digest example</button>
           <button id="copy-button" type="button" class="ghost">Copy diagnosis</button>
         </div>
@@ -32,24 +33,24 @@
         <div class="compare-grid">
           <div>
             <label class="field-label" for="compare-baseline-input">Baseline incident batch</label>
-            <textarea id="compare-baseline-input" rows="10" spellcheck="false" placeholder="Paste the baseline traces here..."></textarea>
+            <textarea id="compare-baseline-input" rows="10" spellcheck="false" placeholder="Paste the baseline traces or raw logs here..."></textarea>
           </div>
           <div>
             <label class="field-label" for="compare-candidate-input">Candidate incident batch</label>
-            <textarea id="compare-candidate-input" rows="10" spellcheck="false" placeholder="Paste the candidate traces here..."></textarea>
+            <textarea id="compare-candidate-input" rows="10" spellcheck="false" placeholder="Paste the candidate traces or raw logs here..."></textarea>
           </div>
         </div>
         <div class="actions">
           <button id="compare-button" type="button">Compare batches</button>
           <button id="load-regression-button" type="button" class="secondary">Load regression example</button>
         </div>
-        <p id="compare-caption" class="caption" aria-live="polite">Paste baseline and candidate traces to spot new, resolved, and worsening incidents.</p>
+        <p id="compare-caption" class="caption" aria-live="polite">Paste baseline and candidate traces or raw logs to spot new, resolved, and worsening incidents.</p>
       </section>
 
       <section class="workspace card">
         <p class="field-label">Timeline Radar</p>
         <label class="field-label" for="timeline-input">Rollout snapshots</label>
-        <textarea id="timeline-input" rows="14" spellcheck="false" placeholder="Paste labeled snapshots like === canary ===, === 25-percent ===, and === full-rollout === here..."></textarea>
+        <textarea id="timeline-input" rows="14" spellcheck="false" placeholder="Paste labeled snapshots like === canary ===, === 25-percent ===, and === full-rollout === with traces or raw logs here..."></textarea>
         <div class="actions">
           <button id="timeline-button" type="button">Analyze timeline</button>
           <button id="load-timeline-button" type="button" class="secondary">Load timeline example</button>
@@ -92,12 +93,16 @@
           </ul>
         </article>
         <article class="card result-card">
+          <span class="result-label">Excavation status</span>
+          <strong id="excavation-value">Awaiting trace or raw log input</strong>
+        </article>
+        <article class="card result-card">
           <span class="result-label">Runtime</span>
           <strong id="runtime-value">Awaiting trace</strong>
         </article>
         <article class="card result-card">
           <span class="result-label">Error headline</span>
-          <strong id="headline-value">Paste one or more traces to get started</strong>
+          <strong id="headline-value">Paste one or more traces or raw logs to get started</strong>
         </article>
         <article class="card result-card">
           <span class="result-label">Culprit frame</span>

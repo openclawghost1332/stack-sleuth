@@ -25,6 +25,11 @@ const alertTrace = `TypeError: Cannot read properties of undefined (reading 'tit
     at refreshAlerts (/app/src/alerts/index.js:5:2)
     at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
 
+const profileHydrationTrace = `ProfileHydrationError: Profile payload missing account metadata
+    at renderProfileState (/app/src/profile.js:102:9)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
+
 const rubyTrace = "app/service.rb:7:in `run': undefined method `email' for nil:NilClass (NoMethodError)\n\tfrom app/controller.rb:3:in `call'";
 
 const rawLogTrace = [
@@ -34,6 +39,19 @@ const rawLogTrace = [
   `2026-04-30T01:50:04Z ERROR billing ${regressionTrace.split('\n').join('\n2026-04-30T01:50:04Z ERROR billing ')}`,
   '2026-04-30T01:50:05Z INFO request complete',
 ].join('\n');
+
+const casebookHistoryTrace = [
+  '=== release-2026-04-15 ===',
+  [javascriptTrace, regressionTrace].join('\n\n'),
+  '',
+  '=== profile-rewrite ===',
+  javascriptTrace,
+].join('\n');
+
+const casebookCurrentTrace = [
+  javascriptTrace,
+  profileHydrationTrace,
+].join('\n\n');
 
 const timelineTrace = [
   '=== canary ===',
@@ -66,6 +84,12 @@ export const examples = [
     label: 'Repeated incident digest',
     caption: 'Two repeated frontend failures and one backend key miss collapse into a repeat-friendly incident digest with ranked suspect hotspots.',
     trace: `${javascriptTrace}\n\n${javascriptTrace}\n\n${pythonTrace}`
+  },
+  {
+    label: 'Casebook Radar',
+    caption: 'Today\'s incident batch matches one known failure and one novel profile hydration break, so the casebook lookup reads like a real incident-memory handoff.',
+    current: casebookCurrentTrace,
+    history: casebookHistoryTrace,
   },
   {
     label: 'Regression radar',

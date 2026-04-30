@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { analyzeTraceDigest } from '../src/digest.js';
+import { parseLabeledTraceBatches } from '../src/labeled.js';
 
 test('README documents browser and CLI workflows, local development, and GitHub Pages', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
@@ -26,6 +28,39 @@ test('README documents blast radius summaries for excavated logs', () => {
   assert.match(readme, /blast radius/i);
   assert.match(readme, /affected services/i);
   assert.match(readme, /first-seen|last-seen|window/i);
+});
+
+test('README documents casebook radar workflows for browser and CLI lookup mode', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Casebook Radar/i);
+  assert.match(readme, /known versus novel|known-versus-novel/i);
+  assert.match(readme, /--history/);
+  assert.match(readme, /--current/);
+  assert.match(readme, /=== release-2026-04-15 ===/);
+  assert.match(readme, /prior incidents|incident memory|historical cases/i);
+});
+
+test('README casebook example preserves separate traces inside labeled history entries', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  const casebookExample = readme.match(/Label each prior incident case[\s\S]*?```text\n([\s\S]*?)```/);
+
+  assert.ok(casebookExample, 'expected a labeled Casebook Radar history example in README.md');
+
+  const batches = parseLabeledTraceBatches(casebookExample[1]);
+  assert.deepEqual(batches.map((batch) => batch.label), ['release-2026-04-15', 'profile-rewrite']);
+
+  const profileRewriteDigest = analyzeTraceDigest(
+    batches.find((batch) => batch.label === 'profile-rewrite')?.traces ?? ''
+  );
+
+  assert.equal(profileRewriteDigest.totalTraces, 2);
+  assert.deepEqual(
+    profileRewriteDigest.groups.map((group) => group.signature).sort(),
+    [
+      'javascript|TypeError|app/src/invoice.js:19|nullish-data,undefined-property-access',
+      'javascript|TypeError|app/src/profile.js:88|nullish-data,undefined-property-access',
+    ]
+  );
 });
 
 test('README documents regression radar workflows for browser and CLI compare mode', () => {

@@ -13,27 +13,38 @@ import {
   renderRegressionMarkdownSummary
 } from '../src/regression.js';
 import {
+  analyzeCasebook,
+  renderCasebookTextSummary,
+  renderCasebookMarkdownSummary,
+} from '../src/casebook.js';
+import {
   analyzeTimeline,
   renderTimelineTextSummary,
   renderTimelineMarkdownSummary,
 } from '../src/timeline.js';
 import { extractTraceSet, formatExtractionMarkdown, formatExtractionText } from '../src/extract.js';
+import { parseLabeledTraceBatches } from '../src/labeled.js';
 
 const args = process.argv.slice(2);
 const mode = args.includes('--json') ? 'json' : args.includes('--markdown') ? 'markdown' : 'text';
 const wantsDigest = args.includes('--digest');
 const compareArgumentError = validateCompareArguments(args);
 const timelineArgumentError = validateOptionValue(args, '--timeline');
+const historyArgumentError = validateOptionValue(args, '--history');
+const currentArgumentError = validateOptionValue(args, '--current');
 const baselinePath = readOptionValue(args, '--baseline');
 const candidatePath = readOptionValue(args, '--candidate');
 const timelinePath = readOptionValue(args, '--timeline');
+const historyPath = readOptionValue(args, '--history');
+const currentPath = readOptionValue(args, '--current');
+const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, timelinePath, historyPath });
 const filePath = args.find((arg, index) => {
   if (arg.startsWith('--')) {
     return false;
   }
 
   const previous = args[index - 1] ?? '';
-  return previous !== '--baseline' && previous !== '--candidate' && previous !== '--timeline';
+  return !['--baseline', '--candidate', '--timeline', '--history', '--current'].includes(previous);
 }) ?? null;
 
 if (compareArgumentError) {
@@ -44,7 +55,51 @@ if (timelineArgumentError) {
   fail(timelineArgumentError);
 }
 
+if (historyArgumentError) {
+  fail(historyArgumentError);
+}
+
+if (currentArgumentError) {
+  fail(currentArgumentError);
+}
+
+if (currentPath && !historyPath) {
+  fail('Casebook Radar requires --history when using --current.');
+}
+
+if (workflowArgumentError) {
+  fail(workflowArgumentError);
+}
+
 try {
+  if (historyPath) {
+    const historyInput = readNamedInput(historyPath, 'history');
+    const currentInput = currentPath && currentPath !== '-'
+      ? readNamedInput(currentPath, 'current')
+      : fs.readFileSync(0, 'utf8');
+
+    if (!currentInput.trim()) {
+      fail('Casebook Radar requires non-empty current input. Pipe current traces or use --current <path|->.');
+    }
+
+    const historyBatches = parseLabeledTraceBatches(historyInput);
+    if (!historyBatches.length) {
+      fail('Casebook Radar requires labeled historical cases like === release-2026-04-15 ===.');
+    }
+
+    const casebook = analyzeCasebook({ current: currentInput, history: historyBatches });
+    if (casebook.summary.currentTraceCount === 0) {
+      fail('Casebook Radar could not excavate any current traces from the provided input.');
+    }
+
+    if (casebook.summary.historicalCaseCount === 0) {
+      fail('Casebook Radar requires at least one usable historical case with a stack trace or excavatable raw log.');
+    }
+
+    writeOutput(casebook, mode, renderCasebookTextSummary, renderCasebookMarkdownSummary);
+    process.exit(0);
+  }
+
   if (timelinePath) {
     const timelineInput = timelinePath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(timelinePath, 'timeline');
     const timeline = analyzeTimeline(timelineInput);
@@ -100,6 +155,10 @@ try {
     writeOutput(payload, mode, renderSingleTraceTextSummary, renderSingleTraceMarkdownSummary);
   }
 } catch (error) {
+  if (historyPath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read casebook input: ${error.message}`);
+  }
+
   if (timelinePath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read timeline input: ${error.message}`);
   }
@@ -145,6 +204,20 @@ function validateOptionValue(list, flag) {
   const value = list[index + 1] ?? null;
   if (!value || value.startsWith('--')) {
     return `Missing value for ${flag}.`;
+  }
+
+  return null;
+}
+
+function validateWorkflowArguments({ baselinePath, candidatePath, timelinePath, historyPath }) {
+  const activeModes = [
+    historyPath ? 'casebook' : null,
+    timelinePath ? 'timeline' : null,
+    baselinePath || candidatePath ? 'compare' : null,
+  ].filter(Boolean);
+
+  if (activeModes.length > 1) {
+    return 'Choose one workflow mode at a time: casebook, timeline, or compare.';
   }
 
   return null;

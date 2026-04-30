@@ -75,6 +75,21 @@ test('parseTimelineSnapshots splits labeled snapshots and preserves order', () =
   assert.match(snapshots[2].traces, /renderInvoice/);
 });
 
+test('parseTimelineSnapshots keeps timeline semantics when empty labeled sections appear', () => {
+  const snapshots = parseTimelineSnapshots([
+    '=== canary ===',
+    profileTrace,
+    '',
+    '=== empty ===',
+    '',
+    '=== full-rollout ===',
+    invoiceTrace,
+  ].join('\r\n'));
+
+  assert.deepEqual(snapshots.map((snapshot) => snapshot.label), ['canary', 'full-rollout']);
+  assert.doesNotMatch(snapshots[0].traces, /\r/);
+});
+
 test('analyzeTimeline classifies incident and hotspot trends across snapshots', () => {
   const timeline = analyzeTimeline(timelineInput);
 

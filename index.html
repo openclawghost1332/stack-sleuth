@@ -10,8 +10,8 @@
     <main class="app-shell">
       <section class="hero card">
         <p class="eyebrow">Stack Sleuth</p>
-        <h1>Paste one or more stack traces or raw logs, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, compare two batches with a Regression Radar, or map rollout drift with a Timeline Radar.</h1>
-        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, excavating a noisy raw log dump, collapsing an incident bundle, asking what got worse after a release, or tracking a canary rollout across multiple snapshots.</p>
+        <h1>Paste one or more stack traces or raw logs, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, compare two batches with a Regression Radar, look up prior incidents with a Casebook Radar, or map rollout drift with a Timeline Radar.</h1>
+        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, excavating a noisy raw log dump, collapsing an incident bundle, asking what got worse after a release, checking whether today matches a prior incident, or tracking a canary rollout across multiple snapshots.</p>
       </section>
 
       <section class="workspace card">
@@ -48,6 +48,26 @@
       </section>
 
       <section class="workspace card">
+        <p class="field-label">Casebook Radar</p>
+        <div class="compare-grid">
+          <div>
+            <label class="field-label" for="casebook-current-input">Current incident batch</label>
+            <textarea id="casebook-current-input" rows="10" spellcheck="false" placeholder="Paste the current traces or raw logs here for prior-incident lookup..."></textarea>
+          </div>
+          <div>
+            <label class="field-label" for="casebook-history-input">Labeled history casebook</label>
+            <textarea id="casebook-history-input" rows="10" spellcheck="false" placeholder="Paste labeled prior incidents like === release-2026-04-15 === followed by traces or raw logs..."></textarea>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="casebook-button" type="button">Analyze casebook</button>
+          <button id="load-casebook-button" type="button" class="secondary">Load casebook example</button>
+          <button id="copy-casebook-button" type="button" class="ghost">Copy casebook summary</button>
+        </div>
+        <p id="casebook-caption" class="caption" aria-live="polite">Paste a current incident batch plus labeled prior incidents to see which failures look known versus novel.</p>
+      </section>
+
+      <section class="workspace card">
         <p class="field-label">Timeline Radar</p>
         <label class="field-label" for="timeline-input">Rollout snapshots</label>
         <textarea id="timeline-input" rows="14" spellcheck="false" placeholder="Paste labeled snapshots like === canary ===, === 25-percent ===, and === full-rollout === with traces or raw logs here..."></textarea>
@@ -60,6 +80,24 @@
       </section>
 
       <section class="results" aria-live="polite">
+        <article class="card result-card wide">
+          <span class="result-label">Casebook Radar</span>
+          <p id="casebook-summary-value">Paste a current incident batch plus labeled prior incidents to see known versus novel matches.</p>
+        </article>
+        <article class="card result-card compact">
+          <span class="result-label">Known incident matches</span>
+          <strong id="known-count-value" class="metric-value">-</strong>
+        </article>
+        <article class="card result-card compact">
+          <span class="result-label">Novel incidents</span>
+          <strong id="novel-count-value" class="metric-value">-</strong>
+        </article>
+        <article class="card result-card wide">
+          <span class="result-label">Closest historical matches</span>
+          <ul id="closest-matches-value" class="checklist">
+            <li>Closest prior incidents will appear here after a Casebook Radar lookup.</li>
+          </ul>
+        </article>
         <article class="card result-card wide">
           <span class="result-label">Regression Radar</span>
           <p id="regression-summary-value">Paste baseline and candidate traces to compare releases.</p>

@@ -27,6 +27,19 @@ const timelineInput = [
   [sampleTrace, comparisonTrace].join('\n\n'),
 ].join('\n');
 
+const casebookHistoryInput = [
+  '=== release-2026-04-15 ===',
+  [sampleTrace, comparisonTrace].join('\n\n'),
+  '',
+  '=== profile-rewrite ===',
+  sampleTrace,
+].join('\n');
+
+const casebookCurrentInput = [
+  sampleTrace,
+  `ProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+].join('\n\n');
+
 const noisySingleTraceLog = [
   '2026-04-30T01:50:00Z INFO api boot complete',
   `2026-04-30T01:50:01Z ERROR web ${sampleTrace.split('\n').join('\n2026-04-30T01:50:01Z ERROR web ')}`,
@@ -266,5 +279,85 @@ test('CLI timeline mode exits non-zero for a document with fewer than two labele
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /at least two labeled snapshots/i);
+  assert.equal(result.stdout, '');
+});
+
+test('CLI reads current stdin plus labeled history file and prints a Casebook Radar summary', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-casebook-'));
+  const historyPath = path.join(tempDir, 'history.txt');
+  await fs.promises.writeFile(historyPath, casebookHistoryInput, 'utf8');
+
+  const result = runCli(['--history', historyPath], { input: casebookCurrentInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Casebook Radar/);
+  assert.match(result.stdout, /Known incidents: 1/);
+  assert.match(result.stdout, /Novel incidents: 1/);
+  assert.match(result.stdout, /Closest historical cases: release-2026-04-15/i);
+});
+
+test('CLI supports --history with --current file input in json mode', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-casebook-'));
+  const historyPath = path.join(tempDir, 'history.txt');
+  const currentPath = path.join(tempDir, 'current.txt');
+  await fs.promises.writeFile(historyPath, casebookHistoryInput, 'utf8');
+  await fs.promises.writeFile(currentPath, casebookCurrentInput, 'utf8');
+
+  const result = runCli(['--history', historyPath, '--current', currentPath, '--json']);
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.summary.currentTraceCount, 2);
+  assert.equal(parsed.summary.historicalCaseCount, 2);
+  assert.equal(parsed.summary.knownCount, 1);
+  assert.equal(parsed.summary.novelCount, 1);
+  assert.equal(parsed.summary.topCaseLabel, 'release-2026-04-15');
+});
+
+test('CLI supports --history with --current - in markdown mode', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-casebook-'));
+  const historyPath = path.join(tempDir, 'history.txt');
+  await fs.promises.writeFile(historyPath, casebookHistoryInput, 'utf8');
+
+  const result = runCli(['--history', historyPath, '--current', '-', '--markdown'], {
+    input: casebookCurrentInput,
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^# Stack Sleuth Casebook Radar/m);
+  assert.match(result.stdout, /## Closest historical cases/);
+  assert.match(result.stdout, /- \*\*Known incidents:\*\* 1/);
+  assert.match(result.stdout, /- \*\*Classification:\*\* novel/);
+});
+
+test('CLI casebook mode exits non-zero when current input is empty', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-casebook-'));
+  const historyPath = path.join(tempDir, 'history.txt');
+  await fs.promises.writeFile(historyPath, casebookHistoryInput, 'utf8');
+
+  const result = runCli(['--history', historyPath], { input: '   \n' });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Casebook Radar requires non-empty current input/i);
+  assert.equal(result.stdout, '');
+});
+
+test('CLI casebook mode exits non-zero when the history file cannot be read', () => {
+  const result = runCli(['--history', '/definitely/missing/history.txt'], { input: casebookCurrentInput });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Could not read history trace file/i);
+  assert.equal(result.stdout, '');
+});
+
+test('CLI casebook mode exits non-zero when history contains no labeled cases', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-casebook-'));
+  const historyPath = path.join(tempDir, 'history.txt');
+  await fs.promises.writeFile(historyPath, [sampleTrace, comparisonTrace].join('\n\n'), 'utf8');
+
+  const result = runCli(['--history', historyPath], { input: casebookCurrentInput });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Casebook Radar requires labeled historical cases/i);
   assert.equal(result.stdout, '');
 });

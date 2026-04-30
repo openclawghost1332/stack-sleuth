@@ -1,4 +1,5 @@
 import { analyzeTrace, formatFrame, renderTextSummary } from './analyze.js';
+import { analyzeCasebook, renderCasebookTextSummary } from './casebook.js';
 import { analyzeTraceDigest, renderDigestTextSummary } from './digest.js';
 import { analyzeRegression } from './regression.js';
 import { analyzeTimeline, renderTimelineTextSummary } from './timeline.js';
@@ -19,6 +20,13 @@ const compareCandidateInput = document.querySelector('#compare-candidate-input')
 const compareButton = document.querySelector('#compare-button');
 const loadRegressionButton = document.querySelector('#load-regression-button');
 const compareCaption = document.querySelector('#compare-caption');
+
+const casebookCurrentInput = document.querySelector('#casebook-current-input');
+const casebookHistoryInput = document.querySelector('#casebook-history-input');
+const casebookButton = document.querySelector('#casebook-button');
+const loadCasebookButton = document.querySelector('#load-casebook-button');
+const copyCasebookButton = document.querySelector('#copy-casebook-button');
+const casebookCaption = document.querySelector('#casebook-caption');
 
 const timelineInput = document.querySelector('#timeline-input');
 const timelineButton = document.querySelector('#timeline-button');
@@ -42,6 +50,10 @@ const checklistValue = document.querySelector('#checklist-value');
 const regressionSummaryValue = document.querySelector('#regression-summary-value');
 const regressionIncidentsValue = document.querySelector('#regression-incidents-value');
 const hotspotShiftsValue = document.querySelector('#hotspot-shifts-value');
+const casebookSummaryValue = document.querySelector('#casebook-summary-value');
+const knownCountValue = document.querySelector('#known-count-value');
+const novelCountValue = document.querySelector('#novel-count-value');
+const closestMatchesValue = document.querySelector('#closest-matches-value');
 const timelineSummaryValue = document.querySelector('#timeline-summary-value');
 const timelineIncidentsValue = document.querySelector('#timeline-incidents-value');
 const timelineHotspotsValue = document.querySelector('#timeline-hotspots-value');
@@ -52,6 +64,26 @@ const rawLogExample = examples.find((item) => item.label === 'Raw log excavation
 const digestExample = examples.find((item) => item.label === 'Repeated incident digest');
 const regressionExample = examples.find((item) => item.label === 'Regression radar');
 const timelineExample = examples.find((item) => item.label === 'Timeline radar');
+const casebookExample = {
+  caption: 'Casebook Radar checks today\'s incident bundle against labeled prior incidents so you can separate known repeats from fresh failures fast.',
+  current: [
+    jsExample?.trace,
+    `ProfileHydrationError: Profile payload missing account metadata
+    at renderProfileState (/app/src/profile.js:102:9)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].filter(Boolean).join('\n\n'),
+  history: [
+    '=== release-2026-04-15 ===',
+    [jsExample?.trace, regressionExample?.candidate?.split('\n\n')?.at(-1)].filter(Boolean).join('\n\n'),
+    '',
+    '=== profile-rewrite ===',
+    `ProfileHydrationError: Profile hydration returned an empty account shell
+    at renderProfileState (/app/src/profile.js:111:9)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n')
+};
 
 function renderDiagnosis() {
   const traceText = traceInput.value.trim();
@@ -185,6 +217,61 @@ function renderRegressionWorkflow() {
   ));
 }
 
+function renderCasebookWorkflow() {
+  const current = casebookCurrentInput.value.trim();
+  const history = casebookHistoryInput.value.trim();
+
+  if (!current || !history) {
+    resetCasebookState();
+    return;
+  }
+
+  const casebook = analyzeCasebook({ current, history });
+
+  if (casebook.summary.currentTraceCount === 0) {
+    casebookCaption.textContent = 'Casebook Radar could not excavate a current trace yet. Paste a fuller stack trace or raw log snippet first.';
+    resetCasebookState();
+    return;
+  }
+
+  if (casebook.summary.historicalCaseCount === 0) {
+    casebookCaption.textContent = 'Casebook Radar needs labeled prior incidents like === release-2026-04-15 === before it can compare anything.';
+    resetCasebookState();
+    return;
+  }
+
+  const topIncident = casebook.incidents[0] ?? null;
+  const topReport = topIncident?.representative ?? null;
+
+  excavationValue.textContent = `Current: ${describeExcavation(casebook.currentDigest.extraction)} | History: ${casebook.summary.historicalCaseCount} labeled prior incidents`;
+  runtimeValue.textContent = 'casebook radar';
+  headlineValue.textContent = `${casebook.summary.knownCount} known matches, ${casebook.summary.novelCount} novel incidents`;
+  culpritValue.textContent = formatFrame(topReport?.culpritFrame ?? null);
+  confidenceValue.textContent = topReport?.diagnosis?.confidence ?? 'casebook';
+  tagsValue.textContent = topIncident
+    ? [topIncident.classification, ...(topIncident.diagnosisTags ?? [])].join(', ')
+    : '-';
+  signatureValue.textContent = topIncident?.signature ?? '-';
+  summaryValue.textContent = buildCasebookSummary(casebook);
+  blastRadiusValue.textContent = formatBlastRadiusSummary(casebook.currentDigest.blastRadius);
+  digestGroupsValue.replaceChildren(...buildListItems(buildCasebookIncidentItems(casebook.incidents)));
+  supportFramesValue.replaceChildren(...buildListItems(
+    topReport?.supportFrames?.length
+      ? topReport.supportFrames.map((frame) => formatFrame(frame))
+      : ['Open the top Casebook Radar incident to inspect nearby supporting frames.']
+  ));
+  hotspotsValue.replaceChildren(...buildListItems(buildHotspotItems(casebook.currentDigest.hotspots)));
+  checklistValue.replaceChildren(...buildListItems(buildCasebookChecklist(casebook)));
+
+  casebookSummaryValue.textContent = `Casebook Radar matched ${casebook.summary.knownCount} known incident${casebook.summary.knownCount === 1 ? '' : 's'} and flagged ${casebook.summary.novelCount} novel incident${casebook.summary.novelCount === 1 ? '' : 's'} across ${casebook.summary.historicalCaseCount} labeled prior-incident cases.`;
+  knownCountValue.textContent = String(casebook.summary.knownCount);
+  novelCountValue.textContent = String(casebook.summary.novelCount);
+  closestMatchesValue.replaceChildren(...buildListItems(buildCasebookMatchItems(casebook.historicalCases)));
+  casebookCaption.textContent = casebook.summary.topCaseLabel
+    ? `Closest prior incident match: ${casebook.summary.topCaseLabel}.`
+    : 'Casebook Radar compared the current batch against your labeled prior incidents.';
+}
+
 function renderTimelineWorkflow() {
   const timelineText = timelineInput.value.trim();
   if (!timelineText) {
@@ -300,6 +387,15 @@ function resetRegressionState() {
   ]));
 }
 
+function resetCasebookState() {
+  casebookSummaryValue.textContent = 'Paste a current incident batch plus labeled prior incidents to see known versus novel matches.';
+  knownCountValue.textContent = '-';
+  novelCountValue.textContent = '-';
+  closestMatchesValue.replaceChildren(...buildListItems([
+    'Closest prior incidents will appear here after a Casebook Radar lookup.'
+  ]));
+}
+
 function resetTimelineState() {
   blastRadiusValue.textContent = 'Affected services and blast radius windows update here for single traces, incident digests, regressions, and rollout timelines.';
   timelineSummaryValue.textContent = 'Paste labeled rollout snapshots to see incident trends across more than two batches.';
@@ -342,6 +438,17 @@ function loadTimelineExample(example) {
   renderTimelineWorkflow();
 }
 
+function loadCasebookExample(example) {
+  if (!example) {
+    return;
+  }
+
+  casebookCurrentInput.value = example.current;
+  casebookHistoryInput.value = example.history;
+  casebookCaption.textContent = example.caption;
+  renderCasebookWorkflow();
+}
+
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
   const extraction = extractTraceSet(traceText);
@@ -376,6 +483,34 @@ async function copyTimelineSummary() {
     timelineCaption.textContent = 'Timeline Radar summary copied to clipboard.';
   } catch {
     timelineCaption.textContent = 'Clipboard copy unavailable here, but the timeline summary is ready to copy manually.';
+  }
+}
+
+async function copyCasebookSummary() {
+  const current = casebookCurrentInput.value.trim();
+  const history = casebookHistoryInput.value.trim();
+
+  if (!current || !history) {
+    casebookCaption.textContent = 'Paste a current incident batch and labeled prior incidents before copying a Casebook Radar summary.';
+    return;
+  }
+
+  const casebook = analyzeCasebook({ current, history });
+  if (casebook.summary.currentTraceCount === 0) {
+    casebookCaption.textContent = 'Casebook Radar could not excavate a current trace yet, so there is nothing useful to copy.';
+    return;
+  }
+
+  if (casebook.summary.historicalCaseCount === 0) {
+    casebookCaption.textContent = 'Add labeled prior incidents before copying a Casebook Radar summary.';
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(renderCasebookTextSummary(casebook));
+    casebookCaption.textContent = 'Casebook Radar summary copied to clipboard.';
+  } catch {
+    casebookCaption.textContent = 'Clipboard copy unavailable here, but the Casebook Radar summary is ready to copy manually.';
   }
 }
 
@@ -448,6 +583,54 @@ function formatTimelineBlastRadiusSummary(topIncident, latestDigest) {
   }
 
   return sections.join(' ');
+}
+
+function buildCasebookSummary(casebook) {
+  if (!casebook.incidents.length) {
+    return 'Casebook Radar did not find any current incidents to classify yet.';
+  }
+
+  const topIncident = casebook.incidents[0];
+  const knownOrNovel = topIncident.classification === 'known' ? 'a known prior incident' : 'a novel incident';
+  const closestMatch = casebook.summary.topCaseLabel ? ` Closest prior incident: ${casebook.summary.topCaseLabel}.` : '';
+  return `Casebook Radar found ${casebook.summary.knownCount} known and ${casebook.summary.novelCount} novel incidents in the current batch. The top signature looks like ${knownOrNovel} at ${formatFrame(topIncident.representative?.culpritFrame ?? null)}.${closestMatch}`;
+}
+
+function buildCasebookIncidentItems(incidents) {
+  if (!incidents.length) {
+    return ['Current incident classifications will appear here after a Casebook Radar lookup.'];
+  }
+
+  return incidents.map((incident) => (
+    `${incident.classification}: ${incident.count}x at ${formatFrame(incident.representative?.culpritFrame ?? null)}${incident.matchingCases.length ? ` (known in ${incident.matchingCases.join(', ')})` : ''}`
+  ));
+}
+
+function buildCasebookMatchItems(historicalCases) {
+  if (!historicalCases.length) {
+    return ['Closest prior incidents will appear here after a Casebook Radar lookup.'];
+  }
+
+  return historicalCases.slice(0, 5).map((entry) => (
+    `${entry.label}: ${entry.overlap.exactSignatureCount} exact matches, ${entry.overlap.culpritPathCount} shared culprit paths, ${entry.overlap.diagnosisTagCount} shared diagnosis tags`
+  ));
+}
+
+function buildCasebookChecklist(casebook) {
+  const checklist = [];
+  const topIncident = casebook.incidents[0] ?? null;
+
+  if (casebook.summary.novelCount > 0) {
+    checklist.push('Inspect novel incidents first to confirm whether today introduced a brand-new failure mode.');
+  }
+  if (casebook.summary.knownCount > 0) {
+    checklist.push('Compare known incident matches against the closest prior cases to reuse the last fix or mitigation faster.');
+  }
+  if (topIncident?.representative?.diagnosis?.checklist?.length) {
+    checklist.push(...topIncident.representative.diagnosis.checklist.slice(0, 2));
+  }
+
+  return checklist.length ? checklist : ['Label a few prior incidents so Casebook Radar can separate known repeats from new breakages.'];
 }
 
 function buildHotspotItems(hotspots) {
@@ -528,9 +711,12 @@ loadRawLogButton?.addEventListener('click', () => loadExample(rawLogExample));
 loadDigestButton?.addEventListener('click', () => loadExample(digestExample));
 loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));
 compareButton?.addEventListener('click', renderRegressionWorkflow);
+loadCasebookButton?.addEventListener('click', () => loadCasebookExample(casebookExample));
+casebookButton?.addEventListener('click', renderCasebookWorkflow);
 loadTimelineButton?.addEventListener('click', () => loadTimelineExample(timelineExample));
 timelineButton?.addEventListener('click', renderTimelineWorkflow);
 copyButton?.addEventListener('click', copyDiagnosis);
+copyCasebookButton?.addEventListener('click', copyCasebookSummary);
 copyTimelineButton?.addEventListener('click', copyTimelineSummary);
 traceInput?.addEventListener('input', () => {
   if (!traceInput.value.trim()) {
@@ -550,6 +736,18 @@ compareCandidateInput?.addEventListener('input', () => {
     resetRegressionState();
   }
 });
+casebookCurrentInput?.addEventListener('input', () => {
+  if (!casebookCurrentInput.value.trim() || !casebookHistoryInput.value.trim()) {
+    casebookCaption.textContent = 'Paste a current incident batch plus labeled prior incidents to see which failures look known versus novel.';
+    resetCasebookState();
+  }
+});
+casebookHistoryInput?.addEventListener('input', () => {
+  if (!casebookCurrentInput.value.trim() || !casebookHistoryInput.value.trim()) {
+    casebookCaption.textContent = 'Paste a current incident batch plus labeled prior incidents to see which failures look known versus novel.';
+    resetCasebookState();
+  }
+});
 timelineInput?.addEventListener('input', () => {
   if (!timelineInput.value.trim()) {
     timelineCaption.textContent = 'Paste labeled rollout snapshots like === canary === and === full-rollout === to track trend movement.';
@@ -559,4 +757,5 @@ timelineInput?.addEventListener('input', () => {
 
 loadExample(jsExample);
 resetRegressionState();
+resetCasebookState();
 resetTimelineState();

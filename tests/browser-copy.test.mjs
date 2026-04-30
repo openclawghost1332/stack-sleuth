@@ -20,6 +20,16 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, /Rollout snapshots/i);
   assert.match(indexHtml, />Analyze timeline</i);
   assert.match(indexHtml, /Load timeline example/i);
+  assert.match(indexHtml, /Casebook Radar/i);
+  assert.match(indexHtml, /prior-incident/i);
+  assert.match(indexHtml, /Current incident batch/i);
+  assert.match(indexHtml, /Labeled history casebook/i);
+  assert.match(indexHtml, />Analyze casebook</i);
+  assert.match(indexHtml, /Load casebook example/i);
+  assert.match(indexHtml, /Copy casebook summary/i);
+  assert.match(indexHtml, /Known incident matches/i);
+  assert.match(indexHtml, /Novel incidents/i);
+  assert.match(indexHtml, /Closest historical matches/i);
   assert.match(indexHtml, /Timeline hotspot movement/i);
   assert.match(indexHtml, /Suspect hotspots/i);
   assert.match(indexHtml, /Hotspot shifts/i);
@@ -35,6 +45,12 @@ test('browser copy and layout mention blast radius context for noisy logs', () =
 
 test('browser regression and timeline workflows use aggregate hotspot data and clear stale state', () => {
   assert.match(browserMain, /extractTraceSet/);
+  assert.match(browserMain, /analyzeCasebook/);
+  assert.match(browserMain, /renderCasebookWorkflow/);
+  assert.match(browserMain, /copyCasebookSummary/);
+  assert.match(browserMain, /known-count-value/);
+  assert.match(browserMain, /closest-matches-value/);
+  assert.match(browserMain, /resetCasebookState\([\s\S]*casebookSummaryValue\.textContent/);
   assert.match(browserMain, /buildHotspotItems\(regression\.candidateDigest\.hotspots\)/);
   assert.match(browserMain, /renderTimelineWorkflow/);
   assert.match(browserMain, /buildTimelineIncidentItems/);

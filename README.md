@@ -6,17 +6,18 @@ Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a 
 
 Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so excavation status, culprit detection, signatures, support frames, suspect hotspots, blast radius summaries, incident digest output, casebook lookup, regression comparison, and timeline trend calls stay aligned across every workflow.
 
-Use the built-in example buttons to compare ten modes:
+Use the built-in example buttons to compare eleven modes:
 - single-trace diagnosis with suspect hotspots
 - raw log excavation from noisy production logs with blast radius service spread and parsed windows
 - repeated traces grouped into an Incident Digest with shared hotspots
+- markdown notebook ingest that normalizes a handoff note into the existing incident-pack workflow
 - known-versus-novel incident lookup in Casebook Radar mode with labeled prior incidents plus remembered fix, owner, and runbook recall
 - baseline and candidate batches compared in Regression Radar mode with hotspot shifts
 - labeled rollout snapshots analyzed in Timeline Radar mode with trend calls and hotspot movement
 - one structured Incident Pack Briefing that composes current, history, regression, and rollout context in a single pass
 - several structured incident packs ranked in Portfolio Radar mode with recurring incidents and shared hotspots
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
-- browser copy that includes excavation-aware summaries
+- browser copy that includes excavation-aware summaries plus notebook normalization when the input started as a markdown handoff
 
 ## CLI
 
@@ -65,6 +66,52 @@ cat repeated-traces-or-logs.txt | node ./bin/stack-sleuth.js --digest
 ```bash
 cat repeated-traces-or-logs.txt | node ./bin/stack-sleuth.js --digest --markdown
 ```
+
+## Notebook ingest
+
+Notebook ingest is the fastest way to reuse the richer Incident Pack Briefing and Portfolio Radar workflows when the source artifact is already a markdown handoff note instead of an `@@` or `@@@` bundle.
+
+In the browser, paste a markdown notebook into the shared workspace, then press **Explain trace(s)**, **Copy result**, or **Load notebook example**. Stack Sleuth recognizes headings like `## Current incident`, `## Prior incidents`, `## Baseline`, `## Candidate`, and `## Timeline`, normalizes them into the existing structured workflow, and then shows or copies the routed briefing.
+
+From the CLI, point `--notebook` at a markdown note or pipe one through stdin:
+
+```bash
+node ./bin/stack-sleuth.js --notebook ./incident-note.md
+```
+
+```bash
+cat incident-note.md | node ./bin/stack-sleuth.js --notebook - --markdown
+```
+
+A single notebook becomes one normalized incident pack. Multiple `# Pack: label` headings become one normalized portfolio. A compact notebook can look like this:
+
+```text
+# Checkout incident notebook
+
+## Current incident
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+## Prior incidents
+=== release-2026-04-15 ===
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+## Baseline
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+## Candidate
+TypeError: Cannot read properties of undefined (reading 'email')
+    at renderInvoice (/app/src/invoice.js:19:7)
+
+## Timeline
+=== canary ===
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+```
+
+Stack Sleuth will normalize those headings into the supported incident pack or portfolio shape, then reuse the existing briefing and ranking engines instead of inventing a separate notebook-only analysis path.
 
 ## Incident Pack Briefing
 

@@ -135,6 +135,31 @@ const portfolioInput = [
   ].join('\n\n'),
 ].join('\n');
 
+const notebookPackInput = [
+  '# Checkout incident notebook',
+  '',
+  '## Current incident',
+  [
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `ProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n\n'),
+  '',
+  '## Prior incidents',
+  casebookHistoryInput,
+  '',
+  '## Baseline',
+  `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+  '',
+  '## Candidate',
+  [
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n\n'),
+  '',
+  '## Timeline',
+  dedicatedTimelineInput,
+].join('\n');
+
 const requiredIds = [
   'trace-input',
   'explain-button',
@@ -142,6 +167,7 @@ const requiredIds = [
   'load-python-button',
   'load-raw-log-button',
   'load-digest-button',
+  'load-notebook-button',
   'load-pack-button',
   'load-portfolio-button',
   'copy-button',
@@ -314,10 +340,12 @@ async function loadBrowserHarness() {
 
 test('browser copy invites pasting one or more traces for digesting, comparing, casebook lookup, and timeline analysis', () => {
   assert.match(indexHtml, /Paste one or more stack traces or raw logs/i);
+  assert.match(indexHtml, /notebook/i);
   assert.match(indexHtml, /incident pack/i);
   assert.match(indexHtml, /Stack trace, raw log, or incident bundle/i);
   assert.match(indexHtml, /Paste one or more JavaScript, Python, or Ruby traces or raw logs here/i);
   assert.match(indexHtml, />Explain trace\(s\)<\/button>/i);
+  assert.match(indexHtml, />Load notebook example</i);
   assert.match(indexHtml, />Load incident pack example</i);
   assert.match(indexHtml, />Load raw log example</i);
   assert.match(indexHtml, /Regression Radar/i);
@@ -332,6 +360,22 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, />Copy casebook summary</i);
   assert.match(indexHtml, />Load portfolio example</i);
   assert.match(indexHtml, />Copy result</i);
+});
+
+test('browser notebook flow routes markdown incident notes into notebook mode and copies the normalized bundle plus briefing', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', notebookPackInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Notebook normalization/);
+    assert.match(harness.clipboard.text, /@@ current @@/);
+    assert.match(harness.clipboard.text, /Stack Sleuth Incident Pack Briefing/);
+    assert.equal(harness.get('example-caption').textContent, 'Notebook briefing copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
 });
 
 test('browser Casebook Forge export styling preserves multiline formatting for manual copy', () => {

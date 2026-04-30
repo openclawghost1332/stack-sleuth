@@ -10,19 +10,20 @@
     <main class="app-shell">
       <section class="hero card">
         <p class="eyebrow">Stack Sleuth</p>
-        <h1>Paste one or more stack traces or raw logs, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, compare two batches with a Regression Radar, look up prior incidents with a Casebook Radar, map rollout drift with a Timeline Radar, hand Stack Sleuth a full incident pack for one composed briefing, or rank several packs at once with Portfolio Radar.</h1>
-        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, excavating a noisy raw log dump, collapsing an incident bundle, asking what got worse after a release, checking whether today matches a prior incident, tracking a canary rollout across multiple snapshots, pasting one structured incident pack that should turn into an Incident Pack Briefing, or ranking a release-worth of packs into one Portfolio Radar queue.</p>
+        <h1>Paste one or more stack traces or raw logs, or a markdown incident notebook, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, compare two batches with a Regression Radar, look up prior incidents with a Casebook Radar, map rollout drift with a Timeline Radar, hand Stack Sleuth a full incident pack for one composed briefing, or rank several packs at once with Portfolio Radar.</h1>
+        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, excavating a noisy raw log dump, collapsing an incident bundle, dropping in a markdown handoff notebook with headings like Current incident and Prior incidents, asking what got worse after a release, checking whether today matches a prior incident, tracking a canary rollout across multiple snapshots, pasting one structured incident pack that should turn into an Incident Pack Briefing, or ranking a release-worth of packs into one Portfolio Radar queue.</p>
       </section>
 
       <section class="workspace card">
-        <label class="field-label" for="trace-input">Stack trace, raw log, or incident bundle</label>
-        <textarea id="trace-input" rows="14" spellcheck="false" placeholder="Paste one or more JavaScript, Python, or Ruby traces or raw logs here..."></textarea>
+        <label class="field-label" for="trace-input">Stack trace, raw log, or incident bundle, including markdown notebooks</label>
+        <textarea id="trace-input" rows="14" spellcheck="false" placeholder="Paste one or more JavaScript, Python, or Ruby traces or raw logs here, or drop in a markdown incident notebook..."></textarea>
         <div class="actions">
           <button id="explain-button" type="button">Explain trace(s)</button>
           <button id="load-js-button" type="button" class="secondary">Load JS example</button>
           <button id="load-python-button" type="button" class="secondary">Load Python example</button>
           <button id="load-raw-log-button" type="button" class="secondary">Load raw log example</button>
           <button id="load-digest-button" type="button" class="secondary">Load digest example</button>
+          <button id="load-notebook-button" type="button" class="secondary">Load notebook example</button>
           <button id="load-pack-button" type="button" class="secondary">Load incident pack example</button>
           <button id="load-portfolio-button" type="button" class="secondary">Load portfolio example</button>
           <button id="copy-button" type="button" class="ghost">Copy result</button>
@@ -84,7 +85,7 @@
       <section class="results" aria-live="polite">
         <article class="card result-card wide">
           <span class="result-label">Incident Pack Briefing</span>
-          <p>Paste an @@ current @@ style incident pack in the shared workspace to compose one briefing across the current batch, casebook, regression compare, and rollout timeline.</p>
+          <p>Paste an @@ current @@ style incident pack or a markdown notebook with headings like ## Current incident and ## Prior incidents in the shared workspace to compose one briefing across the current batch, casebook, regression compare, and rollout timeline.</p>
         </article>
         <article class="card result-card wide">
           <span class="result-label">Portfolio Radar</span>

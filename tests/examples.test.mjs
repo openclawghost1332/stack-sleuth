@@ -11,6 +11,7 @@ test('ships both JavaScript and Python example traces for the demo', () => {
   assert.ok(examples.length >= 2);
   assert.ok(examples.some((item) => item.label === 'JavaScript undefined property'));
   assert.ok(examples.some((item) => item.label === 'Python missing key'));
+  assert.ok(examples.some((item) => item.label === 'Notebook ingest'));
 });
 
 test('examples expose distinct single-trace, digest, casebook, regression, and timeline demos', () => {
@@ -20,6 +21,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.ok(labels.includes('Python missing key'));
   assert.ok(labels.includes('Raw log excavation'));
   assert.ok(labels.includes('Repeated incident digest'));
+  assert.ok(labels.includes('Notebook ingest'));
   assert.ok(labels.includes('Casebook Radar'));
   assert.ok(labels.includes('Regression radar'));
   assert.ok(labels.includes('Timeline radar'));
@@ -37,6 +39,15 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.match(digestExample.caption, /repeat/i);
   assert.match(digestExample.trace, /TypeError:/);
   assert.match(digestExample.trace, /KeyError:/);
+
+  const notebookExample = examples.find((item) => item.label === 'Notebook ingest');
+  assert.match(notebookExample.caption, /markdown|notebook|handoff/i);
+  assert.match(notebookExample.notebook, /^# /m);
+  assert.match(notebookExample.notebook, /^## Current incident$/m);
+  assert.match(notebookExample.notebook, /^## Prior incidents$/m);
+  assert.match(notebookExample.notebook, /^## Baseline$/m);
+  assert.match(notebookExample.notebook, /^## Candidate$/m);
+  assert.match(notebookExample.notebook, /^## Timeline$/m);
 
   const casebookExample = examples.find((item) => item.label === 'Casebook Radar');
   assert.match(casebookExample.caption, /known|novel|prior incident|casebook/i);

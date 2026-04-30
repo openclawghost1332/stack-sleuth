@@ -85,6 +85,25 @@ const incidentPackTrace = [
   timelineTrace,
 ].join('\n');
 
+const notebookTrace = [
+  '# Checkout incident notebook',
+  '',
+  '## Current incident',
+  casebookCurrentTrace,
+  '',
+  '## Prior incidents',
+  casebookHistoryTrace,
+  '',
+  '## Baseline',
+  `${javascriptTrace}\n\n${pythonTrace}`,
+  '',
+  '## Candidate',
+  `${javascriptTrace}\n\n${javascriptTrace}\n\n${regressionTrace}`,
+  '',
+  '## Timeline',
+  timelineTrace,
+].join('\n');
+
 const portfolioTrace = [
   '@@@ checkout-prod @@@',
   '@@ current @@',
@@ -131,6 +150,11 @@ export const examples = [
     caption: 'Today\'s incident batch matches one known failure and one novel profile hydration break, and the known match recalls the last fix, owner, and runbook context like a real incident-memory handoff.',
     current: casebookCurrentTrace,
     history: casebookHistoryTrace,
+  },
+  {
+    label: 'Notebook ingest',
+    caption: 'A markdown handoff note with Current incident, Prior incidents, Baseline, Candidate, and Timeline headings normalizes into the existing incident-pack workflow without rewriting the notebook by hand.',
+    notebook: notebookTrace,
   },
   {
     label: 'Regression radar',

@@ -6,6 +6,7 @@ import {
 import {
   analyzeIncidentPortfolio,
   parseIncidentPortfolio,
+  renderIncidentPortfolioTextSummary,
   summarizePortfolioPrimaryCulprit,
   selectPrimaryPortfolioIncident,
 } from './portfolio.js';
@@ -16,6 +17,11 @@ import { parseIncidentPack } from './pack.js';
 import { analyzeRegression } from './regression.js';
 import { analyzeTimeline, renderTimelineTextSummary } from './timeline.js';
 import { extractTraceSet } from './extract.js';
+import {
+  parseIncidentNotebook,
+  renderNormalizedNotebookText,
+  routeIncidentNotebook,
+} from './notebook.js';
 import { examples } from './examples.js';
 
 const traceInput = document.querySelector('#trace-input');
@@ -24,6 +30,7 @@ const loadJsButton = document.querySelector('#load-js-button');
 const loadPythonButton = document.querySelector('#load-python-button');
 const loadRawLogButton = document.querySelector('#load-raw-log-button');
 const loadDigestButton = document.querySelector('#load-digest-button');
+const loadNotebookButton = document.querySelector('#load-notebook-button');
 const loadPackButton = document.querySelector('#load-pack-button');
 const loadPortfolioButton = document.querySelector('#load-portfolio-button');
 const copyButton = document.querySelector('#copy-button');
@@ -83,6 +90,7 @@ const jsExample = examples.find((item) => item.label === 'JavaScript undefined p
 const pythonExample = examples.find((item) => item.label === 'Python missing key');
 const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
 const digestExample = examples.find((item) => item.label === 'Repeated incident digest');
+const notebookExample = examples.find((item) => item.label === 'Notebook ingest');
 const incidentPackExample = examples.find((item) => item.label === 'Incident pack briefing');
 const portfolioExample = examples.find((item) => item.label === 'Portfolio radar');
 const casebookExample = examples.find((item) => item.label === 'Casebook Radar');
@@ -93,6 +101,12 @@ function renderDiagnosis() {
   const traceText = traceInput.value.trim();
   if (!traceText) {
     resetEmptyState();
+    return;
+  }
+
+  const notebook = parseIncidentNotebook(traceText);
+  if (notebook.kind !== 'unsupported') {
+    renderNotebookWorkflow(notebook);
     return;
   }
 
@@ -150,6 +164,19 @@ function renderDiagnosis() {
   ));
   hotspotsValue.replaceChildren(...buildListItems(buildHotspotItems(report.hotspots)));
   checklistValue.replaceChildren(...buildListItems(diagnosis.checklist));
+}
+
+function renderNotebookWorkflow(notebook) {
+  const routed = routeNotebook(notebook.source, notebook);
+
+  if (routed.mode === 'portfolio') {
+    renderPortfolioWorkflow(routed.report);
+    return;
+  }
+
+  if (routed.mode === 'pack') {
+    renderIncidentPackWorkflow(routed.report);
+  }
 }
 
 function renderDigest(traceText) {
@@ -624,6 +651,16 @@ function loadExample(example) {
   renderDiagnosis();
 }
 
+function loadNotebookExample(example) {
+  if (!example) {
+    return;
+  }
+
+  traceInput.value = example.notebook;
+  caption.textContent = example.caption;
+  renderDiagnosis();
+}
+
 function loadIncidentPackExample(example) {
   if (!example) {
     return;
@@ -678,6 +715,35 @@ function loadCasebookExample(example) {
 
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
+  const notebook = parseIncidentNotebook(traceText);
+
+  if (notebook.kind !== 'unsupported') {
+    const routed = routeNotebook(traceText, notebook);
+
+    if (routed.mode === 'portfolio') {
+      const forge = analyzeCasebookForge(routed.report);
+      if (!routed.report.summary.runnablePackCount || !forge.exportText) {
+        caption.textContent = 'Notebook mode needs at least one runnable labeled incident pack before there is anything useful to copy.';
+        return;
+      }
+    }
+
+    if (routed.mode === 'pack' && !routed.report.availableAnalyses.length) {
+      caption.textContent = 'Notebook mode needs at least one runnable section before there is anything useful to copy.';
+      return;
+    }
+
+    const payload = buildNotebookClipboardPayload(notebook, routed);
+
+    try {
+      await navigator.clipboard.writeText(payload);
+      caption.textContent = 'Notebook briefing copied to clipboard.';
+    } catch {
+      caption.textContent = 'Clipboard copy unavailable here, but the notebook briefing is ready to copy manually.';
+    }
+    return;
+  }
+
   const portfolio = parseIncidentPortfolio(traceText);
 
   if (portfolio.packOrder.length) {
@@ -737,6 +803,43 @@ async function copyDiagnosis() {
   } catch {
     caption.textContent = 'Clipboard copy unavailable here, but the diagnosis is ready to copy manually.';
   }
+}
+
+function routeNotebook(input, notebook) {
+  return routeIncidentNotebook({
+    input,
+    notebook,
+    analyzers: {
+      pack: (normalizedText) => ({
+        mode: 'pack',
+        normalizedText,
+        report: analyzeIncidentPack(parseIncidentPack(normalizedText)),
+      }),
+      portfolio: (normalizedText) => ({
+        mode: 'portfolio',
+        normalizedText,
+        report: analyzeIncidentPortfolio(normalizedText),
+      }),
+    },
+  });
+}
+
+function buildNotebookClipboardPayload(notebook, routed) {
+  const kindLabel = notebook.kind === 'portfolio'
+    ? `Kind: portfolio (${notebook.packOrder.length} packs)`
+    : `Kind: pack (${notebook.sectionOrder.length} sections)`;
+  const routedText = routed.mode === 'portfolio'
+    ? renderIncidentPortfolioTextSummary(routed.report)
+    : renderIncidentPackTextSummary(routed.report);
+
+  return [
+    'Notebook normalization',
+    kindLabel,
+    '',
+    renderNormalizedNotebookText(notebook),
+    '',
+    routedText,
+  ].join('\n').trim();
 }
 
 async function copyTimelineSummary() {
@@ -1164,6 +1267,7 @@ loadJsButton?.addEventListener('click', () => loadExample(jsExample));
 loadPythonButton?.addEventListener('click', () => loadExample(pythonExample));
 loadRawLogButton?.addEventListener('click', () => loadExample(rawLogExample));
 loadDigestButton?.addEventListener('click', () => loadExample(digestExample));
+loadNotebookButton?.addEventListener('click', () => loadNotebookExample(notebookExample));
 loadPackButton?.addEventListener('click', () => loadIncidentPackExample(incidentPackExample));
 loadPortfolioButton?.addEventListener('click', () => loadPortfolioExample(portfolioExample));
 loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));

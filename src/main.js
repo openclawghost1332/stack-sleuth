@@ -14,6 +14,7 @@ import {
 } from './portfolio.js';
 import { analyzeCasebook, renderCasebookTextSummary } from './casebook.js';
 import { analyzeCasebookForge, renderCasebookForgeTextSummary } from './forge.js';
+import { analyzeCasebookMerge, renderCasebookMergeTextSummary } from './merge.js';
 import { analyzeTraceDigest, renderDigestTextSummary } from './digest.js';
 import { parseIncidentPack } from './pack.js';
 import { analyzeRegression } from './regression.js';
@@ -35,6 +36,7 @@ const loadDigestButton = document.querySelector('#load-digest-button');
 const loadNotebookButton = document.querySelector('#load-notebook-button');
 const loadPackButton = document.querySelector('#load-pack-button');
 const loadPortfolioButton = document.querySelector('#load-portfolio-button');
+const loadMergeButton = document.querySelector('#load-merge-button');
 const copyButton = document.querySelector('#copy-button');
 const caption = document.querySelector('#example-caption');
 
@@ -89,6 +91,9 @@ const portfolioResponseQueueValue = document.querySelector('#portfolio-response-
 const portfolioRoutingGapsValue = document.querySelector('#portfolio-routing-gaps-value');
 const forgeSummaryValue = document.querySelector('#forge-summary-value');
 const forgeExportValue = document.querySelector('#forge-export-value');
+const mergeSummaryValue = document.querySelector('#merge-summary-value');
+const mergeConflictsValue = document.querySelector('#merge-conflicts-value');
+const mergeExportValue = document.querySelector('#merge-export-value');
 
 const jsExample = examples.find((item) => item.label === 'JavaScript undefined property');
 const pythonExample = examples.find((item) => item.label === 'Python missing key');
@@ -97,6 +102,7 @@ const digestExample = examples.find((item) => item.label === 'Repeated incident 
 const notebookExample = examples.find((item) => item.label === 'Notebook ingest');
 const incidentPackExample = examples.find((item) => item.label === 'Incident pack briefing');
 const portfolioExample = examples.find((item) => item.label === 'Portfolio radar');
+const mergeExample = examples.find((item) => item.label === 'Casebook Merge');
 const casebookExample = examples.find((item) => item.label === 'Casebook Radar');
 const regressionExample = examples.find((item) => item.label === 'Regression radar');
 const timelineExample = examples.find((item) => item.label === 'Timeline radar');
@@ -122,6 +128,7 @@ function renderDiagnosis() {
 
   resetPortfolioState();
   resetForgeState();
+  resetMergeState();
 
   const incidentPack = parseIncidentPack(traceText);
   if (incidentPack.sectionOrder.length) {
@@ -212,22 +219,28 @@ function renderDigest(traceText) {
 function renderPortfolioWorkflow(input) {
   const report = input?.priorityQueue ? input : analyzeIncidentPortfolio(input);
   const forge = analyzeCasebookForge(report);
+  const merge = analyzeCasebookMerge(report);
   const topPack = report.priorityQueue[0] ?? null;
   const primaryIncident = selectPrimaryPortfolioIncident(topPack);
   const topPackLabel = topPack?.label ?? 'none';
+  const preferMerge = merge.summary.existingCaseCount > 0;
 
   resetCasebookState();
   resetRegressionState();
   resetTimelineState();
 
   excavationValue.textContent = `Portfolio packs: ${report.summary.packCount} labeled, ${report.summary.runnablePackCount} runnable`;
-  runtimeValue.textContent = 'casebook forge';
-  headlineValue.textContent = forge.summary.headline;
+  runtimeValue.textContent = preferMerge ? 'casebook merge' : 'casebook forge';
+  headlineValue.textContent = preferMerge ? merge.summary.headline : forge.summary.headline;
   culpritValue.textContent = summarizePortfolioPrimaryCulprit(report);
   confidenceValue.textContent = topPack ? 'portfolio' : '-';
-  tagsValue.textContent = topPack ? 'casebook-forge, portfolio-radar, incident-pack' : 'casebook-forge, portfolio-radar';
+  tagsValue.textContent = topPack
+    ? [preferMerge ? 'casebook-merge' : 'casebook-forge', 'portfolio-radar', 'incident-pack'].join(', ')
+    : [preferMerge ? 'casebook-merge' : 'casebook-forge', 'portfolio-radar'].join(', ');
   signatureValue.textContent = topPack ? `top pack: ${topPackLabel}` : '-';
-  summaryValue.textContent = `${forge.summary.headline} Portfolio Radar still ranked ${report.summary.runnablePackCount} runnable pack${report.summary.runnablePackCount === 1 ? '' : 's'} for triage.`;
+  summaryValue.textContent = preferMerge
+    ? `${merge.summary.headline} ${merge.summary.reviewHeadline} Portfolio Radar still ranked ${report.summary.runnablePackCount} runnable pack${report.summary.runnablePackCount === 1 ? '' : 's'} for triage.`
+    : `${forge.summary.headline} Portfolio Radar still ranked ${report.summary.runnablePackCount} runnable pack${report.summary.runnablePackCount === 1 ? '' : 's'} for triage.`;
   blastRadiusValue.textContent = buildPortfolioBlastRadiusSummary(topPack, primaryIncident);
   digestGroupsValue.replaceChildren(...buildListItems(buildPortfolioPriorityItems(report.priorityQueue)));
   supportFramesValue.replaceChildren(...buildListItems(
@@ -247,6 +260,13 @@ function renderPortfolioWorkflow(input) {
   portfolioRoutingGapsValue.replaceChildren(...buildListItems(buildPortfolioRoutingGapItems(report.unownedPacks, report.runbookGaps)));
   forgeSummaryValue.textContent = `${forge.summary.headline} Reusable cases are ready to paste into a labeled history casebook.`;
   forgeExportValue.textContent = forge.exportText || 'No forged export available yet.';
+  mergeSummaryValue.textContent = `${merge.summary.headline} ${merge.summary.reviewHeadline}`;
+  mergeConflictsValue.replaceChildren(...buildListItems(
+    merge.cases.some((entry) => entry.conflicts.length)
+      ? merge.cases.filter((entry) => entry.conflicts.length).map((entry) => `${entry.label}: ${entry.conflicts.join('; ')}`)
+      : ['No merge conflicts detected.']
+  ));
+  mergeExportValue.textContent = merge.exportText || 'No merged export available yet.';
 }
 
 function renderIncidentPackWorkflow(input) {
@@ -366,6 +386,7 @@ function renderUnsupportedIncidentPack(incidentPack) {
 function renderRegressionWorkflow() {
   resetPortfolioState();
   resetForgeState();
+  resetMergeState();
 
   const baseline = compareBaselineInput.value.trim();
   const candidate = compareCandidateInput.value.trim();
@@ -432,6 +453,7 @@ function renderRegressionWorkflow() {
 function renderCasebookWorkflow() {
   resetPortfolioState();
   resetForgeState();
+  resetMergeState();
 
   const current = casebookCurrentInput.value.trim();
   const history = casebookHistoryInput.value.trim();
@@ -493,6 +515,7 @@ function renderCasebookWorkflow() {
 function renderTimelineWorkflow() {
   resetPortfolioState();
   resetForgeState();
+  resetMergeState();
 
   const timelineText = timelineInput.value.trim();
   if (!timelineText) {
@@ -573,6 +596,7 @@ function renderNoTraceExcavated(extraction) {
 function resetEmptyState() {
   resetPortfolioState();
   resetForgeState();
+  resetMergeState();
   excavationValue.textContent = 'Awaiting trace or raw log input';
   headlineValue.textContent = 'Paste one or more traces or raw logs to get started';
   runtimeValue.textContent = 'Awaiting trace';
@@ -619,6 +643,14 @@ function resetPortfolioState() {
 function resetForgeState() {
   forgeSummaryValue.textContent = 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.';
   forgeExportValue.textContent = 'Forged Casebook export text will appear here after Casebook Forge runs.';
+}
+
+function resetMergeState() {
+  mergeSummaryValue.textContent = 'Paste several labeled incident packs with embedded history to update a living casebook.';
+  mergeConflictsValue.replaceChildren(...buildListItems([
+    'Merge conflicts and review notes will appear here after Casebook Merge runs.'
+  ]));
+  mergeExportValue.textContent = 'Merged Casebook export text will appear here after Casebook Merge runs.';
 }
 
 function resetRegressionState() {
@@ -686,6 +718,16 @@ function loadIncidentPackExample(example) {
 }
 
 function loadPortfolioExample(example) {
+  if (!example) {
+    return;
+  }
+
+  traceInput.value = example.portfolio;
+  caption.textContent = example.caption;
+  renderDiagnosis();
+}
+
+function loadMergeExample(example) {
   if (!example) {
     return;
   }
@@ -763,16 +805,26 @@ async function copyDiagnosis() {
   if (portfolio.packOrder.length) {
     const report = analyzeIncidentPortfolio(portfolio);
     const forge = analyzeCasebookForge(report);
-    if (!report.summary.runnablePackCount || !forge.exportText) {
-      caption.textContent = 'Casebook Forge needs at least one runnable labeled incident pack before there is anything useful to copy.';
+    const merge = analyzeCasebookMerge(report);
+    const preferMerge = merge.summary.existingCaseCount > 0;
+    const copyText = preferMerge
+      ? [renderCasebookMergeTextSummary(merge), '', merge.exportText].join('\n').trim()
+      : [renderCasebookForgeTextSummary(forge), '', forge.exportText].join('\n').trim();
+
+    if (!report.summary.runnablePackCount || !(preferMerge ? merge.exportText : forge.exportText)) {
+      caption.textContent = preferMerge
+        ? 'Casebook Merge needs at least one runnable labeled incident pack before there is anything useful to copy.'
+        : 'Casebook Forge needs at least one runnable labeled incident pack before there is anything useful to copy.';
       return;
     }
 
     try {
-      await navigator.clipboard.writeText([renderCasebookForgeTextSummary(forge), '', forge.exportText].join('\n').trim());
-      caption.textContent = 'Casebook Forge export copied to clipboard.';
+      await navigator.clipboard.writeText(copyText);
+      caption.textContent = preferMerge ? 'Casebook Merge export copied to clipboard.' : 'Casebook Forge export copied to clipboard.';
     } catch {
-      caption.textContent = 'Clipboard copy unavailable here, but the Casebook Forge export is ready to copy manually.';
+      caption.textContent = preferMerge
+        ? 'Clipboard copy unavailable here, but the Casebook Merge export is ready to copy manually.'
+        : 'Clipboard copy unavailable here, but the Casebook Forge export is ready to copy manually.';
     }
     return;
   }
@@ -1306,6 +1358,7 @@ loadDigestButton?.addEventListener('click', () => loadExample(digestExample));
 loadNotebookButton?.addEventListener('click', () => loadNotebookExample(notebookExample));
 loadPackButton?.addEventListener('click', () => loadIncidentPackExample(incidentPackExample));
 loadPortfolioButton?.addEventListener('click', () => loadPortfolioExample(portfolioExample));
+loadMergeButton?.addEventListener('click', () => loadMergeExample(mergeExample));
 loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));
 compareButton?.addEventListener('click', renderRegressionWorkflow);
 loadCasebookButton?.addEventListener('click', () => loadCasebookExample(casebookExample));
@@ -1357,6 +1410,7 @@ timelineInput?.addEventListener('input', () => {
 loadExample(jsExample);
 resetPortfolioState();
 resetForgeState();
+resetMergeState();
 resetRegressionState();
 resetCasebookState();
 resetTimelineState();

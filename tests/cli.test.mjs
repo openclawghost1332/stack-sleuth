@@ -436,6 +436,40 @@ test('CLI forge mode supports --json and --markdown output', () => {
   assert.match(markdownResult.stdout, /^# Stack Sleuth Casebook Forge/m);
 });
 
+test('CLI reads a portfolio with --merge-casebook and prints a merged casebook export', () => {
+  const result = runCli(['--merge-casebook', '-'], { input: portfolioInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Casebook Merge/);
+  assert.match(result.stdout, /Merged casebook export/);
+  assert.match(result.stdout, /=== release-2026-04-15 ===/);
+  assert.match(result.stdout, />>> seen-count: 3/);
+});
+
+test('CLI merge-casebook mode supports --json and --markdown output', () => {
+  const jsonResult = runCli(['--merge-casebook', '-', '--json'], { input: portfolioInput });
+  assert.equal(jsonResult.status, 0, jsonResult.stderr);
+  const parsed = JSON.parse(jsonResult.stdout);
+  assert.equal(parsed.summary.mergedCaseCount, 3);
+  assert.equal(parsed.summary.updatedCaseCount, 2);
+  assert.equal(parsed.cases[0].label, 'release-2026-04-15');
+  assert.equal(parsed.cases[0].metadata['seen-count'], '3');
+
+  const markdownResult = runCli(['--merge-casebook', '-', '--markdown'], { input: portfolioInput });
+  assert.equal(markdownResult.status, 0, markdownResult.stderr);
+  assert.match(markdownResult.stdout, /^# Stack Sleuth Casebook Merge/m);
+});
+
+test('CLI merge-casebook mode exits non-zero when no labeled packs or runnable analyses are present', () => {
+  const unlabeled = runCli(['--merge-casebook', '-'], { input: incidentPackInput });
+  assert.notEqual(unlabeled.status, 0);
+  assert.match(unlabeled.stderr, /Casebook Merge requires @@@ label @@@ blocks/i);
+
+  const unrunnable = runCli(['--merge-casebook', '-'], { input: '@@@ missing-current @@@\n@@ history @@\n=== release ===\n' + sampleTrace });
+  assert.notEqual(unrunnable.status, 0);
+  assert.match(unrunnable.stderr, /Casebook Merge requires at least one runnable labeled incident pack/i);
+});
+
 test('CLI forge mode exits non-zero when no labeled packs or runnable analyses are present', () => {
   const unlabeled = runCli(['--forge', '-'], { input: incidentPackInput });
   assert.notEqual(unlabeled.status, 0);

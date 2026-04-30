@@ -17,6 +17,7 @@ Use the built-in example buttons to compare eleven modes:
 - one structured Incident Pack Briefing that composes current, history, regression, and rollout context in a single pass
 - several structured incident packs ranked in Portfolio Radar mode with an owner-aware response queue, explicit routing gaps, runbook gaps, recurring incidents, and shared hotspots
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
+- Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
 - browser copy that includes excavation-aware summaries plus notebook normalization when the input started as a markdown handoff
 
 ## CLI
@@ -278,6 +279,45 @@ ProfileHydrationError: Profile payload missing account metadata
 Save that forged export as a history file and reuse it with `--history`, or paste it into an `@@ history @@` section inside a later Incident Pack Briefing.
 
 In the browser, paste the full labeled portfolio into the shared workspace, then press **Explain trace(s)** or **Load Casebook Forge example** to inspect the reusable casebook flow.
+
+## Casebook Merge
+
+Casebook Merge takes the next step after Casebook Forge. Feed it the same labeled portfolio, including any embedded `@@ history @@` sections, and it will produce an updated living casebook export that keeps human-authored `summary`, `fix`, `owner`, and `runbook` guidance when possible, adds fresh `seen-count` and `source-packs` metadata, and flags merge conflicts when two historical entries disagree about the same signature.
+
+### Merge a living casebook from a labeled portfolio file
+
+```bash
+node ./bin/stack-sleuth.js --merge-casebook ./portfolio.txt
+```
+
+### Merge from stdin in JSON mode
+
+```bash
+cat portfolio.txt | node ./bin/stack-sleuth.js --merge-casebook - --json
+```
+
+### Merge in Markdown
+
+```bash
+node ./bin/stack-sleuth.js --merge-casebook ./portfolio.txt --markdown
+```
+
+Casebook Merge reuses the same `@@@ label @@@` portfolio wrapper as Portfolio Radar and Casebook Forge. The merged export stays in the existing `=== label ===` casebook format, but now carries living-casebook metadata like this:
+
+```text
+=== release-2026-04-15 ===
+>>> summary: Checkout profile payload dropped account metadata before render
+>>> fix: Guard renderProfile before reading account.name
+>>> owner: web-platform
+>>> seen-count: 3
+>>> source-packs: checkout-prod, profile-rollout, billing-canary
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+```
+
+Use the merge summary to review conflicts before saving the updated casebook back into your incident-memory workflow.
+
+In the browser, paste the full labeled portfolio into the shared workspace, then press **Explain trace(s)** or **Load Casebook Merge example** to inspect the living-casebook update flow.
 
 ## Casebook Radar
 

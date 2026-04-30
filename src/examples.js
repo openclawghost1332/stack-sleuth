@@ -181,5 +181,10 @@ export const examples = [
     label: 'Casebook Forge',
     caption: 'A labeled incident portfolio turns into a reusable casebook export, so active triage feeds the next incident-memory lookup without hand-curating new history files.',
     portfolio: portfolioTrace,
+  },
+  {
+    label: 'Casebook Merge',
+    caption: 'A labeled incident portfolio plus embedded history turns into a living casebook update that preserves human guidance, adds seen-count and source-packs metadata, and flags merge conflicts when older entries disagree.',
+    portfolio: portfolioTrace,
   }
 ];

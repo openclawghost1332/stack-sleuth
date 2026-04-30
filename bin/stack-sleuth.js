@@ -38,6 +38,11 @@ import {
   renderCasebookForgeTextSummary,
   renderCasebookForgeMarkdownSummary,
 } from '../src/forge.js';
+import {
+  analyzeCasebookMerge,
+  renderCasebookMergeTextSummary,
+  renderCasebookMergeMarkdownSummary,
+} from '../src/merge.js';
 import { extractTraceSet, formatExtractionMarkdown, formatExtractionText } from '../src/extract.js';
 import { parseLabeledTraceBatches } from '../src/labeled.js';
 import {
@@ -55,6 +60,7 @@ const packArgumentError = validateOptionValue(args, '--pack');
 const portfolioArgumentError = validateOptionValue(args, '--portfolio');
 const forgeArgumentError = validateOptionValue(args, '--forge');
 const notebookArgumentError = validateOptionValue(args, '--notebook');
+const mergeCasebookArgumentError = validateOptionValue(args, '--merge-casebook');
 const timelineArgumentError = validateOptionValue(args, '--timeline');
 const historyArgumentError = validateOptionValue(args, '--history');
 const currentArgumentError = validateOptionValue(args, '--current');
@@ -64,17 +70,18 @@ const packPath = readOptionValue(args, '--pack');
 const portfolioPath = readOptionValue(args, '--portfolio');
 const forgePath = readOptionValue(args, '--forge');
 const notebookPath = readOptionValue(args, '--notebook');
+const mergeCasebookPath = readOptionValue(args, '--merge-casebook');
 const timelinePath = readOptionValue(args, '--timeline');
 const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
-const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, timelinePath, historyPath });
+const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, mergeCasebookPath, timelinePath, historyPath });
 const filePath = args.find((arg, index) => {
   if (arg.startsWith('--')) {
     return false;
   }
 
   const previous = args[index - 1] ?? '';
-  return !['--baseline', '--candidate', '--pack', '--portfolio', '--forge', '--notebook', '--timeline', '--history', '--current'].includes(previous);
+  return !['--baseline', '--candidate', '--pack', '--portfolio', '--forge', '--notebook', '--merge-casebook', '--timeline', '--history', '--current'].includes(previous);
 }) ?? null;
 
 if (compareArgumentError) {
@@ -95,6 +102,10 @@ if (forgeArgumentError) {
 
 if (notebookArgumentError) {
   fail(notebookArgumentError);
+}
+
+if (mergeCasebookArgumentError) {
+  fail(mergeCasebookArgumentError);
 }
 
 if (timelineArgumentError) {
@@ -168,6 +179,22 @@ try {
     }
 
     writeOutput(report, mode, renderForgeCliTextSummary, renderForgeCliMarkdownSummary);
+    process.exit(0);
+  }
+
+  if (mergeCasebookPath) {
+    const mergeInput = mergeCasebookPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(mergeCasebookPath, 'merge-casebook');
+    const portfolio = parseIncidentPortfolio(mergeInput);
+    if (!portfolio.packOrder.length) {
+      fail('Casebook Merge requires @@@ label @@@ blocks around one or more incident packs.');
+    }
+
+    const report = analyzeCasebookMerge(portfolio);
+    if (!report.summary.updatedCaseCount && !report.summary.newCaseCount) {
+      fail('Casebook Merge requires at least one runnable labeled incident pack. Add at least one pack with @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
+    }
+
+    writeOutput(report, mode, renderMergeCliTextSummary, renderMergeCliMarkdownSummary);
     process.exit(0);
   }
 
@@ -356,19 +383,20 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, timelinePath, historyPath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, mergeCasebookPath, timelinePath, historyPath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     portfolioPath ? 'portfolio' : null,
     forgePath ? 'forge' : null,
     notebookPath ? 'notebook' : null,
+    mergeCasebookPath ? 'merge-casebook' : null,
     packPath ? 'incident-pack' : null,
     timelinePath ? 'timeline' : null,
     baselinePath || candidatePath ? 'compare' : null,
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: forge, portfolio, notebook, incident-pack, casebook, timeline, or compare.';
+    return 'Choose one workflow mode at a time: forge, merge-casebook, portfolio, notebook, incident-pack, casebook, timeline, or compare.';
   }
 
   return null;
@@ -410,6 +438,23 @@ function toSerializablePayload(payload) {
         summary: routedPayload.summary ?? null,
       },
       ...routedPayload,
+    };
+  }
+
+  if (Array.isArray(payload?.cases) && typeof payload?.exportText === 'string' && payload?.summary?.mergedCaseCount !== undefined) {
+    return {
+      portfolio: {
+        packOrder: payload.portfolio?.packOrder ?? [],
+      },
+      summary: payload.summary,
+      cases: payload.cases.map((entry) => ({
+        label: entry.label,
+        signature: entry.signature,
+        sourcePacks: entry.sourcePacks,
+        metadata: entry.metadata,
+        conflicts: entry.conflicts,
+      })),
+      exportText: payload.exportText,
     };
   }
 
@@ -625,6 +670,26 @@ function renderForgeCliMarkdownSummary(report) {
     renderCasebookForgeMarkdownSummary(report),
     '',
     '## Reusable casebook export',
+    '```text',
+    report.exportText,
+    '```',
+  ].join('\n').trim();
+}
+
+function renderMergeCliTextSummary(report) {
+  return [
+    renderCasebookMergeTextSummary(report),
+    '',
+    'Merged casebook export',
+    report.exportText,
+  ].join('\n').trim();
+}
+
+function renderMergeCliMarkdownSummary(report) {
+  return [
+    renderCasebookMergeMarkdownSummary(report),
+    '',
+    '## Merged casebook export',
     '```text',
     report.exportText,
     '```',

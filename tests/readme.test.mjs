@@ -114,3 +114,11 @@ test('README documents Casebook Forge workflows for browser and CLI reuse', () =
   assert.match(readme, /--history|@@ history @@/);
   assert.match(readme, /reusable casebook|incident memory/i);
 });
+
+test('README documents Casebook Merge workflows for browser and CLI living-casebook updates', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Casebook Merge/i);
+  assert.match(readme, /--merge-casebook/);
+  assert.match(readme, /living casebook|updated casebook|merge conflicts/i);
+  assert.match(readme, /source-packs|seen-count/i);
+});

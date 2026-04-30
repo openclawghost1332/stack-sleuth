@@ -56,6 +56,26 @@ const incidentPackInput = [
   ].join('\n'),
 ].join('\n');
 
+const incidentPackRegressionPriorityInput = [
+  '@@ current @@',
+  `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+  '',
+  '@@ history @@',
+  [
+    '=== known-profile ===',
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n'),
+  '',
+  '@@ baseline @@',
+  `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+  '',
+  '@@ candidate @@',
+  [
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n\n'),
+].join('\n');
+
 const requiredIds = [
   'trace-input',
   'explain-button',
@@ -273,6 +293,39 @@ test('browser incident pack copy support writes the rendered briefing to the cli
     assert.match(harness.clipboard.text, /Stack Sleuth Incident Pack Briefing/);
     assert.match(harness.clipboard.text, /Available analyses: current, casebook, regression, timeline/);
     assert.equal(harness.get('example-caption').textContent, 'Incident Pack Briefing copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser incident pack shared cards follow the same regression-first priority as the briefing headline', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', incidentPackRegressionPriorityInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('headline-value').textContent, 'Regression Radar found 1 new incident and 0 volume-up incidents in the candidate batch.');
+    assert.match(harness.get('culprit-value').textContent, /renderInvoice/);
+    assert.match(harness.get('signature-value').textContent, /invoice\.js:19/);
+    assert.match(harness.get('summary-value').textContent, /Regression Radar found 1 new incident, 0 volume-up incidents, and 0 resolved incidents/i);
+    assert.match(harness.get('blast-radius-value').textContent, /Source: direct\./i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser incident pack guidance explains supported @@ section @@ headers when the pack markers are malformed', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', '@@ notes @@\nfoo');
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'incident pack guidance');
+    assert.match(harness.get('headline-value').textContent, /did not find any supported incident-pack sections/i);
+    assert.match(harness.get('summary-value').textContent, /Use @@ current @@, @@ history @@, @@ baseline @@, @@ candidate @@, or @@ timeline @@/i);
+    assert.match(harness.get('checklist-value').children[0].textContent, /Rename the section headers to supported incident-pack names/i);
   } finally {
     harness.restore();
   }

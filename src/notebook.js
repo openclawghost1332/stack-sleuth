@@ -8,8 +8,12 @@ export function parseIncidentNotebook(input) {
   }
 
   const packMatches = [...source.matchAll(PACK_HEADING)];
-  if (packMatches.length) {
+  if (packMatches.length > 1) {
     return parsePortfolioNotebook(source, packMatches);
+  }
+
+  if (packMatches.length === 1) {
+    return parseSingleNotebook(stripSinglePackHeading(source, packMatches[0]));
   }
 
   return parseSingleNotebook(source);
@@ -203,6 +207,11 @@ function renderPackText(sections, sectionOrder) {
     .map((name) => `@@ ${name} @@\n${sections[name]}`)
     .join('\n\n')
     .trim();
+}
+
+function stripSinglePackHeading(source, match) {
+  const start = (match?.index ?? 0) + String(match?.[0] ?? '').length;
+  return source.slice(start).trim();
 }
 
 function normalizeSource(input) {

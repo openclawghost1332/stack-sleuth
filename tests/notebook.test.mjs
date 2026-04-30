@@ -40,6 +40,30 @@ test('parseIncidentNotebook normalizes a single incident notebook into pack text
   ].join('\n'));
 });
 
+test('parseIncidentNotebook treats a single pack heading as a normal incident pack', () => {
+  const notebook = parseIncidentNotebook([
+    '# Pack: checkout-prod',
+    '',
+    '## Current incident',
+    currentTrace,
+    '',
+    '## Prior incidents',
+    '=== release-2026-04-15 ===',
+    historyTrace,
+  ].join('\n'));
+
+  assert.equal(notebook.kind, 'pack');
+  assert.deepEqual(notebook.sectionOrder, ['current', 'history']);
+  assert.equal(renderNormalizedNotebookText(notebook), [
+    '@@ current @@',
+    currentTrace,
+    '',
+    '@@ history @@',
+    '=== release-2026-04-15 ===',
+    historyTrace,
+  ].join('\n'));
+});
+
 test('parseIncidentNotebook normalizes grouped pack headings into portfolio text', () => {
   const notebook = parseIncidentNotebook([
     '# Pack: checkout-prod',
@@ -71,6 +95,56 @@ test('parseIncidentNotebook normalizes grouped pack headings into portfolio text
     '@@ history @@',
     '=== release-2026-04-15 ===',
     historyTrace,
+  ].join('\n'));
+});
+
+test('parseIncidentNotebook accepts section heading aliases', () => {
+  const notebook = parseIncidentNotebook([
+    '# incident aliases',
+    '',
+    '## Current',
+    currentTrace,
+    '',
+    '## History',
+    '=== release-2026-04-15 ===',
+    historyTrace,
+    '',
+    '## Baseline',
+    historyTrace,
+    '',
+    '## Candidate',
+    currentTrace,
+    '',
+    '## Timeline',
+    '=== before ===',
+    historyTrace,
+    '',
+    '=== after ===',
+    currentTrace,
+  ].join('\n'));
+
+  assert.equal(notebook.kind, 'pack');
+  assert.deepEqual(notebook.sectionOrder, ['current', 'history', 'baseline', 'candidate', 'timeline']);
+  assert.equal(renderNormalizedNotebookText(notebook), [
+    '@@ current @@',
+    currentTrace,
+    '',
+    '@@ history @@',
+    '=== release-2026-04-15 ===',
+    historyTrace,
+    '',
+    '@@ baseline @@',
+    historyTrace,
+    '',
+    '@@ candidate @@',
+    currentTrace,
+    '',
+    '@@ timeline @@',
+    '=== before ===',
+    historyTrace,
+    '',
+    '=== after ===',
+    currentTrace,
   ].join('\n'));
 });
 
@@ -111,7 +185,7 @@ test('routeIncidentNotebook chooses pack vs portfolio analyzers from parsed note
     analyzers,
   });
 
-  const portfolioResult = routeIncidentNotebook({
+  const singlePackHeadingResult = routeIncidentNotebook({
     notebook: parseIncidentNotebook([
       '# Pack: checkout-prod',
       '',
@@ -121,7 +195,23 @@ test('routeIncidentNotebook chooses pack vs portfolio analyzers from parsed note
     analyzers,
   });
 
+  const portfolioResult = routeIncidentNotebook({
+    notebook: parseIncidentNotebook([
+      '# Pack: checkout-prod',
+      '',
+      '## Current incident',
+      currentTrace,
+      '',
+      '# Pack: profile-rollout',
+      '',
+      '## Current incident',
+      historyTrace,
+    ].join('\n')),
+    analyzers,
+  });
+
   assert.equal(packResult.mode, 'pack');
+  assert.equal(singlePackHeadingResult.mode, 'pack');
   assert.equal(portfolioResult.mode, 'portfolio');
   assert.deepEqual(calls, [
     {
@@ -129,8 +219,12 @@ test('routeIncidentNotebook chooses pack vs portfolio analyzers from parsed note
       input: ['@@ current @@', currentTrace].join('\n'),
     },
     {
+      mode: 'pack',
+      input: ['@@ current @@', currentTrace].join('\n'),
+    },
+    {
       mode: 'portfolio',
-      input: ['@@@ checkout-prod @@@', '@@ current @@', currentTrace].join('\n'),
+      input: ['@@@ checkout-prod @@@', '@@ current @@', currentTrace, '', '@@@ profile-rollout @@@', '@@ current @@', historyTrace].join('\n'),
     },
   ]);
 });

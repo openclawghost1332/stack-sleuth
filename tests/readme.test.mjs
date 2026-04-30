@@ -24,6 +24,16 @@ test('README documents notebook ingest workflows for browser and CLI', () => {
   assert.match(readme, /incident pack|portfolio/i);
 });
 
+test('README documents incident workspace intake for single folders and portfolio folders', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Incident Workspace/i);
+  assert.match(readme, /--workspace/);
+  assert.match(readme, /packs\/<label>\//i);
+  assert.match(readme, /current\.log/);
+  assert.match(readme, /history\.casebook/);
+  assert.match(readme, /notebook\.md/);
+});
+
 test('README documents browser and CLI workflows, including incident digest mode', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.match(readme, /Incident Digest/i);

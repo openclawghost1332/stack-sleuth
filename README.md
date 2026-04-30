@@ -115,6 +115,55 @@ TypeError: Cannot read properties of undefined (reading 'name')
 
 Stack Sleuth will normalize those headings into the supported incident pack or portfolio shape, then reuse the existing briefing and ranking engines instead of inventing a separate notebook-only analysis path.
 
+## Incident Workspace
+
+Incident Workspace is the bridge from pasted examples to a real incident folder. Instead of reassembling everything into one `@@` or `@@@` document, point `--workspace` at the directory you already have on disk and let Stack Sleuth normalize it into the existing Incident Pack Briefing or Portfolio Radar workflows.
+
+### Analyze a single incident folder
+
+```bash
+node ./bin/stack-sleuth.js --workspace ./incident-room
+```
+
+Supported single-workspace files are discovered by convention:
+
+- `current.log`, `current.txt`, or `current.trace`
+- `history.casebook`, `history.txt`, or `history.log`
+- `baseline.log` or `baseline.txt`
+- `candidate.log` or `candidate.txt`
+- `timeline.log` or `timeline.txt`
+- `notebook.md`
+
+If explicit section files exist, Stack Sleuth uses them first. A folder with only `notebook.md` reuses the same notebook normalization flow as `--notebook`.
+
+```text
+incident-room/
+  current.log
+  history.casebook
+  candidate.log
+```
+
+### Analyze a portfolio workspace rooted at `packs/<label>/`
+
+```bash
+node ./bin/stack-sleuth.js --workspace ./release-review --json
+```
+
+Each pack directory under `packs/<label>/` follows the same filename conventions as a single incident folder.
+
+```text
+release-review/
+  packs/
+    checkout-prod/
+      current.log
+      history.casebook
+    billing-canary/
+      baseline.log
+      candidate.log
+```
+
+This keeps the public CLI opinionated but lightweight. Real folders normalize into the same reusable pack and portfolio engines, so one workspace can move from ad hoc triage to ranking, casebook forging, or casebook merge without a second translation step.
+
 ## Incident Pack Briefing
 
 Incident Pack Briefing is the highest-leverage Stack Sleuth workflow when you already have a few related artifacts from an active incident. Instead of running the current batch, casebook, regression compare, and rollout timeline as separate commands, you can paste one structured pack and get one composed briefing back.

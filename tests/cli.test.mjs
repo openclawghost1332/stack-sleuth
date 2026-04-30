@@ -741,6 +741,62 @@ test('CLI notebook portfolio mode exits non-zero when every normalized pack is u
   assert.equal(result.stdout, '');
 });
 
+test('CLI reads --workspace for a single incident folder and prints an incident pack briefing', async (t) => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-cli-workspace-'));
+  t.after(() => fs.promises.rm(tempDir, { recursive: true, force: true }));
+  await fs.promises.writeFile(path.join(tempDir, 'current.log'), casebookCurrentInput, 'utf8');
+  await fs.promises.writeFile(path.join(tempDir, 'history.casebook'), annotatedCasebookHistoryInput, 'utf8');
+
+  const result = runCli(['--workspace', tempDir]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Incident Pack Briefing/);
+  assert.match(result.stdout, /Casebook Radar/);
+});
+
+test('CLI reads notebook-only --workspace folders and routes them through notebook normalization', async (t) => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-cli-workspace-'));
+  t.after(() => fs.promises.rm(tempDir, { recursive: true, force: true }));
+  await fs.promises.writeFile(path.join(tempDir, 'notebook.md'), notebookPackInput, 'utf8');
+
+  const result = runCli(['--workspace', tempDir]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Notebook normalization/i);
+  assert.match(result.stdout, /Stack Sleuth Incident Pack Briefing/);
+});
+
+test('CLI reads --workspace for a portfolio folder and prints Portfolio Radar json with workspace metadata', async (t) => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-cli-workspace-'));
+  t.after(() => fs.promises.rm(tempDir, { recursive: true, force: true }));
+  await fs.promises.mkdir(path.join(tempDir, 'packs', 'checkout-prod'), { recursive: true });
+  await fs.promises.mkdir(path.join(tempDir, 'packs', 'billing-canary'), { recursive: true });
+  await fs.promises.writeFile(path.join(tempDir, 'packs', 'checkout-prod', 'current.log'), sampleTrace, 'utf8');
+  await fs.promises.writeFile(path.join(tempDir, 'packs', 'billing-canary', 'baseline.log'), sampleTrace, 'utf8');
+  await fs.promises.writeFile(path.join(tempDir, 'packs', 'billing-canary', 'candidate.log'), comparisonTrace, 'utf8');
+
+  const result = runCli(['--workspace', tempDir, '--json']);
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.workspace.kind, 'portfolio');
+  assert.equal(parsed.workspace.packOrder.join(','), 'billing-canary,checkout-prod');
+  assert.equal(parsed.summary.runnablePackCount, 2);
+  assert.equal(parsed.priorityQueue[0].label, 'billing-canary');
+});
+
+test('CLI workspace mode exits non-zero for unsupported folders', async (t) => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-cli-workspace-'));
+  t.after(() => fs.promises.rm(tempDir, { recursive: true, force: true }));
+  await fs.promises.writeFile(path.join(tempDir, 'notes.txt'), 'nothing useful yet', 'utf8');
+
+  const result = runCli(['--workspace', tempDir]);
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /supported filenames/i);
+  assert.equal(result.stdout, '');
+});
+
 test('CLI exits non-zero when multiple workflow modes are requested together', async () => {
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-mode-clash-'));
   const historyPath = path.join(tempDir, 'history.txt');

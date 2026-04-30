@@ -8,13 +8,14 @@ test('ships both JavaScript and Python example traces for the demo', () => {
   assert.ok(examples.some((item) => item.label === 'Python missing key'));
 });
 
-test('examples expose distinct single-trace, digest, regression, and timeline demos', () => {
+test('examples expose distinct single-trace, digest, casebook, regression, and timeline demos', () => {
   const labels = examples.map((item) => item.label);
 
   assert.ok(labels.includes('JavaScript undefined property'));
   assert.ok(labels.includes('Python missing key'));
   assert.ok(labels.includes('Raw log excavation'));
   assert.ok(labels.includes('Repeated incident digest'));
+  assert.ok(labels.includes('Casebook radar'));
   assert.ok(labels.includes('Regression radar'));
   assert.ok(labels.includes('Timeline radar'));
 
@@ -28,6 +29,13 @@ test('examples expose distinct single-trace, digest, regression, and timeline de
   assert.match(digestExample.caption, /repeat/i);
   assert.match(digestExample.trace, /TypeError:/);
   assert.match(digestExample.trace, /KeyError:/);
+
+  const casebookExample = examples.find((item) => item.label === 'Casebook radar');
+  assert.match(casebookExample.caption, /known|novel|prior incident|casebook/i);
+  assert.match(casebookExample.current, /TypeError:|ProfileHydrationError:/);
+  assert.match(casebookExample.current, /ProfileHydrationError:/);
+  assert.match(casebookExample.history, /=== release-2026-04-15 ===/);
+  assert.match(casebookExample.history, /=== profile-rewrite ===/);
 
   const regressionExample = examples.find((item) => item.label === 'Regression radar');
   assert.match(regressionExample.caption, /new|worse|regression/i);

@@ -1,15 +1,16 @@
 # Stack Sleuth
 
-Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a likely culprit frame, a reusable issue signature, nearby support frames, ranked suspect hotspots, blast radius summaries for affected services, parsed first-seen and last-seen windows, and a practical next-step checklist. It can excavate embedded traces from noisy raw logs before grouping repeated incidents, comparing releases, or mapping rollout drift.
+Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a likely culprit frame, a reusable issue signature, nearby support frames, ranked suspect hotspots, blast radius summaries for affected services, parsed first-seen and last-seen windows, and a practical next-step checklist. It can excavate embedded traces from noisy raw logs before grouping repeated incidents, looking up known versus novel failures in an incident memory, comparing releases, or mapping rollout drift.
 
 ## Browser demo
 
-Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so excavation status, culprit detection, signatures, support frames, suspect hotspots, blast radius summaries, incident digest output, regression comparison, and timeline trend calls stay aligned across every workflow.
+Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so excavation status, culprit detection, signatures, support frames, suspect hotspots, blast radius summaries, incident digest output, casebook lookup, regression comparison, and timeline trend calls stay aligned across every workflow.
 
-Use the built-in example buttons to compare six modes:
+Use the built-in example buttons to compare seven modes:
 - single-trace diagnosis with suspect hotspots
 - raw log excavation from noisy production logs with blast radius service spread and parsed windows
 - repeated traces grouped into an Incident Digest with shared hotspots
+- known-versus-novel incident lookup in Casebook Radar mode with labeled prior incidents
 - baseline and candidate batches compared in Regression Radar mode with hotspot shifts
 - labeled rollout snapshots analyzed in Timeline Radar mode with trend calls and hotspot movement
 - browser copy that includes excavation-aware summaries
@@ -61,6 +62,44 @@ cat repeated-traces-or-logs.txt | node ./bin/stack-sleuth.js --digest
 ```bash
 cat repeated-traces-or-logs.txt | node ./bin/stack-sleuth.js --digest --markdown
 ```
+
+## Casebook Radar
+
+Casebook Radar compares a current incident batch against labeled historical cases so you can tell which failures are known repeats versus novel incidents. It works with direct traces or noisy raw logs, so the repo reads like a compact incident-memory tool instead of a one-off parser.
+
+### Compare current stdin against a labeled history file
+
+```bash
+cat current.log | node ./bin/stack-sleuth.js --history ./history-casebook.txt
+```
+
+### Compare saved current and history files in JSON mode
+
+```bash
+node ./bin/stack-sleuth.js --history ./history-casebook.txt --current ./current.log --json
+```
+
+### Compare in Markdown
+
+```bash
+cat current.log | node ./bin/stack-sleuth.js --history ./history-casebook.txt --current - --markdown
+```
+
+Label each prior incident case with the same `=== label ===` format used elsewhere:
+
+```text
+=== release-2026-04-15 ===
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+=== profile-rewrite ===
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+TypeError: Cannot read properties of undefined (reading 'email')
+    at renderInvoice (/app/src/invoice.js:19:7)
+```
+
+In the browser, paste the current incident batch into **Current incident batch**, paste labeled prior incidents into **Labeled history casebook**, then press **Analyze casebook** to see known versus novel matches and the closest historical case.
 
 ## Regression Radar
 

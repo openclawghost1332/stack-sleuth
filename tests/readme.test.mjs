@@ -28,6 +28,16 @@ test('README documents blast radius summaries for excavated logs', () => {
   assert.match(readme, /first-seen|last-seen|window/i);
 });
 
+test('README documents casebook radar workflows for browser and CLI lookup mode', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Casebook Radar/i);
+  assert.match(readme, /known versus novel|known-versus-novel/i);
+  assert.match(readme, /--history/);
+  assert.match(readme, /--current/);
+  assert.match(readme, /=== release-2026-04-15 ===/);
+  assert.match(readme, /prior incidents|incident memory|historical cases/i);
+});
+
 test('README documents regression radar workflows for browser and CLI compare mode', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.match(readme, /Regression Radar/i);

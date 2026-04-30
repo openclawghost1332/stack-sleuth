@@ -348,6 +348,37 @@ test('CLI portfolio mode supports --json and --markdown output', () => {
   assert.match(markdownResult.stdout, /^# Stack Sleuth Portfolio Radar/m);
 });
 
+test('CLI reads a portfolio with --forge and prints a forged casebook export', () => {
+  const result = runCli(['--forge', '-'], { input: portfolioInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Casebook Forge/);
+  assert.match(result.stdout, /=== release-2026-04-15 ===/);
+  assert.match(result.stdout, /=== profile-js-generic-runtime-error ===/);
+});
+
+test('CLI forge mode supports --json and --markdown output', () => {
+  const jsonResult = runCli(['--forge', '-', '--json'], { input: portfolioInput });
+  assert.equal(jsonResult.status, 0, jsonResult.stderr);
+  const parsed = JSON.parse(jsonResult.stdout);
+  assert.equal(parsed.summary.caseCount, 3);
+  assert.equal(parsed.cases[0].label, 'release-2026-04-15');
+
+  const markdownResult = runCli(['--forge', '-', '--markdown'], { input: portfolioInput });
+  assert.equal(markdownResult.status, 0, markdownResult.stderr);
+  assert.match(markdownResult.stdout, /^# Stack Sleuth Casebook Forge/m);
+});
+
+test('CLI forge mode exits non-zero when no labeled packs or runnable analyses are present', () => {
+  const unlabeled = runCli(['--forge', '-'], { input: incidentPackInput });
+  assert.notEqual(unlabeled.status, 0);
+  assert.match(unlabeled.stderr, /Casebook Forge requires @@@ label @@@ blocks/i);
+
+  const unrunnable = runCli(['--forge', '-'], { input: '@@@ missing-current @@@\n@@ history @@\n=== release ===\n' + sampleTrace });
+  assert.notEqual(unrunnable.status, 0);
+  assert.match(unrunnable.stderr, /Casebook Forge requires at least one runnable labeled incident pack/i);
+});
+
 test('CLI portfolio mode exits non-zero when no labeled packs or runnable analyses are present', () => {
   const unlabeled = runCli(['--portfolio', '-'], { input: incidentPackInput });
   assert.notEqual(unlabeled.status, 0);

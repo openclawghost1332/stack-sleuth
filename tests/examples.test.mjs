@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { analyzeCasebook } from '../src/casebook.js';
 import { analyzeIncidentPack } from '../src/briefing.js';
+import { analyzeCasebookForge } from '../src/forge.js';
 import { analyzeIncidentPortfolio } from '../src/portfolio.js';
 import { examples } from '../src/examples.js';
 
@@ -24,6 +25,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.ok(labels.includes('Timeline radar'));
   assert.ok(labels.includes('Incident pack briefing'));
   assert.ok(labels.includes('Portfolio radar'));
+  assert.ok(labels.includes('Casebook Forge'));
 
   const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
   assert.match(rawLogExample.caption, /raw log|excavat/i);
@@ -102,6 +104,16 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(portfolio.summary.runnablePackCount, 3);
   assert.equal(portfolio.priorityQueue[0].label, 'profile-rollout');
   assert.ok(portfolio.recurringIncidents.some((item) => item.packCount >= 2));
+
+  const forgeExample = examples.find((item) => item.label === 'Casebook Forge');
+  assert.match(forgeExample.caption, /casebook forge|reusable casebook|incident memory/i);
+  assert.match(forgeExample.portfolio, /@@@ checkout-prod @@@/i);
+  assert.match(forgeExample.portfolio, /@@@ profile-rollout @@@/i);
+
+  const forge = analyzeCasebookForge(forgeExample.portfolio);
+  assert.equal(forge.summary.caseCount, 3);
+  assert.match(forge.exportText, /=== release-2026-04-15 ===/);
+  assert.match(forge.exportText, /=== profile-js-generic-runtime-error ===/);
 });
 
 test('browser main uses the shared Casebook Radar example instead of a duplicate fixture', () => {

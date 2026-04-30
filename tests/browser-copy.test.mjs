@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const stylesCss = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
 const casebookHistoryInput = [
   '=== release-2026-04-15 ===',
@@ -74,6 +75,24 @@ const incidentPackRegressionPriorityInput = [
     `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
     `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
   ].join('\n\n'),
+].join('\n');
+
+const regressionBaselineInput = `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
+
+const regressionCandidateInput = [
+  `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+  `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+].join('\n\n');
+
+const dedicatedTimelineInput = [
+  '=== canary ===',
+  `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+  '',
+  '=== full-rollout ===',
+  [
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n\n')
 ].join('\n');
 
 const portfolioInput = [
@@ -167,6 +186,8 @@ const requiredIds = [
   'portfolio-priority-value',
   'portfolio-recurring-incidents-value',
   'portfolio-recurring-hotspots-value',
+  'forge-summary-value',
+  'forge-export-value',
 ];
 
 class FakeElement {
@@ -306,35 +327,107 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, />Analyze casebook</i);
   assert.match(indexHtml, />Copy casebook summary</i);
   assert.match(indexHtml, />Load portfolio example</i);
+  assert.match(indexHtml, />Copy result</i);
 });
 
-test('browser portfolio flow ranks packs and surfaces recurring incidents and hotspots', async () => {
+test('browser Casebook Forge export styling preserves multiline formatting for manual copy', () => {
+  assert.match(stylesCss, /#forge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
+});
+
+test('browser portfolio flow surfaces Casebook Forge cards alongside Portfolio Radar details', async () => {
   const harness = await loadBrowserHarness();
 
   try {
     await harness.input('trace-input', portfolioInput);
     await harness.click('explain-button');
 
-    assert.equal(harness.get('runtime-value').textContent, 'portfolio radar');
-    assert.match(harness.get('headline-value').textContent, /Prioritize profile-rollout first/i);
+    assert.equal(harness.get('runtime-value').textContent, 'casebook forge');
+    assert.match(harness.get('headline-value').textContent, /Forged \d+ reusable case/i);
+    assert.match(harness.get('summary-value').textContent, /forged/i);
+    assert.match(harness.get('summary-value').textContent, /reusable case/i);
     assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
     assert.match(harness.get('portfolio-priority-value').children[0].textContent, /profile-rollout/);
     assert.match(harness.get('portfolio-recurring-incidents-value').children[0].textContent, /packs:/i);
     assert.match(harness.get('portfolio-recurring-hotspots-value').children[0].textContent, /profile\.js/i);
+    assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
+    assert.match(harness.get('forge-export-value').textContent, /=== release-2026-04-15 ===/);
   } finally {
     harness.restore();
   }
 });
 
-test('browser portfolio copy support writes the rendered portfolio briefing to the clipboard', async () => {
+test('browser portfolio copy support prefers the forged Casebook Forge export on the clipboard', async () => {
   const harness = await loadBrowserHarness();
 
   try {
     await harness.input('trace-input', portfolioInput);
     await harness.click('copy-button');
 
-    assert.match(harness.clipboard.text, /Stack Sleuth Portfolio Radar/);
-    assert.equal(harness.get('example-caption').textContent, 'Portfolio Radar summary copied to clipboard.');
+    assert.match(harness.clipboard.text, /Stack Sleuth Casebook Forge/);
+    assert.match(harness.clipboard.text, /=== release-2026-04-15 ===/);
+    assert.equal(harness.get('example-caption').textContent, 'Casebook Forge export copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser portfolio Casebook Forge cards reset when switching back to a non-portfolio workflow', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', portfolioInput);
+    await harness.click('explain-button');
+    assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
+
+    await harness.input('trace-input', casebookCurrentInput);
+    await harness.click('explain-button');
+
+    assert.notEqual(harness.get('runtime-value').textContent, 'casebook forge');
+    assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');
+    assert.equal(harness.get('forge-export-value').textContent, 'Forged Casebook export text will appear here after Casebook Forge runs.');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser dedicated radar controls clear stale portfolio and forge cards after a portfolio result', async () => {
+  const harness = await loadBrowserHarness();
+  const assertPortfolioCardsReset = () => {
+    assert.equal(harness.get('portfolio-summary-value').textContent, 'Paste several labeled incident packs to rank the release-level triage queue.');
+    assert.equal(harness.get('portfolio-pack-count-value').textContent, '-');
+    assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');
+    assert.equal(harness.get('forge-export-value').textContent, 'Forged Casebook export text will appear here after Casebook Forge runs.');
+  };
+
+  try {
+    await harness.input('trace-input', portfolioInput);
+    await harness.click('explain-button');
+    assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
+    assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
+
+    await harness.input('casebook-current-input', casebookCurrentInput);
+    await harness.input('casebook-history-input', casebookHistoryInput);
+    await harness.click('casebook-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'casebook radar');
+    assertPortfolioCardsReset();
+
+    await harness.input('trace-input', portfolioInput);
+    await harness.click('explain-button');
+    await harness.input('compare-baseline-input', regressionBaselineInput);
+    await harness.input('compare-candidate-input', regressionCandidateInput);
+    await harness.click('compare-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'comparison');
+    assertPortfolioCardsReset();
+
+    await harness.input('trace-input', portfolioInput);
+    await harness.click('explain-button');
+    await harness.input('timeline-input', dedicatedTimelineInput);
+    await harness.click('timeline-button');
+
+    assert.equal(harness.get('runtime-value').textContent, '2 snapshots');
+    assertPortfolioCardsReset();
   } finally {
     harness.restore();
   }

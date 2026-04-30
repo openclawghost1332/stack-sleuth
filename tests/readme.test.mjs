@@ -89,3 +89,12 @@ test('README documents portfolio radar workflows for browser and CLI multi-pack 
   assert.match(readme, /recurring incidents|cross-pack/i);
   assert.match(readme, /recurring hotspots|shared hotspots/i);
 });
+
+test('README documents Casebook Forge workflows for browser and CLI reuse', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Casebook Forge/i);
+  assert.match(readme, /--forge/);
+  assert.match(readme, /=== label ===/);
+  assert.match(readme, /--history|@@ history @@/);
+  assert.match(readme, /reusable casebook|incident memory/i);
+});

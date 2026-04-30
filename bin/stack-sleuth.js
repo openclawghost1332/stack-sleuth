@@ -33,6 +33,11 @@ import {
   renderIncidentPortfolioTextSummary,
   renderIncidentPortfolioMarkdownSummary,
 } from '../src/portfolio.js';
+import {
+  analyzeCasebookForge,
+  renderCasebookForgeTextSummary,
+  renderCasebookForgeMarkdownSummary,
+} from '../src/forge.js';
 import { extractTraceSet, formatExtractionMarkdown, formatExtractionText } from '../src/extract.js';
 import { parseLabeledTraceBatches } from '../src/labeled.js';
 import { parseIncidentPack } from '../src/pack.js';
@@ -43,6 +48,7 @@ const wantsDigest = args.includes('--digest');
 const compareArgumentError = validateCompareArguments(args);
 const packArgumentError = validateOptionValue(args, '--pack');
 const portfolioArgumentError = validateOptionValue(args, '--portfolio');
+const forgeArgumentError = validateOptionValue(args, '--forge');
 const timelineArgumentError = validateOptionValue(args, '--timeline');
 const historyArgumentError = validateOptionValue(args, '--history');
 const currentArgumentError = validateOptionValue(args, '--current');
@@ -50,17 +56,18 @@ const baselinePath = readOptionValue(args, '--baseline');
 const candidatePath = readOptionValue(args, '--candidate');
 const packPath = readOptionValue(args, '--pack');
 const portfolioPath = readOptionValue(args, '--portfolio');
+const forgePath = readOptionValue(args, '--forge');
 const timelinePath = readOptionValue(args, '--timeline');
 const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
-const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, timelinePath, historyPath });
+const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, timelinePath, historyPath });
 const filePath = args.find((arg, index) => {
   if (arg.startsWith('--')) {
     return false;
   }
 
   const previous = args[index - 1] ?? '';
-  return !['--baseline', '--candidate', '--pack', '--portfolio', '--timeline', '--history', '--current'].includes(previous);
+  return !['--baseline', '--candidate', '--pack', '--portfolio', '--forge', '--timeline', '--history', '--current'].includes(previous);
 }) ?? null;
 
 if (compareArgumentError) {
@@ -73,6 +80,10 @@ if (packArgumentError) {
 
 if (portfolioArgumentError) {
   fail(portfolioArgumentError);
+}
+
+if (forgeArgumentError) {
+  fail(forgeArgumentError);
 }
 
 if (timelineArgumentError) {
@@ -96,6 +107,22 @@ if (workflowArgumentError) {
 }
 
 try {
+  if (forgePath) {
+    const forgeInput = forgePath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(forgePath, 'forge');
+    const portfolio = parseIncidentPortfolio(forgeInput);
+    if (!portfolio.packOrder.length) {
+      fail('Casebook Forge requires @@@ label @@@ blocks around one or more incident packs.');
+    }
+
+    const report = analyzeCasebookForge(portfolio);
+    if (!report.summary.runnablePackCount) {
+      fail('Casebook Forge requires at least one runnable labeled incident pack. Add at least one pack with @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
+    }
+
+    writeOutput(report, mode, renderForgeCliTextSummary, renderForgeCliMarkdownSummary);
+    process.exit(0);
+  }
+
   if (portfolioPath) {
     const portfolioInput = portfolioPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(portfolioPath, 'portfolio');
     const portfolio = parseIncidentPortfolio(portfolioInput);
@@ -215,6 +242,10 @@ try {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read portfolio input: ${error.message}`);
   }
 
+  if (forgePath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read forge input: ${error.message}`);
+  }
+
   if (packPath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read incident pack input: ${error.message}`);
   }
@@ -273,17 +304,18 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, timelinePath, historyPath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, timelinePath, historyPath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     portfolioPath ? 'portfolio' : null,
+    forgePath ? 'forge' : null,
     packPath ? 'incident-pack' : null,
     timelinePath ? 'timeline' : null,
     baselinePath || candidatePath ? 'compare' : null,
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: portfolio, incident-pack, casebook, timeline, or compare.';
+    return 'Choose one workflow mode at a time: forge, portfolio, incident-pack, casebook, timeline, or compare.';
   }
 
   return null;
@@ -308,6 +340,22 @@ function writeOutput(payload, outputMode, textRenderer, markdownRenderer) {
 }
 
 function toSerializablePayload(payload) {
+  if (Array.isArray(payload?.cases) && typeof payload?.exportText === 'string' && payload?.summary?.caseCount !== undefined) {
+    return {
+      portfolio: {
+        packOrder: payload.portfolio?.packOrder ?? [],
+      },
+      summary: payload.summary,
+      cases: payload.cases.map((entry) => ({
+        label: entry.label,
+        signature: entry.signature,
+        sourcePacks: entry.sourcePacks,
+        matchedHistoryLabels: entry.matchedHistoryLabels,
+      })),
+      exportText: payload.exportText,
+    };
+  }
+
   if (payload?.portfolio?.packs && Array.isArray(payload?.priorityQueue) && payload?.summary?.runnablePackCount !== undefined) {
     return {
       portfolio: {
@@ -410,6 +458,26 @@ function renderSingleTraceMarkdownSummary(report) {
   }
 
   return summary;
+}
+
+function renderForgeCliTextSummary(report) {
+  return [
+    renderCasebookForgeTextSummary(report),
+    '',
+    'Reusable casebook export',
+    report.exportText,
+  ].join('\n').trim();
+}
+
+function renderForgeCliMarkdownSummary(report) {
+  return [
+    renderCasebookForgeMarkdownSummary(report),
+    '',
+    '## Reusable casebook export',
+    '```text',
+    report.exportText,
+    '```',
+  ].join('\n').trim();
 }
 
 function fail(message) {

@@ -1,14 +1,14 @@
 # Stack Sleuth
 
-Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a likely culprit frame, a reusable issue signature, nearby support frames, ranked suspect hotspots, and a practical next-step checklist. It can excavate embedded traces from noisy raw logs before grouping repeated incidents, comparing releases, or mapping rollout drift.
+Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a likely culprit frame, a reusable issue signature, nearby support frames, ranked suspect hotspots, blast radius summaries for affected services, parsed first-seen and last-seen windows, and a practical next-step checklist. It can excavate embedded traces from noisy raw logs before grouping repeated incidents, comparing releases, or mapping rollout drift.
 
 ## Browser demo
 
-Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so excavation status, culprit detection, signatures, support frames, suspect hotspots, incident digest output, regression comparison, and timeline trend calls stay aligned across every workflow.
+Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so excavation status, culprit detection, signatures, support frames, suspect hotspots, blast radius summaries, incident digest output, regression comparison, and timeline trend calls stay aligned across every workflow.
 
 Use the built-in example buttons to compare six modes:
 - single-trace diagnosis with suspect hotspots
-- raw log excavation from noisy production logs
+- raw log excavation from noisy production logs with blast radius service spread and parsed windows
 - repeated traces grouped into an Incident Digest with shared hotspots
 - baseline and candidate batches compared in Regression Radar mode with hotspot shifts
 - labeled rollout snapshots analyzed in Timeline Radar mode with trend calls and hotspot movement
@@ -30,7 +30,7 @@ cat trace.txt | node ./bin/stack-sleuth.js
 cat production.log | node ./bin/stack-sleuth.js
 ```
 
-If stdin contains multiple traces or raw logs with multiple embedded exceptions, Stack Sleuth automatically promotes the output into an Incident Digest and adds ranked suspect hotspots to the summary and JSON payload.
+If stdin contains multiple traces or raw logs with multiple embedded exceptions, Stack Sleuth automatically promotes the output into an Incident Digest and adds ranked suspect hotspots plus additive blast radius context to the summary and JSON payload.
 
 ### Read from a file path
 
@@ -64,7 +64,7 @@ cat repeated-traces-or-logs.txt | node ./bin/stack-sleuth.js --digest --markdown
 
 ## Regression Radar
 
-Regression Radar compares two trace batches or raw logs by signature so you can see what is new, what disappeared, what got worse, and which culprit paths shifted the most.
+Regression Radar compares two trace batches or raw logs by signature so you can see what is new, what disappeared, what got worse, which culprit paths shifted the most, and how the blast radius changed between baseline and candidate batches.
 
 ### Compare baseline and candidate files
 
@@ -88,7 +88,7 @@ In the browser, paste baseline and candidate incident batches or raw logs into t
 
 ## Timeline Radar
 
-Timeline Radar compares three or more labeled rollout snapshots so you can see what is brand new, what rose with each snapshot, what flapped during rollout, what stayed steady, what is falling back down, and what resolved before the latest batch. Each labeled snapshot can contain direct traces or noisy raw logs.
+Timeline Radar compares three or more labeled rollout snapshots so you can see what is brand new, what rose with each snapshot, what flapped during rollout, what stayed steady, what is falling back down, what resolved before the latest batch, and how affected services widened or narrowed over time. Each labeled snapshot can contain direct traces or noisy raw logs.
 
 ### Analyze labeled snapshots from a file
 

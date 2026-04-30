@@ -36,6 +36,7 @@ const signatureValue = document.querySelector('#signature-value');
 const supportFramesValue = document.querySelector('#support-frames-value');
 const hotspotsValue = document.querySelector('#hotspots-value');
 const summaryValue = document.querySelector('#summary-value');
+const blastRadiusValue = document.querySelector('#blast-radius-value');
 const digestGroupsValue = document.querySelector('#digest-groups-value');
 const checklistValue = document.querySelector('#checklist-value');
 const regressionSummaryValue = document.querySelector('#regression-summary-value');
@@ -82,6 +83,7 @@ function renderDiagnosis() {
   tagsValue.textContent = diagnosis.tags.join(', ');
   signatureValue.textContent = report.signature;
   summaryValue.textContent = diagnosis.summary;
+  blastRadiusValue.textContent = formatBlastRadiusSummary(normalizeBlastRadius(extraction.entries[0]?.context, extraction.mode));
   digestGroupsValue.replaceChildren(...buildListItems([
     'Repeated incidents will appear here when Stack Sleuth detects multiple traces.'
   ]));
@@ -105,6 +107,7 @@ function renderDigest(traceText) {
   tagsValue.textContent = digest.groups[0]?.tags?.join(', ') ?? '-';
   signatureValue.textContent = digest.groups[0]?.signature ?? '-';
   summaryValue.textContent = digest.groups[0]?.representative?.diagnosis?.summary ?? 'No digest summary available yet.';
+  blastRadiusValue.textContent = formatBlastRadiusSummary(digest.blastRadius);
   digestGroupsValue.replaceChildren(...buildListItems(
     digest.groups.map((group) => `${group.count}x ${group.runtime} ${group.errorName} at ${formatFrame(group.representative.culpritFrame)}`)
   ));
@@ -145,6 +148,7 @@ function renderRegressionWorkflow() {
   summaryValue.textContent = topIncident
     ? `Top shift: ${topIncident.status} incident at ${formatFrame(topReport?.culpritFrame ?? null)} changed from ${topIncident.baselineCount} to ${topIncident.candidateCount} occurrences.`
     : 'No incident changes detected.';
+  blastRadiusValue.textContent = formatComparisonBlastRadiusSummary(regression);
   digestGroupsValue.replaceChildren(...buildListItems(
     regression.incidents.length
       ? regression.incidents.map((incident) => `${incident.status}: ${incident.candidateCount} vs ${incident.baselineCount} (${formatDelta(incident.delta)})`)
@@ -191,6 +195,7 @@ function renderTimelineWorkflow() {
   const timeline = analyzeTimeline(timelineText);
   if (timeline.summary.snapshotCount < 2) {
     excavationValue.textContent = 'Paste at least two labeled snapshots before Stack Sleuth can compare rollout movement.';
+    blastRadiusValue.textContent = 'Blast radius details appear after at least two labeled snapshots expose affected services and time windows.';
     timelineSummaryValue.textContent = 'Add at least two labeled snapshots like === canary === and === full-rollout ===.';
     timelineIncidentsValue.replaceChildren(...buildListItems([
       'Timeline trend calls and hotspot movement will appear here after at least two labeled snapshots.'
@@ -218,6 +223,7 @@ function renderTimelineWorkflow() {
     : '-';
   signatureValue.textContent = topIncident?.signature ?? '-';
   summaryValue.textContent = `Timeline Radar found ${summary.newCount} new, ${summary.risingCount} rising, ${summary.flappingCount} flapping, ${summary.steadyCount} steady, ${summary.fallingCount} falling, and ${summary.resolvedCount} resolved incidents across ${summary.snapshotCount} labeled snapshots.`;
+  blastRadiusValue.textContent = formatBlastRadiusSummary(timeline.blastRadius);
   digestGroupsValue.replaceChildren(...buildListItems(buildTimelineIncidentItems(timeline.incidents)));
   supportFramesValue.replaceChildren(...buildListItems(
     topReport?.supportFrames?.length
@@ -240,6 +246,7 @@ function renderNoTraceExcavated(extraction) {
   tagsValue.textContent = '-';
   signatureValue.textContent = '-';
   summaryValue.textContent = `Stack Sleuth ignored ${extraction.ignoredLineCount} non-trace lines and did not excavate a usable trace. Paste a fuller stack trace or noisier log section that still contains the embedded exception.`;
+  blastRadiusValue.textContent = 'No blast radius yet because Stack Sleuth did not excavate a usable trace from the noisy input.';
   digestGroupsValue.replaceChildren(...buildListItems([
     'Excavated traces will appear here when Stack Sleuth detects more than one trace in the current input.'
   ]));
@@ -270,6 +277,7 @@ function resetEmptyState() {
     'Repeated incidents will appear here when Stack Sleuth detects multiple traces.'
   ]));
   summaryValue.textContent = 'Your diagnosis summary will appear here.';
+  blastRadiusValue.textContent = 'Affected services, first-seen and last-seen windows, and source context will appear here when Stack Sleuth excavates noisy logs.';
   hotspotsValue.replaceChildren(...buildListItems([
     'Suspect hotspots will appear here when Stack Sleuth detects repeated culprit or support paths.'
   ]));
@@ -279,6 +287,7 @@ function resetEmptyState() {
 }
 
 function resetRegressionState() {
+  blastRadiusValue.textContent = 'Affected services and blast radius windows update here for single traces, incident digests, regressions, and rollout timelines.';
   regressionSummaryValue.textContent = 'Paste baseline and candidate traces to compare releases.';
   regressionIncidentsValue.replaceChildren(...buildListItems([
     'New, resolved, and volume-shifted incidents will appear here after a comparison.'
@@ -292,6 +301,7 @@ function resetRegressionState() {
 }
 
 function resetTimelineState() {
+  blastRadiusValue.textContent = 'Affected services and blast radius windows update here for single traces, incident digests, regressions, and rollout timelines.';
   timelineSummaryValue.textContent = 'Paste labeled rollout snapshots to see incident trends across more than two batches.';
   timelineIncidentsValue.replaceChildren(...buildListItems([
     'Timeline trend calls and hotspot movement will appear here after at least two labeled snapshots.'
@@ -393,6 +403,33 @@ function describeExcavation(extraction, label = null) {
 
 function formatDelta(delta) {
   return delta > 0 ? `+${delta}` : String(delta);
+}
+
+function normalizeBlastRadius(context, mode = 'direct') {
+  return {
+    origin: mode === 'extracted' ? 'extracted' : 'direct',
+    services: (context?.services ?? []).map((name) => ({ name, count: 1 })),
+    firstSeen: context?.firstSeen ?? null,
+    lastSeen: context?.lastSeen ?? null,
+  };
+}
+
+function formatBlastRadiusSummary(blastRadius) {
+  const services = blastRadius?.services?.length
+    ? blastRadius.services.map((service) => `${service.name} ${service.count}x`).join(', ')
+    : 'no affected services parsed yet';
+  const window = blastRadius?.firstSeen || blastRadius?.lastSeen
+    ? `${blastRadius.firstSeen ?? blastRadius.lastSeen} → ${blastRadius.lastSeen ?? blastRadius.firstSeen}`
+    : 'window unavailable';
+  const source = blastRadius?.origin ?? 'direct';
+  return `Blast radius: ${services}. Window: ${window}. Source: ${source}.`;
+}
+
+function formatComparisonBlastRadiusSummary(regression) {
+  return [
+    `Candidate ${formatBlastRadiusSummary(regression.candidateDigest?.blastRadius)}`,
+    `Baseline ${formatBlastRadiusSummary(regression.baselineDigest?.blastRadius)}`
+  ].join(' ');
 }
 
 function buildHotspotItems(hotspots) {

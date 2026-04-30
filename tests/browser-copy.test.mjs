@@ -27,6 +27,12 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, /Timeline hotspot movement between labeled snapshots will appear here/i);
 });
 
+test('browser copy and layout mention blast radius context for noisy logs', () => {
+  assert.match(indexHtml, /Blast radius/i);
+  assert.match(indexHtml, /affected services/i);
+  assert.match(browserMain, /blast radius/i);
+});
+
 test('browser regression and timeline workflows use aggregate hotspot data and clear stale state', () => {
   assert.match(browserMain, /extractTraceSet/);
   assert.match(browserMain, /buildHotspotItems\(regression\.candidateDigest\.hotspots\)/);

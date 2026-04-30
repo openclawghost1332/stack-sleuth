@@ -30,7 +30,9 @@ const rubyTrace = "app/service.rb:7:in `run': undefined method `email' for nil:N
 const rawLogTrace = [
   '2026-04-30T01:50:00Z INFO api boot complete',
   `2026-04-30T01:50:01Z ERROR web ${javascriptTrace.split('\n').join('\n2026-04-30T01:50:01Z ERROR web ')}`,
-  '2026-04-30T01:50:02Z INFO request complete',
+  '2026-04-30T01:50:02Z WARN billing retry queued for customer sync',
+  `2026-04-30T01:50:04Z ERROR billing ${regressionTrace.split('\n').join('\n2026-04-30T01:50:04Z ERROR billing ')}`,
+  '2026-04-30T01:50:05Z INFO request complete',
 ].join('\n');
 
 const timelineTrace = [
@@ -57,7 +59,7 @@ export const examples = [
   },
   {
     label: 'Raw log excavation',
-    caption: 'A noisy raw log dump still excavates the embedded production trace, making the before-and-after jump obvious in one click.',
+    caption: 'A noisy raw log dump still excavates embedded production traces and preserves blast radius context, including affected services and first-seen and last-seen windows.',
     trace: rawLogTrace
   },
   {

@@ -10,8 +10,8 @@
     <main class="app-shell">
       <section class="hero card">
         <p class="eyebrow">Stack Sleuth</p>
-        <h1>Paste one or more stack traces or raw logs, or a markdown incident notebook, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, compare two batches with a Regression Radar, look up prior incidents with a Casebook Radar, map rollout drift with a Timeline Radar, hand Stack Sleuth a full incident pack for one composed briefing, or rank several packs at once with Portfolio Radar and a reusable Casebook Dataset.</h1>
-        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, excavating a noisy raw log dump, collapsing an incident bundle, dropping in a markdown handoff notebook with headings like Current incident and Prior incidents, asking what got worse after a release, checking whether today matches a prior incident, tracking a canary rollout across multiple snapshots, pasting one structured incident pack that should turn into an Incident Pack Briefing, or ranking a release-worth of packs into one Portfolio Radar queue that also yields a reusable dataset handoff.</p>
+        <h1>Paste one or more stack traces or raw logs, or a markdown incident notebook, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, compare two batches with a Regression Radar, look up prior incidents with a Casebook Radar, map rollout drift with a Timeline Radar, hand Stack Sleuth a full incident pack for one composed briefing, or rank several packs at once with Portfolio Radar, Handoff Briefing packets, and a reusable Casebook Dataset.</h1>
+        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, excavating a noisy raw log dump, collapsing an incident bundle, dropping in a markdown handoff notebook with headings like Current incident and Prior incidents, asking what got worse after a release, checking whether today matches a prior incident, tracking a canary rollout across multiple snapshots, pasting one structured incident pack that should turn into an Incident Pack Briefing, or ranking a release-worth of packs into one Portfolio Radar queue that also yields copy-ready owner handoff packets and a reusable dataset handoff.</p>
       </section>
 
       <section class="workspace card">
@@ -26,6 +26,7 @@
           <button id="load-notebook-button" type="button" class="secondary">Load notebook example</button>
           <button id="load-pack-button" type="button" class="secondary">Load incident pack example</button>
           <button id="load-portfolio-button" type="button" class="secondary">Load portfolio example</button>
+          <button id="load-handoff-button" type="button" class="secondary">Load Handoff Briefing example</button>
           <button id="load-dataset-button" type="button" class="secondary">Load Casebook Dataset example</button>
           <button id="load-merge-button" type="button" class="secondary">Load Casebook Merge example</button>
           <button id="copy-button" type="button" class="ghost">Copy result</button>
@@ -126,6 +127,14 @@
           <ul id="portfolio-routing-gaps-value" class="checklist">
             <li>Routing gaps and missing runbooks will appear here after Portfolio Radar runs.</li>
           </ul>
+        </article>
+        <article class="card result-card wide">
+          <span class="result-label">Handoff Briefing summary</span>
+          <p id="handoff-summary-value">Paste several labeled incident packs to prepare owner and gap handoff packets.</p>
+        </article>
+        <article class="card result-card wide">
+          <span class="result-label">Handoff Briefing export</span>
+          <p id="handoff-export-value">Handoff packet export text will appear here after Handoff Briefing runs.</p>
         </article>
         <article class="card result-card wide">
           <span class="result-label">Casebook Forge summary</span>

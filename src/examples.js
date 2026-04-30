@@ -174,7 +174,12 @@ export const examples = [
   },
   {
     label: 'Portfolio radar',
-    caption: 'Several labeled incident packs roll up into one owner-aware Portfolio Radar queue, surfacing recalled owners, runbook gaps, routing gaps, recurring incidents, and shared hotspots in one release-level view.',
+    caption: 'Several labeled incident packs roll up into one owner-aware Portfolio Radar queue, surfacing recalled owners, runbook gaps, routing gaps, recurring incidents, shared hotspots, and copy-ready handoff packets in one release-level view.',
+    portfolio: portfolioTrace,
+  },
+  {
+    label: 'Handoff Briefing',
+    caption: 'A labeled incident portfolio turns into owner-specific handoff packets plus explicit routing and runbook gaps that are ready to paste into chat or tickets.',
     portfolio: portfolioTrace,
   },
   {

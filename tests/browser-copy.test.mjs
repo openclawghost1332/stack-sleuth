@@ -213,6 +213,7 @@ const requiredIds = [
   'load-notebook-button',
   'load-pack-button',
   'load-portfolio-button',
+  'load-handoff-button',
   'load-dataset-button',
   'load-merge-button',
   'copy-button',
@@ -263,6 +264,8 @@ const requiredIds = [
   'portfolio-recurring-hotspots-value',
   'portfolio-response-queue-value',
   'portfolio-routing-gaps-value',
+  'handoff-summary-value',
+  'handoff-export-value',
   'forge-summary-value',
   'forge-export-value',
   'dataset-summary-value',
@@ -412,9 +415,28 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, />Analyze casebook</i);
   assert.match(indexHtml, />Copy casebook summary</i);
   assert.match(indexHtml, />Load portfolio example</i);
+  assert.match(indexHtml, />Load Handoff Briefing example</i);
+  assert.match(indexHtml, /Handoff Briefing/i);
   assert.match(indexHtml, />Load Casebook Dataset example</i);
   assert.match(indexHtml, />Load Casebook Merge example</i);
   assert.match(indexHtml, />Copy result</i);
+});
+
+test('browser Handoff Briefing example button loads the shared portfolio example and surfaces copy-ready packets', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.click('load-handoff-button');
+
+    assert.match(harness.get('trace-input').value, /@@@ checkout-prod @@@/);
+    assert.equal(harness.get('runtime-value').textContent, 'portfolio radar');
+    assert.match(harness.get('handoff-summary-value').textContent, /Prepared 5 handoff packets from 3 runnable packs/i);
+    assert.match(harness.get('handoff-export-value').textContent, /Owner: web-platform/);
+    assert.match(harness.get('handoff-export-value').textContent, /Gap: ownership/);
+    assert.match(harness.get('example-caption').textContent, /owner-specific handoff packets/i);
+  } finally {
+    harness.restore();
+  }
 });
 
 test('browser Casebook Dataset example button loads the shared portfolio example and surfaces dataset output', async () => {
@@ -515,15 +537,11 @@ test('browser multi-pack notebook copy flow includes normalization plus portfoli
   }
 });
 
-test('browser Casebook Forge export styling preserves multiline formatting for manual copy', () => {
-  assert.match(stylesCss, /#forge-export-value,\s*#dataset-export-value,\s*#merge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
+test('browser Handoff and Casebook export styling preserves multiline formatting for manual copy', () => {
+  assert.match(stylesCss, /#forge-export-value,\s*#dataset-export-value,\s*#merge-export-value,\s*#handoff-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
 });
 
-test('browser Casebook export styling preserves multiline formatting for manual copy', () => {
-  assert.match(stylesCss, /#forge-export-value,\s*#dataset-export-value,\s*#merge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
-});
-
-test('browser portfolio flow keeps Portfolio Radar as the primary runtime while surfacing Casebook Forge, Dataset, and Merge cards', async () => {
+test('browser portfolio flow keeps Portfolio Radar as the primary runtime while surfacing Handoff Briefing, Casebook Forge, Dataset, and Merge cards', async () => {
   const harness = await loadBrowserHarness();
 
   try {
@@ -539,6 +557,8 @@ test('browser portfolio flow keeps Portfolio Radar as the primary runtime while 
     assert.match(harness.get('portfolio-recurring-hotspots-value').children[0].textContent, /profile\.js/i);
     assert.match(harness.get('portfolio-response-queue-value').children[0].textContent, /web-platform/i);
     assert.match(harness.get('portfolio-routing-gaps-value').children[0].textContent, /billing-canary|checkout-prod/i);
+    assert.match(harness.get('handoff-summary-value').textContent, /Prepared 5 handoff packets/i);
+    assert.match(harness.get('handoff-export-value').textContent, /Owner: web-platform/);
     assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
     assert.match(harness.get('forge-export-value').textContent, /=== release-2026-04-15 ===/);
     assert.match(harness.get('dataset-summary-value').textContent, /Casebook Dataset captured 3 merged cases from 3 packs/i);
@@ -582,6 +602,8 @@ test('browser portfolio Casebook Forge, Dataset, and Merge cards reset when swit
     await harness.click('explain-button');
 
     assert.notEqual(harness.get('runtime-value').textContent, 'casebook merge');
+    assert.equal(harness.get('handoff-summary-value').textContent, 'Paste several labeled incident packs to prepare owner and gap handoff packets.');
+    assert.equal(harness.get('handoff-export-value').textContent, 'Handoff packet export text will appear here after Handoff Briefing runs.');
     assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');
     assert.equal(harness.get('forge-export-value').textContent, 'Forged Casebook export text will appear here after Casebook Forge runs.');
     assert.equal(harness.get('dataset-summary-value').textContent, 'Paste several labeled incident packs to package a reusable Casebook Dataset from the portfolio flow.');
@@ -601,6 +623,8 @@ test('browser dedicated radar controls clear stale portfolio, forge, and merge c
     assert.equal(harness.get('portfolio-pack-count-value').textContent, '-');
     assert.equal(harness.get('portfolio-response-queue-value').children[0].textContent, 'Owner-routed response queue entries will appear here after Portfolio Radar runs.');
     assert.equal(harness.get('portfolio-routing-gaps-value').children[0].textContent, 'Routing gaps and missing runbooks will appear here after Portfolio Radar runs.');
+    assert.equal(harness.get('handoff-summary-value').textContent, 'Paste several labeled incident packs to prepare owner and gap handoff packets.');
+    assert.equal(harness.get('handoff-export-value').textContent, 'Handoff packet export text will appear here after Handoff Briefing runs.');
     assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');
     assert.equal(harness.get('forge-export-value').textContent, 'Forged Casebook export text will appear here after Casebook Forge runs.');
     assert.equal(harness.get('dataset-summary-value').textContent, 'Paste several labeled incident packs to package a reusable Casebook Dataset from the portfolio flow.');

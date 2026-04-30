@@ -76,6 +76,8 @@ const portfolioPackCountValue = document.querySelector('#portfolio-pack-count-va
 const portfolioPriorityValue = document.querySelector('#portfolio-priority-value');
 const portfolioRecurringIncidentsValue = document.querySelector('#portfolio-recurring-incidents-value');
 const portfolioRecurringHotspotsValue = document.querySelector('#portfolio-recurring-hotspots-value');
+const portfolioResponseQueueValue = document.querySelector('#portfolio-response-queue-value');
+const portfolioRoutingGapsValue = document.querySelector('#portfolio-routing-gaps-value');
 const forgeSummaryValue = document.querySelector('#forge-summary-value');
 const forgeExportValue = document.querySelector('#forge-export-value');
 
@@ -212,6 +214,8 @@ function renderPortfolioWorkflow(input) {
   portfolioPriorityValue.replaceChildren(...buildListItems(buildPortfolioPriorityItems(report.priorityQueue)));
   portfolioRecurringIncidentsValue.replaceChildren(...buildListItems(buildPortfolioRecurringIncidentItems(report.recurringIncidents)));
   portfolioRecurringHotspotsValue.replaceChildren(...buildListItems(buildPortfolioRecurringHotspotItems(report.recurringHotspots)));
+  portfolioResponseQueueValue.replaceChildren(...buildListItems(buildPortfolioResponseQueueItems(report.responseQueue)));
+  portfolioRoutingGapsValue.replaceChildren(...buildListItems(buildPortfolioRoutingGapItems(report.unownedPacks, report.runbookGaps)));
   forgeSummaryValue.textContent = `${forge.summary.headline} Reusable cases are ready to paste into a labeled history casebook.`;
   forgeExportValue.textContent = forge.exportText || 'No forged export available yet.';
 }
@@ -573,6 +577,12 @@ function resetPortfolioState() {
   portfolioRecurringHotspotsValue.replaceChildren(...buildListItems([
     'Recurring hotspot files will appear here after Portfolio Radar runs.'
   ]));
+  portfolioResponseQueueValue.replaceChildren(...buildListItems([
+    'Owner-routed response queue entries will appear here after Portfolio Radar runs.'
+  ]));
+  portfolioRoutingGapsValue.replaceChildren(...buildListItems([
+    'Routing gaps and missing runbooks will appear here after Portfolio Radar runs.'
+  ]));
 }
 
 function resetForgeState() {
@@ -856,7 +866,7 @@ function formatTimelineBlastRadiusSummary(topIncident, latestDigest) {
 
 function buildPortfolioSummary(report) {
   const topPack = report.priorityQueue[0]?.label ?? 'none';
-  return `Portfolio Radar ranked ${report.summary.runnablePackCount} runnable pack${report.summary.runnablePackCount === 1 ? '' : 's'} out of ${report.summary.packCount}. Top priority: ${topPack}. Cross-pack signals: ${report.summary.totalNovelIncidents} novel, ${report.summary.totalRegressionNew} regression-new, and ${report.summary.totalTimelineRising} timeline-rising.`;
+  return `Portfolio Radar ranked ${report.summary.runnablePackCount} runnable pack${report.summary.runnablePackCount === 1 ? '' : 's'} out of ${report.summary.packCount}. Top priority: ${topPack}. Response queue: ${report.summary.ownedPackCount} owned pack${report.summary.ownedPackCount === 1 ? '' : 's'}, ${report.summary.unownedPackCount} routing gap${report.summary.unownedPackCount === 1 ? '' : 's'}, and ${report.summary.runbookGapCount} runbook gap${report.summary.runbookGapCount === 1 ? '' : 's'}. Cross-pack signals: ${report.summary.totalNovelIncidents} novel, ${report.summary.totalRegressionNew} regression-new, and ${report.summary.totalTimelineRising} timeline-rising.`;
 }
 
 function buildPortfolioBlastRadiusSummary(topPack, primaryIncident) {
@@ -898,6 +908,37 @@ function buildPortfolioRecurringHotspotItems(recurringHotspots) {
   return recurringHotspots.slice(0, 5).map((item) => (
     `${item.label} across ${item.packCount} packs: ${item.labels.join(', ')}`
   ));
+}
+
+function buildPortfolioResponseQueueItems(responseQueue) {
+  if (!responseQueue?.length) {
+    return ['No recalled owners yet across runnable packs.'];
+  }
+
+  return responseQueue.map((entry) => {
+    const details = [];
+    if (entry.guidance?.[0]?.fix) {
+      details.push(`fix ${entry.guidance[0].fix}`);
+    }
+    if (entry.guidance?.[0]?.runbook) {
+      details.push(`runbook ${entry.guidance[0].runbook}`);
+    }
+    return `${entry.owner}: ${entry.labels.join(', ')}${details.length ? ` (${details.join('; ')})` : ''}`;
+  });
+}
+
+function buildPortfolioRoutingGapItems(unownedPacks, runbookGaps) {
+  const items = [];
+
+  if (unownedPacks?.length) {
+    items.push(...unownedPacks.map((item) => `No recalled owner: ${item.label}`));
+  }
+
+  if (runbookGaps?.length) {
+    items.push(...runbookGaps.map((item) => `No recalled runbook: ${item.label}`));
+  }
+
+  return items.length ? items : ['No routing gaps or runbook gaps detected across runnable packs.'];
 }
 
 function buildCasebookSummary(casebook) {

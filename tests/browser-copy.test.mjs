@@ -117,6 +117,10 @@ const portfolioInput = [
   '@@ history @@',
   [
     '=== release-2026-04-15 ===',
+    '>>> summary: Checkout profile payload dropped account metadata before render',
+    '>>> fix: Guard renderProfile before reading account.name',
+    '>>> owner: web-platform',
+    '>>> runbook: https://example.com/runbooks/profile-null',
     [
       `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
       `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
@@ -190,6 +194,8 @@ const requiredIds = [
   'portfolio-priority-value',
   'portfolio-recurring-incidents-value',
   'portfolio-recurring-hotspots-value',
+  'portfolio-response-queue-value',
+  'portfolio-routing-gaps-value',
   'forge-summary-value',
   'forge-export-value',
 ];
@@ -353,6 +359,8 @@ test('browser portfolio flow surfaces Casebook Forge cards alongside Portfolio R
     assert.match(harness.get('portfolio-priority-value').children[0].textContent, /profile-rollout/);
     assert.match(harness.get('portfolio-recurring-incidents-value').children[0].textContent, /packs:/i);
     assert.match(harness.get('portfolio-recurring-hotspots-value').children[0].textContent, /profile\.js/i);
+    assert.match(harness.get('portfolio-response-queue-value').children[0].textContent, /web-platform/i);
+    assert.match(harness.get('portfolio-routing-gaps-value').children[0].textContent, /billing-canary|checkout-prod/i);
     assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
     assert.match(harness.get('forge-export-value').textContent, /=== release-2026-04-15 ===/);
   } finally {
@@ -399,6 +407,8 @@ test('browser dedicated radar controls clear stale portfolio and forge cards aft
   const assertPortfolioCardsReset = () => {
     assert.equal(harness.get('portfolio-summary-value').textContent, 'Paste several labeled incident packs to rank the release-level triage queue.');
     assert.equal(harness.get('portfolio-pack-count-value').textContent, '-');
+    assert.equal(harness.get('portfolio-response-queue-value').children[0].textContent, 'Owner-routed response queue entries will appear here after Portfolio Radar runs.');
+    assert.equal(harness.get('portfolio-routing-gaps-value').children[0].textContent, 'Routing gaps and missing runbooks will appear here after Portfolio Radar runs.');
     assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');
     assert.equal(harness.get('forge-export-value').textContent, 'Forged Casebook export text will appear here after Casebook Forge runs.');
   };

@@ -57,6 +57,32 @@ const incidentPackInput = [
   timelineInput,
 ].join('\n');
 
+const portfolioInput = [
+  '@@@ checkout-prod @@@',
+  '@@ current @@',
+  [sampleTrace, sampleTrace].join('\n\n'),
+  '',
+  '@@@ profile-rollout @@@',
+  '@@ current @@',
+  [sampleTrace, `ProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`].join('\n\n'),
+  '',
+  '@@ history @@',
+  [
+    '=== release-2026-04-15 ===',
+    [sampleTrace, comparisonTrace].join('\n\n'),
+    '',
+    '=== profile-rewrite ===',
+    sampleTrace,
+  ].join('\n'),
+  '',
+  '@@@ billing-canary @@@',
+  '@@ baseline @@',
+  sampleTrace,
+  '',
+  '@@ candidate @@',
+  [sampleTrace, sampleTrace, comparisonTrace].join('\n\n'),
+].join('\n');
+
 const noisySingleTraceLog = [
   '2026-04-30T01:50:00Z INFO api boot complete',
   `2026-04-30T01:50:01Z ERROR web ${sampleTrace.split('\n').join('\n2026-04-30T01:50:01Z ERROR web ')}`,
@@ -294,6 +320,42 @@ test('CLI incident-pack mode exits non-zero when no runnable analysis can be pro
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Incident Pack mode did not find any runnable analyses/i);
   assert.equal(result.stdout, '');
+});
+
+test('CLI reads a multi-pack portfolio with --portfolio and prints a ranked portfolio briefing', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-portfolio-'));
+  const portfolioPath = path.join(tempDir, 'portfolio.txt');
+  await fs.promises.writeFile(portfolioPath, portfolioInput, 'utf8');
+
+  const result = runCli(['--portfolio', portfolioPath]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Portfolio Radar/);
+  assert.match(result.stdout, /Prioritize profile-rollout first/i);
+  assert.match(result.stdout, /Recurring hotspots/i);
+});
+
+test('CLI portfolio mode supports --json and --markdown output', () => {
+  const jsonResult = runCli(['--portfolio', '-', '--json'], { input: portfolioInput });
+  assert.equal(jsonResult.status, 0, jsonResult.stderr);
+  const parsed = JSON.parse(jsonResult.stdout);
+  assert.equal(parsed.summary.runnablePackCount, 3);
+  assert.equal(parsed.priorityQueue[0].label, 'profile-rollout');
+  assert.ok(parsed.recurringHotspots.some((item) => item.packCount >= 2));
+
+  const markdownResult = runCli(['--portfolio', '-', '--markdown'], { input: portfolioInput });
+  assert.equal(markdownResult.status, 0, markdownResult.stderr);
+  assert.match(markdownResult.stdout, /^# Stack Sleuth Portfolio Radar/m);
+});
+
+test('CLI portfolio mode exits non-zero when no labeled packs or runnable analyses are present', () => {
+  const unlabeled = runCli(['--portfolio', '-'], { input: incidentPackInput });
+  assert.notEqual(unlabeled.status, 0);
+  assert.match(unlabeled.stderr, /Portfolio mode requires @@@ label @@@ blocks/i);
+
+  const unrunnable = runCli(['--portfolio', '-'], { input: '@@@ missing-current @@@\n@@ history @@\n=== release ===\n' + sampleTrace });
+  assert.notEqual(unrunnable.status, 0);
+  assert.match(unrunnable.stderr, /Portfolio mode did not find any runnable analyses/i);
 });
 
 test('CLI reads a labeled timeline file and prints the timeline radar summary', async () => {

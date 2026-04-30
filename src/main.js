@@ -3,6 +3,13 @@ import {
   analyzeIncidentPack,
   renderIncidentPackTextSummary,
 } from './briefing.js';
+import {
+  analyzeIncidentPortfolio,
+  parseIncidentPortfolio,
+  renderIncidentPortfolioTextSummary,
+  summarizePortfolioPrimaryCulprit,
+  selectPrimaryPortfolioIncident,
+} from './portfolio.js';
 import { analyzeCasebook, renderCasebookTextSummary } from './casebook.js';
 import { analyzeTraceDigest, renderDigestTextSummary } from './digest.js';
 import { parseIncidentPack } from './pack.js';
@@ -18,6 +25,7 @@ const loadPythonButton = document.querySelector('#load-python-button');
 const loadRawLogButton = document.querySelector('#load-raw-log-button');
 const loadDigestButton = document.querySelector('#load-digest-button');
 const loadPackButton = document.querySelector('#load-pack-button');
+const loadPortfolioButton = document.querySelector('#load-portfolio-button');
 const copyButton = document.querySelector('#copy-button');
 const caption = document.querySelector('#example-caption');
 
@@ -63,12 +71,18 @@ const closestMatchesValue = document.querySelector('#closest-matches-value');
 const timelineSummaryValue = document.querySelector('#timeline-summary-value');
 const timelineIncidentsValue = document.querySelector('#timeline-incidents-value');
 const timelineHotspotsValue = document.querySelector('#timeline-hotspots-value');
+const portfolioSummaryValue = document.querySelector('#portfolio-summary-value');
+const portfolioPackCountValue = document.querySelector('#portfolio-pack-count-value');
+const portfolioPriorityValue = document.querySelector('#portfolio-priority-value');
+const portfolioRecurringIncidentsValue = document.querySelector('#portfolio-recurring-incidents-value');
+const portfolioRecurringHotspotsValue = document.querySelector('#portfolio-recurring-hotspots-value');
 
 const jsExample = examples.find((item) => item.label === 'JavaScript undefined property');
 const pythonExample = examples.find((item) => item.label === 'Python missing key');
 const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
 const digestExample = examples.find((item) => item.label === 'Repeated incident digest');
 const incidentPackExample = examples.find((item) => item.label === 'Incident pack briefing');
+const portfolioExample = examples.find((item) => item.label === 'Portfolio radar');
 const casebookExample = examples.find((item) => item.label === 'Casebook Radar');
 const regressionExample = examples.find((item) => item.label === 'Regression radar');
 const timelineExample = examples.find((item) => item.label === 'Timeline radar');
@@ -79,6 +93,14 @@ function renderDiagnosis() {
     resetEmptyState();
     return;
   }
+
+  const portfolio = parseIncidentPortfolio(traceText);
+  if (portfolio.packOrder.length) {
+    renderPortfolioWorkflow(portfolio);
+    return;
+  }
+
+  resetPortfolioState();
 
   const incidentPack = parseIncidentPack(traceText);
   if (incidentPack.sectionOrder.length) {
@@ -151,6 +173,41 @@ function renderDigest(traceText) {
   checklistValue.replaceChildren(...buildListItems(
     digest.groups[0]?.representative?.diagnosis?.checklist ?? ['Inspect the top repeated incident first.']
   ));
+}
+
+function renderPortfolioWorkflow(input) {
+  const report = input?.priorityQueue ? input : analyzeIncidentPortfolio(input);
+  const topPack = report.priorityQueue[0] ?? null;
+  const primaryIncident = selectPrimaryPortfolioIncident(topPack);
+  const topPackLabel = topPack?.label ?? 'none';
+
+  resetCasebookState();
+  resetRegressionState();
+  resetTimelineState();
+
+  excavationValue.textContent = `Portfolio packs: ${report.summary.packCount} labeled, ${report.summary.runnablePackCount} runnable`;
+  runtimeValue.textContent = 'portfolio radar';
+  headlineValue.textContent = report.summary.headline;
+  culpritValue.textContent = summarizePortfolioPrimaryCulprit(report);
+  confidenceValue.textContent = topPack ? 'portfolio' : '-';
+  tagsValue.textContent = topPack ? 'portfolio-radar, incident-pack' : 'portfolio-radar';
+  signatureValue.textContent = topPack ? `top pack: ${topPackLabel}` : '-';
+  summaryValue.textContent = buildPortfolioSummary(report);
+  blastRadiusValue.textContent = buildPortfolioBlastRadiusSummary(topPack, primaryIncident);
+  digestGroupsValue.replaceChildren(...buildListItems(buildPortfolioPriorityItems(report.priorityQueue)));
+  supportFramesValue.replaceChildren(...buildListItems(
+    primaryIncident?.representative?.supportFrames?.length
+      ? primaryIncident.representative.supportFrames.map((frame) => formatFrame(frame))
+      : ['Open the highest-priority pack to inspect nearby supporting frames.']
+  ));
+  hotspotsValue.replaceChildren(...buildListItems(buildPortfolioRecurringHotspotItems(report.recurringHotspots)));
+  checklistValue.replaceChildren(...buildListItems(report.summary.checklist));
+
+  portfolioSummaryValue.textContent = buildPortfolioSummary(report);
+  portfolioPackCountValue.textContent = `${report.summary.runnablePackCount} / ${report.summary.packCount}`;
+  portfolioPriorityValue.replaceChildren(...buildListItems(buildPortfolioPriorityItems(report.priorityQueue)));
+  portfolioRecurringIncidentsValue.replaceChildren(...buildListItems(buildPortfolioRecurringIncidentItems(report.recurringIncidents)));
+  portfolioRecurringHotspotsValue.replaceChildren(...buildListItems(buildPortfolioRecurringHotspotItems(report.recurringHotspots)));
 }
 
 function renderIncidentPackWorkflow(incidentPack) {
@@ -464,6 +521,7 @@ function renderNoTraceExcavated(extraction) {
 }
 
 function resetEmptyState() {
+  resetPortfolioState();
   excavationValue.textContent = 'Awaiting trace or raw log input';
   headlineValue.textContent = 'Paste one or more traces or raw logs to get started';
   runtimeValue.textContent = 'Awaiting trace';
@@ -484,6 +542,20 @@ function resetEmptyState() {
   ]));
   checklistValue.replaceChildren(...buildListItems([
     'Run an example or paste one or more real traces to see actionable next steps.'
+  ]));
+}
+
+function resetPortfolioState() {
+  portfolioSummaryValue.textContent = 'Paste several labeled incident packs to rank the release-level triage queue.';
+  portfolioPackCountValue.textContent = '-';
+  portfolioPriorityValue.replaceChildren(...buildListItems([
+    'Priority-ranked packs will appear here after Portfolio Radar runs.'
+  ]));
+  portfolioRecurringIncidentsValue.replaceChildren(...buildListItems([
+    'Recurring cross-pack incident signatures will appear here after Portfolio Radar runs.'
+  ]));
+  portfolioRecurringHotspotsValue.replaceChildren(...buildListItems([
+    'Recurring hotspot files will appear here after Portfolio Radar runs.'
   ]));
 }
 
@@ -541,6 +613,16 @@ function loadIncidentPackExample(example) {
   renderDiagnosis();
 }
 
+function loadPortfolioExample(example) {
+  if (!example) {
+    return;
+  }
+
+  traceInput.value = example.portfolio;
+  caption.textContent = example.caption;
+  renderDiagnosis();
+}
+
 function loadRegressionExample(example) {
   if (!example) {
     return;
@@ -575,6 +657,24 @@ function loadCasebookExample(example) {
 
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
+  const portfolio = parseIncidentPortfolio(traceText);
+
+  if (portfolio.packOrder.length) {
+    const report = analyzeIncidentPortfolio(portfolio);
+    if (!report.summary.runnablePackCount) {
+      caption.textContent = 'Portfolio Radar needs at least one runnable labeled incident pack before there is anything useful to copy.';
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(renderIncidentPortfolioTextSummary(report));
+      caption.textContent = 'Portfolio Radar summary copied to clipboard.';
+    } catch {
+      caption.textContent = 'Clipboard copy unavailable here, but the Portfolio Radar summary is ready to copy manually.';
+    }
+    return;
+  }
+
   const incidentPack = parseIncidentPack(traceText);
 
   if (incidentPack.sectionOrder.length) {
@@ -730,6 +830,52 @@ function formatTimelineBlastRadiusSummary(topIncident, latestDigest) {
   }
 
   return sections.join(' ');
+}
+
+function buildPortfolioSummary(report) {
+  const topPack = report.priorityQueue[0]?.label ?? 'none';
+  return `Portfolio Radar ranked ${report.summary.runnablePackCount} runnable pack${report.summary.runnablePackCount === 1 ? '' : 's'} out of ${report.summary.packCount}. Top priority: ${topPack}. Cross-pack signals: ${report.summary.totalNovelIncidents} novel, ${report.summary.totalRegressionNew} regression-new, and ${report.summary.totalTimelineRising} timeline-rising.`;
+}
+
+function buildPortfolioBlastRadiusSummary(topPack, primaryIncident) {
+  if (!topPack) {
+    return 'Blast radius details will appear here once at least one labeled incident pack becomes runnable.';
+  }
+
+  const primaryAnalysis = selectIncidentPackPrimaryAnalysis(topPack.report);
+  const blastRadius = selectIncidentPackBlastRadius(topPack.report, primaryAnalysis);
+  const culprit = formatFrame(primaryIncident?.representative?.culpritFrame ?? null);
+  return `Top pack ${topPack.label} centers on ${culprit}. ${formatBlastRadiusSummary(blastRadius)}`;
+}
+
+function buildPortfolioPriorityItems(priorityQueue) {
+  if (!priorityQueue.length) {
+    return ['Priority-ranked packs will appear here after Portfolio Radar runs.'];
+  }
+
+  return priorityQueue.slice(0, 5).map((item, index) => (
+    `${index + 1}. ${item.label}: ${item.priorityReasons.join('; ')}`
+  ));
+}
+
+function buildPortfolioRecurringIncidentItems(recurringIncidents) {
+  if (!recurringIncidents.length) {
+    return ['No recurring cross-pack incident signatures detected yet.'];
+  }
+
+  return recurringIncidents.slice(0, 5).map((item) => (
+    `${item.packCount} packs: ${item.labels.join(', ')} (${item.signature})`
+  ));
+}
+
+function buildPortfolioRecurringHotspotItems(recurringHotspots) {
+  if (!recurringHotspots.length) {
+    return ['No recurring hotspot files detected across runnable packs yet.'];
+  }
+
+  return recurringHotspots.slice(0, 5).map((item) => (
+    `${item.label} across ${item.packCount} packs: ${item.labels.join(', ')}`
+  ));
 }
 
 function buildCasebookSummary(casebook) {
@@ -989,6 +1135,7 @@ loadPythonButton?.addEventListener('click', () => loadExample(pythonExample));
 loadRawLogButton?.addEventListener('click', () => loadExample(rawLogExample));
 loadDigestButton?.addEventListener('click', () => loadExample(digestExample));
 loadPackButton?.addEventListener('click', () => loadIncidentPackExample(incidentPackExample));
+loadPortfolioButton?.addEventListener('click', () => loadPortfolioExample(portfolioExample));
 loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));
 compareButton?.addEventListener('click', renderRegressionWorkflow);
 loadCasebookButton?.addEventListener('click', () => loadCasebookExample(casebookExample));
@@ -1038,6 +1185,7 @@ timelineInput?.addEventListener('input', () => {
 });
 
 loadExample(jsExample);
+resetPortfolioState();
 resetRegressionState();
 resetCasebookState();
 resetTimelineState();

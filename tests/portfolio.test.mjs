@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   analyzeIncidentPortfolio,
   parseIncidentPortfolio,
+  renderIncidentPortfolioMarkdownSummary,
   renderIncidentPortfolioTextSummary,
 } from '../src/portfolio.js';
 
@@ -73,9 +74,13 @@ test('analyzeIncidentPortfolio ranks runnable packs and reports recurring incide
   assert.equal(report.summary.runnablePackCount, 3);
   assert.equal(report.priorityQueue[0].label, 'profile-rollout');
   assert.match(report.summary.headline, /profile-rollout/);
+  assert.equal(report.summary.totalNovelIncidents, 1);
+  assert.equal(report.summary.totalRegressionNew, 1);
   assert.ok(report.priorityQueue[0].priorityReasons.length > 0);
   assert.ok(report.recurringIncidents.some((item) => item.packCount >= 2));
+  assert.ok(report.recurringHotspots.some((item) => item.packCount >= 2));
   assert.match(renderIncidentPortfolioTextSummary(report), /Stack Sleuth Portfolio Radar/);
+  assert.match(renderIncidentPortfolioMarkdownSummary(report), /^# Stack Sleuth Portfolio Radar/m);
 });
 
 test('analyzeIncidentPortfolio degrades gracefully for malformed or unrunnable packs', () => {

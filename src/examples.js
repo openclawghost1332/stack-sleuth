@@ -81,6 +81,26 @@ const incidentPackTrace = [
   timelineTrace,
 ].join('\n');
 
+const portfolioTrace = [
+  '@@@ checkout-prod @@@',
+  '@@ current @@',
+  `${javascriptTrace}\n\n${javascriptTrace}`,
+  '',
+  '@@@ profile-rollout @@@',
+  '@@ current @@',
+  casebookCurrentTrace,
+  '',
+  '@@ history @@',
+  casebookHistoryTrace,
+  '',
+  '@@@ billing-canary @@@',
+  '@@ baseline @@',
+  `${javascriptTrace}\n\n${pythonTrace}`,
+  '',
+  '@@ candidate @@',
+  `${javascriptTrace}\n\n${javascriptTrace}\n\n${regressionTrace}`,
+].join('\n');
+
 export const examples = [
   {
     label: 'JavaScript undefined property',
@@ -123,5 +143,10 @@ export const examples = [
     label: 'Incident pack briefing',
     caption: 'One structured incident pack folds today\'s batch, the casebook, a regression compare, and a rollout timeline into a single briefing that is easy to paste into chat or an incident doc.',
     pack: incidentPackTrace,
+  },
+  {
+    label: 'Portfolio radar',
+    caption: 'Several labeled incident packs roll up into one Portfolio Radar queue, making recurring incidents, shared hotspots, and the highest-priority release breakage obvious.',
+    portfolio: portfolioTrace,
   }
 ];

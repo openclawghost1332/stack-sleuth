@@ -1,12 +1,12 @@
 # Stack Sleuth
 
-Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a likely culprit frame, a reusable issue signature, nearby support frames, ranked suspect hotspots, blast radius summaries for affected services, parsed first-seen and last-seen windows, and a practical next-step checklist. It can excavate embedded traces from noisy raw logs before grouping repeated incidents, looking up known versus novel failures in an incident memory, comparing releases, or mapping rollout drift.
+Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a likely culprit frame, a reusable issue signature, nearby support frames, ranked suspect hotspots, blast radius summaries for affected services, parsed first-seen and last-seen windows, and a practical next-step checklist. It can excavate embedded traces from noisy raw logs before grouping repeated incidents, looking up known versus novel failures in an incident memory, comparing releases, mapping rollout drift, or ranking several incident packs into one cross-pack release queue.
 
 ## Browser demo
 
 Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so excavation status, culprit detection, signatures, support frames, suspect hotspots, blast radius summaries, incident digest output, casebook lookup, regression comparison, and timeline trend calls stay aligned across every workflow.
 
-Use the built-in example buttons to compare eight modes:
+Use the built-in example buttons to compare nine modes:
 - single-trace diagnosis with suspect hotspots
 - raw log excavation from noisy production logs with blast radius service spread and parsed windows
 - repeated traces grouped into an Incident Digest with shared hotspots
@@ -14,6 +14,7 @@ Use the built-in example buttons to compare eight modes:
 - baseline and candidate batches compared in Regression Radar mode with hotspot shifts
 - labeled rollout snapshots analyzed in Timeline Radar mode with trend calls and hotspot movement
 - one structured Incident Pack Briefing that composes current, history, regression, and rollout context in a single pass
+- several structured incident packs ranked in Portfolio Radar mode with recurring incidents and shared hotspots
 - browser copy that includes excavation-aware summaries
 
 ## CLI
@@ -127,6 +128,60 @@ Supported sections are:
 - `@@ timeline @@` for labeled rollout snapshots using the `=== label ===` timeline format
 
 In the browser, paste the full pack into the shared workspace, then press **Explain trace(s)** or **Load incident pack example** to generate one Incident Pack Briefing and populate the shared result cards.
+
+## Portfolio Radar
+
+Portfolio Radar wraps several Incident Pack Briefings into one release-level queue. Use it when one deploy, rollout, or incident-review thread already has multiple packs and you want one ranked answer about which pack deserves attention first, which signatures recur across packs, and which hotspot files keep showing up.
+
+### Analyze a labeled portfolio from a file
+
+```bash
+node ./bin/stack-sleuth.js --portfolio ./portfolio.txt
+```
+
+### Analyze a labeled portfolio from stdin in JSON mode
+
+```bash
+cat portfolio.txt | node ./bin/stack-sleuth.js --portfolio - --json
+```
+
+### Analyze a labeled portfolio in Markdown
+
+```bash
+node ./bin/stack-sleuth.js --portfolio ./portfolio.txt --markdown
+```
+
+Wrap each incident pack with `@@@ label @@@` markers, then keep the existing inner `@@ current @@`, `@@ history @@`, `@@ baseline @@`, `@@ candidate @@`, and `@@ timeline @@` sections unchanged:
+
+```text
+@@@ checkout-prod @@@
+@@ current @@
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+@@@ profile-rollout @@@
+@@ current @@
+ProfileHydrationError: Profile payload missing account metadata
+    at renderProfileState (/app/src/profile.js:102:9)
+
+@@ history @@
+=== release-2026-04-15 ===
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+@@@ billing-canary @@@
+@@ baseline @@
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+@@ candidate @@
+TypeError: Cannot read properties of undefined (reading 'email')
+    at renderInvoice (/app/src/invoice.js:19:7)
+```
+
+Portfolio Radar highlights the top-ranked packs first, then calls out recurring incidents and recurring hotspots across runnable packs so cross-pack failure patterns stay obvious.
+
+In the browser, paste the full labeled portfolio into the shared workspace, then press **Explain trace(s)** or **Load portfolio example** to generate one Portfolio Radar summary.
 
 ## Casebook Radar
 

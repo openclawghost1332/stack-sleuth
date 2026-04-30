@@ -80,3 +80,12 @@ test('README documents timeline radar workflows for browser and CLI timeline mod
   assert.match(readme, /raw logs/i);
   assert.match(readme, /labeled snapshots|rollout snapshots/i);
 });
+
+test('README documents portfolio radar workflows for browser and CLI multi-pack mode', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Portfolio Radar/i);
+  assert.match(readme, /--portfolio/);
+  assert.match(readme, /@@@ checkout-prod @@@/);
+  assert.match(readme, /recurring incidents|cross-pack/i);
+  assert.match(readme, /recurring hotspots|shared hotspots/i);
+});

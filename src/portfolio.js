@@ -46,18 +46,26 @@ export function analyzeIncidentPortfolio(input) {
     .sort(comparePackReports);
   const recurringIncidents = collectRecurringIncidents(packReports);
   const recurringHotspots = collectRecurringHotspots(packReports);
+  const { responseQueue, runbookGaps, unownedPacks } = collectResponseSignals(priorityQueue);
   const topPack = priorityQueue[0] ?? null;
 
   return {
     portfolio,
     packReports,
     priorityQueue,
+    responseQueue,
+    runbookGaps,
+    unownedPacks,
     recurringIncidents,
     recurringHotspots,
     summary: {
       packCount: packReports.length,
       runnablePackCount: priorityQueue.length,
       unrunnablePackCount: packReports.length - priorityQueue.length,
+      ownedPackCount: priorityQueue.length - unownedPacks.length,
+      unownedPackCount: unownedPacks.length,
+      runbookCoveredPackCount: priorityQueue.length - runbookGaps.length,
+      runbookGapCount: runbookGaps.length,
       totalNovelIncidents: sumBy(packReports, (item) => item.report.casebook?.summary.novelCount ?? 0),
       totalRegressionNew: sumBy(packReports, (item) => item.report.regression?.summary.newCount ?? 0),
       totalRegressionVolumeUp: sumBy(packReports, (item) => item.report.regression?.summary.volumeUpCount ?? 0),
@@ -77,11 +85,21 @@ export function renderIncidentPortfolioTextSummary(report) {
     `Packs: ${report.summary.packCount}`,
     `Runnable packs: ${report.summary.runnablePackCount}`,
     `Unrunnable packs: ${report.summary.unrunnablePackCount}`,
+    `Owned packs: ${report.summary.ownedPackCount}`,
+    `Unowned packs: ${report.summary.unownedPackCount}`,
+    `Runbook-covered packs: ${report.summary.runbookCoveredPackCount}`,
+    `Runbook gaps: ${report.summary.runbookGapCount}`,
     `Headline: ${report.summary.headline}`,
     `Portfolio signals: ${report.summary.totalNovelIncidents} novel, ${report.summary.totalRegressionNew} regression-new, ${report.summary.totalRegressionVolumeUp} regression-volume-up, ${report.summary.totalTimelineNew} timeline-new, ${report.summary.totalTimelineRising} timeline-rising`,
     '',
     'Priority queue',
     ...formatPriorityQueue(report.priorityQueue),
+    '',
+    'Response queue',
+    ...formatResponseQueue(report.responseQueue),
+    '',
+    'Routing gaps',
+    ...formatRoutingGaps(report.unownedPacks, report.runbookGaps),
     '',
     'Recurring incidents',
     ...formatRecurringIncidents(report.recurringIncidents),
@@ -103,11 +121,21 @@ export function renderIncidentPortfolioMarkdownSummary(report) {
     `- **Packs:** ${report.summary.packCount}`,
     `- **Runnable packs:** ${report.summary.runnablePackCount}`,
     `- **Unrunnable packs:** ${report.summary.unrunnablePackCount}`,
+    `- **Owned packs:** ${report.summary.ownedPackCount}`,
+    `- **Unowned packs:** ${report.summary.unownedPackCount}`,
+    `- **Runbook-covered packs:** ${report.summary.runbookCoveredPackCount}`,
+    `- **Runbook gaps:** ${report.summary.runbookGapCount}`,
     `- **Headline:** ${escapeMarkdownText(report.summary.headline)}`,
     `- **Portfolio signals:** ${escapeMarkdownText(`${report.summary.totalNovelIncidents} novel, ${report.summary.totalRegressionNew} regression-new, ${report.summary.totalRegressionVolumeUp} regression-volume-up, ${report.summary.totalTimelineNew} timeline-new, ${report.summary.totalTimelineRising} timeline-rising`)}`,
     '',
     '## Priority queue',
     ...formatPriorityQueue(report.priorityQueue).map((item) => escapeMarkdownListItem(item)),
+    '',
+    '## Response queue',
+    ...formatResponseQueue(report.responseQueue).map((item) => escapeMarkdownListItem(item)),
+    '',
+    '## Routing gaps',
+    ...formatRoutingGaps(report.unownedPacks, report.runbookGaps).map((item) => escapeMarkdownListItem(item)),
     '',
     '## Recurring incidents',
     ...formatRecurringIncidents(report.recurringIncidents).map((item) => escapeMarkdownListItem(item)),
@@ -237,6 +265,104 @@ function buildChecklist({ priorityQueue, recurringIncidents, recurringHotspots, 
   return [...new Set(checklist)].slice(0, 5);
 }
 
+function collectResponseSignals(priorityQueue) {
+  const owners = new Map();
+  const runbookGaps = [];
+  const unownedPacks = [];
+
+  for (const [queueIndex, packReport] of priorityQueue.entries()) {
+    const guidance = collectPackGuidance(packReport.report);
+    const packOwners = new Set(guidance.map((item) => item.owner).filter(Boolean));
+    const hasRunbook = guidance.some((item) => item.runbook);
+    const novelCount = packReport.report.casebook?.summary.novelCount ?? 0;
+
+    if (!packOwners.size) {
+      unownedPacks.push({
+        label: packReport.label,
+        priorityScore: packReport.priorityScore,
+        priorityReasons: packReport.priorityReasons,
+        novelCount,
+        queueIndex,
+      });
+    }
+
+    if (!hasRunbook) {
+      runbookGaps.push({
+        label: packReport.label,
+        priorityScore: packReport.priorityScore,
+        priorityReasons: packReport.priorityReasons,
+        novelCount,
+        queueIndex,
+      });
+    }
+
+    for (const owner of packOwners) {
+      const ownerGuidance = guidance.filter((item) => item.owner === owner);
+      const entry = owners.get(owner) ?? {
+        owner,
+        labels: [],
+        guidance: [],
+        highestPriorityScore: -1,
+        novelIncidentCount: 0,
+        bestQueueIndex: Number.POSITIVE_INFINITY,
+      };
+      entry.labels.push(packReport.label);
+      entry.guidance.push(...ownerGuidance);
+      entry.highestPriorityScore = Math.max(entry.highestPriorityScore, packReport.priorityScore);
+      entry.novelIncidentCount += novelCount;
+      entry.bestQueueIndex = Math.min(entry.bestQueueIndex, queueIndex);
+      owners.set(owner, entry);
+    }
+  }
+
+  return {
+    responseQueue: [...owners.values()]
+      .map((entry) => ({
+        ...entry,
+        labels: unique(entry.labels),
+        guidance: dedupeGuidance(entry.guidance),
+        packCount: unique(entry.labels).length,
+      }))
+      .sort((left, right) => left.bestQueueIndex - right.bestQueueIndex
+        || right.novelIncidentCount - left.novelIncidentCount
+        || right.packCount - left.packCount
+        || left.owner.localeCompare(right.owner)),
+    runbookGaps: runbookGaps.sort(compareGapEntries),
+    unownedPacks: unownedPacks.sort(compareGapEntries),
+  };
+}
+
+function collectPackGuidance(report) {
+  const incidents = report.casebook?.incidents ?? [];
+  return incidents.flatMap((incident) => incident.matchingGuidance ?? []);
+}
+
+function dedupeGuidance(guidance) {
+  const seen = new Set();
+  const items = [];
+
+  for (const item of guidance) {
+    const key = JSON.stringify(item);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    items.push(item);
+  }
+
+  return items;
+}
+
+function unique(items) {
+  return [...new Set(items)];
+}
+
+function compareGapEntries(left, right) {
+  return left.queueIndex - right.queueIndex
+    || right.novelCount - left.novelCount
+    || left.label.localeCompare(right.label);
+}
+
 function collectRecurringIncidents(packReports) {
   const signatures = new Map();
 
@@ -327,6 +453,53 @@ function formatRecurringHotspots(recurringHotspots) {
   }
 
   return recurringHotspots.map((item) => `- ${item.packCount} packs: ${item.label} (${item.labels.join(', ')})`);
+}
+
+function formatResponseQueue(responseQueue) {
+  if (!responseQueue?.length) {
+    return ['- None'];
+  }
+
+  return responseQueue.map((entry) => `- ${describeResponseQueueEntry(entry)}`);
+}
+
+function formatRoutingGaps(unownedPacks, runbookGaps) {
+  const lines = [];
+
+  if (unownedPacks?.length) {
+    lines.push(...unownedPacks.map((item) => `- ${describeRoutingGap('owner', item)}`));
+  }
+
+  if (runbookGaps?.length) {
+    lines.push(...runbookGaps.map((item) => `- ${describeRoutingGap('runbook', item)}`));
+  }
+
+  return lines.length ? lines : ['- None'];
+}
+
+export function describeResponseQueueEntry(entry) {
+  const details = [];
+  const summaries = unique(entry.guidance.map((item) => item.summary).filter(Boolean));
+  const fixes = unique(entry.guidance.map((item) => item.fix).filter(Boolean));
+  const runbooks = unique(entry.guidance.map((item) => item.runbook).filter(Boolean));
+
+  if (summaries.length) {
+    details.push(`summary ${summaries.join(' | ')}`);
+  }
+  if (fixes.length) {
+    details.push(`fix ${fixes.join(' | ')}`);
+  }
+  if (runbooks.length) {
+    details.push(`runbook ${runbooks.join(' | ')}`);
+  }
+
+  return `${entry.owner}: ${entry.labels.join(', ')}${details.length ? ` (${details.join('; ')})` : ''}`;
+}
+
+export function describeRoutingGap(kind, item) {
+  return kind === 'owner'
+    ? `No recalled owner: ${item.label}`
+    : `No recalled runbook: ${item.label}`;
 }
 
 function emptyPortfolio(source = '') {

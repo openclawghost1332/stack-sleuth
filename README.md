@@ -6,7 +6,7 @@ Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a 
 
 Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so excavation status, culprit detection, signatures, support frames, suspect hotspots, blast radius summaries, incident digest output, casebook lookup, regression comparison, and timeline trend calls stay aligned across every workflow.
 
-Use the built-in example buttons to compare nine modes:
+Use the built-in example buttons to compare ten modes:
 - single-trace diagnosis with suspect hotspots
 - raw log excavation from noisy production logs with blast radius service spread and parsed windows
 - repeated traces grouped into an Incident Digest with shared hotspots
@@ -15,6 +15,7 @@ Use the built-in example buttons to compare nine modes:
 - labeled rollout snapshots analyzed in Timeline Radar mode with trend calls and hotspot movement
 - one structured Incident Pack Briefing that composes current, history, regression, and rollout context in a single pass
 - several structured incident packs ranked in Portfolio Radar mode with recurring incidents and shared hotspots
+- Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
 - browser copy that includes excavation-aware summaries
 
 ## CLI
@@ -182,6 +183,44 @@ TypeError: Cannot read properties of undefined (reading 'email')
 Portfolio Radar highlights the top-ranked packs first, then calls out recurring incidents and recurring hotspots across runnable packs so cross-pack failure patterns stay obvious.
 
 In the browser, paste the full labeled portfolio into the shared workspace, then press **Explain trace(s)** or **Load portfolio example** to generate one Portfolio Radar summary.
+
+## Casebook Forge
+
+Casebook Forge is the bridge from active triage to reusable incident memory. Feed it the same labeled portfolio used by Portfolio Radar and it will emit a reusable casebook export in the existing `=== label ===` format, ready to save and feed back into later Casebook Radar or Incident Pack Briefing runs.
+
+### Forge a reusable casebook from a labeled portfolio file
+
+```bash
+node ./bin/stack-sleuth.js --forge ./portfolio.txt
+```
+
+### Forge from stdin in JSON mode
+
+```bash
+cat portfolio.txt | node ./bin/stack-sleuth.js --forge - --json
+```
+
+### Forge in Markdown
+
+```bash
+node ./bin/stack-sleuth.js --forge ./portfolio.txt --markdown
+```
+
+Casebook Forge reuses the same `@@@ label @@@` portfolio wrapper plus the existing inner `@@ current @@`, `@@ history @@`, `@@ baseline @@`, `@@ candidate @@`, and `@@ timeline @@` sections. The output includes a summary plus a reusable casebook export like this:
+
+```text
+=== release-2026-04-15 ===
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+=== profile-js-generic-runtime-error ===
+ProfileHydrationError: Profile payload missing account metadata
+    at renderProfileState (/app/src/profile.js:102:9)
+```
+
+Save that forged export as a history file and reuse it with `--history`, or paste it into an `@@ history @@` section inside a later Incident Pack Briefing.
+
+In the browser, paste the full labeled portfolio into the shared workspace, then press **Explain trace(s)** or **Load Casebook Forge example** to inspect the reusable casebook flow.
 
 ## Casebook Radar
 

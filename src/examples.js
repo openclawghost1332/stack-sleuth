@@ -148,5 +148,10 @@ export const examples = [
     label: 'Portfolio radar',
     caption: 'Several labeled incident packs roll up into one Portfolio Radar queue, making recurring incidents, shared hotspots, and the highest-priority release breakage obvious.',
     portfolio: portfolioTrace,
+  },
+  {
+    label: 'Casebook Forge',
+    caption: 'A labeled incident portfolio turns into a reusable casebook export, so active triage feeds the next incident-memory lookup without hand-curating new history files.',
+    portfolio: portfolioTrace,
   }
 ];

@@ -223,7 +223,7 @@ function renderTimelineWorkflow() {
     : '-';
   signatureValue.textContent = topIncident?.signature ?? '-';
   summaryValue.textContent = `Timeline Radar found ${summary.newCount} new, ${summary.risingCount} rising, ${summary.flappingCount} flapping, ${summary.steadyCount} steady, ${summary.fallingCount} falling, and ${summary.resolvedCount} resolved incidents across ${summary.snapshotCount} labeled snapshots.`;
-  blastRadiusValue.textContent = formatBlastRadiusSummary(timeline.blastRadius);
+  blastRadiusValue.textContent = formatTimelineBlastRadiusSummary(topIncident, latestDigest);
   digestGroupsValue.replaceChildren(...buildListItems(buildTimelineIncidentItems(timeline.incidents)));
   supportFramesValue.replaceChildren(...buildListItems(
     topReport?.supportFrames?.length
@@ -430,6 +430,24 @@ function formatComparisonBlastRadiusSummary(regression) {
     `Candidate ${formatBlastRadiusSummary(regression.candidateDigest?.blastRadius)}`,
     `Baseline ${formatBlastRadiusSummary(regression.baselineDigest?.blastRadius)}`
   ].join(' ');
+}
+
+function formatTimelineBlastRadiusSummary(topIncident, latestDigest) {
+  if (!topIncident && !latestDigest?.blastRadius) {
+    return 'Blast radius details will appear here once rollout snapshots expose affected services or incident windows.';
+  }
+
+  const sections = [];
+
+  if (topIncident) {
+    sections.push(`Top timeline incident ${formatBlastRadiusSummary(topIncident.blastRadius)}`);
+  }
+
+  if (latestDigest?.blastRadius) {
+    sections.push(`Latest snapshot ${formatBlastRadiusSummary(latestDigest.blastRadius)}`);
+  }
+
+  return sections.join(' ');
 }
 
 function buildHotspotItems(hotspots) {

@@ -329,6 +329,9 @@ function renderUnsupportedIncidentPack(incidentPack) {
 }
 
 function renderRegressionWorkflow() {
+  resetPortfolioState();
+  resetForgeState();
+
   const baseline = compareBaselineInput.value.trim();
   const candidate = compareCandidateInput.value.trim();
 
@@ -392,6 +395,9 @@ function renderRegressionWorkflow() {
 }
 
 function renderCasebookWorkflow() {
+  resetPortfolioState();
+  resetForgeState();
+
   const current = casebookCurrentInput.value.trim();
   const history = casebookHistoryInput.value.trim();
 
@@ -450,6 +456,9 @@ function renderCasebookWorkflow() {
 }
 
 function renderTimelineWorkflow() {
+  resetPortfolioState();
+  resetForgeState();
+
   const timelineText = timelineInput.value.trim();
   if (!timelineText) {
     resetTimelineState();

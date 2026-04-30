@@ -86,6 +86,11 @@ function renderDiagnosis() {
     return;
   }
 
+  if (incidentPack.unknownSections.length) {
+    renderUnsupportedIncidentPack(incidentPack);
+    return;
+  }
+
   const extraction = extractTraceSet(traceText);
   excavationValue.textContent = describeExcavation(extraction);
 
@@ -150,9 +155,12 @@ function renderDigest(traceText) {
 
 function renderIncidentPackWorkflow(incidentPack) {
   const briefing = analyzeIncidentPack(incidentPack);
+  const primaryAnalysis = selectIncidentPackPrimaryAnalysis(briefing);
   const primaryReport = selectIncidentPackPrimaryReport(briefing);
   const primaryRepresentative = primaryReport?.representative ?? null;
   const currentDigest = briefing.currentDigest;
+  const sharedBlastRadiusText = formatBlastRadiusSummary(selectIncidentPackBlastRadius(briefing, primaryAnalysis));
+  const sharedHotspotItems = selectIncidentPackHotspotItems(briefing, primaryAnalysis);
 
   excavationValue.textContent = `Sections: ${briefing.summary.sectionsPresent.join(', ') || 'none'} | Analyses: ${briefing.availableAnalyses.join(', ') || 'none'}`;
   runtimeValue.textContent = 'incident pack briefing';
@@ -163,15 +171,15 @@ function renderIncidentPackWorkflow(incidentPack) {
     ? ['incident-pack', ...briefing.availableAnalyses].join(', ')
     : 'incident-pack';
   signatureValue.textContent = primaryReport?.signature ?? '-';
-  summaryValue.textContent = briefing.summary.topFindings[0] ?? briefing.summary.headline;
-  blastRadiusValue.textContent = formatBlastRadiusSummary(selectIncidentPackBlastRadius(briefing));
+  summaryValue.textContent = selectIncidentPackPrimarySummary(briefing, primaryAnalysis);
+  blastRadiusValue.textContent = sharedBlastRadiusText;
   digestGroupsValue.replaceChildren(...buildListItems(buildIncidentPackDigestItems(briefing)));
   supportFramesValue.replaceChildren(...buildListItems(
     primaryRepresentative?.supportFrames?.length
       ? primaryRepresentative.supportFrames.map((frame) => formatFrame(frame))
       : ['Open the top incident-pack finding to inspect nearby supporting frames.']
   ));
-  hotspotsValue.replaceChildren(...buildListItems(selectIncidentPackHotspotItems(briefing)));
+  hotspotsValue.replaceChildren(...buildListItems(sharedHotspotItems));
   checklistValue.replaceChildren(...buildListItems(briefing.summary.checklist));
 
   if (briefing.casebook) {
@@ -222,6 +230,39 @@ function renderIncidentPackWorkflow(incidentPack) {
   if (!currentDigest && !briefing.availableAnalyses.length) {
     summaryValue.textContent = 'Incident Pack Briefing did not find any runnable analyses in this pack yet.';
   }
+
+  blastRadiusValue.textContent = sharedBlastRadiusText;
+  hotspotsValue.replaceChildren(...buildListItems(sharedHotspotItems));
+}
+
+function renderUnsupportedIncidentPack(incidentPack) {
+  const unknownSections = incidentPack.unknownSections.join(', ') || 'unknown';
+
+  excavationValue.textContent = `Unsupported incident-pack sections: ${unknownSections}`;
+  runtimeValue.textContent = 'incident pack guidance';
+  headlineValue.textContent = 'Stack Sleuth did not find any supported incident-pack sections in this input yet';
+  culpritValue.textContent = 'No supported incident-pack section selected yet';
+  confidenceValue.textContent = '-';
+  tagsValue.textContent = 'incident-pack, unsupported-sections';
+  signatureValue.textContent = '-';
+  summaryValue.textContent = 'Use @@ current @@, @@ history @@, @@ baseline @@, @@ candidate @@, or @@ timeline @@ as top-level section headers, then rerun the incident pack briefing.';
+  blastRadiusValue.textContent = 'Blast radius details will appear after at least one supported incident-pack section contains usable traces.';
+  digestGroupsValue.replaceChildren(...buildListItems([
+    'Supported incident-pack findings will appear here after Stack Sleuth recognizes at least one supported @@ section @@ header.'
+  ]));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Support frames will appear here after a supported incident-pack section yields a runnable analysis.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems([
+    'Suspect hotspots will appear here after Stack Sleuth recognizes a supported current, candidate, or timeline section.'
+  ]));
+  checklistValue.replaceChildren(...buildListItems([
+    'Rename the section headers to supported incident-pack names like @@ current @@ or @@ timeline @@.',
+    'Keep each supported section at the top level so Stack Sleuth can route it into the right analysis.',
+  ]));
+  resetCasebookState();
+  resetRegressionState();
+  resetTimelineState();
 }
 
 function renderRegressionWorkflow() {
@@ -552,6 +593,11 @@ async function copyDiagnosis() {
     return;
   }
 
+  if (incidentPack.unknownSections.length) {
+    caption.textContent = 'Incident Pack Briefing expects supported headers like @@ current @@, @@ history @@, @@ baseline @@, @@ candidate @@, or @@ timeline @@ before there is anything useful to copy.';
+    return;
+  }
+
   const extraction = extractTraceSet(traceText);
 
   if (extraction.traceCount === 0) {
@@ -815,23 +861,113 @@ function buildIncidentPackDigestItems(briefing) {
   return items.length ? items : ['Incident Pack Briefing findings will appear here once at least one supported section runs.'];
 }
 
+function selectIncidentPackPrimaryAnalysis(briefing) {
+  if ((briefing.casebook?.summary.novelCount ?? 0) > 0) {
+    return 'casebook';
+  }
+
+  if ((briefing.regression?.summary.newCount ?? 0) > 0 || (briefing.regression?.summary.volumeUpCount ?? 0) > 0) {
+    return 'regression';
+  }
+
+  if ((briefing.timeline?.summary.newCount ?? 0) > 0 || (briefing.timeline?.summary.risingCount ?? 0) > 0) {
+    return 'timeline';
+  }
+
+  if (briefing.currentDigest) {
+    return 'current';
+  }
+
+  if (briefing.casebook) {
+    return 'casebook';
+  }
+
+  if (briefing.regression) {
+    return 'regression';
+  }
+
+  if (briefing.timeline) {
+    return 'timeline';
+  }
+
+  return null;
+}
+
 function selectIncidentPackPrimaryReport(briefing) {
-  return briefing.casebook?.incidents[0]
-    ?? briefing.regression?.incidents[0]
-    ?? briefing.timeline?.incidents[0]
-    ?? briefing.currentDigest?.groups[0]
-    ?? null;
+  const primaryAnalysis = selectIncidentPackPrimaryAnalysis(briefing);
+
+  if (primaryAnalysis === 'casebook') {
+    return briefing.casebook?.incidents[0] ?? null;
+  }
+
+  if (primaryAnalysis === 'regression') {
+    return briefing.regression?.incidents[0] ?? null;
+  }
+
+  if (primaryAnalysis === 'timeline') {
+    return briefing.timeline?.incidents[0] ?? null;
+  }
+
+  if (primaryAnalysis === 'current') {
+    return briefing.currentDigest?.groups[0] ?? null;
+  }
+
+  return null;
 }
 
-function selectIncidentPackBlastRadius(briefing) {
-  return briefing.casebook?.currentDigest?.blastRadius
-    ?? briefing.regression?.candidateDigest?.blastRadius
-    ?? briefing.timeline?.snapshots?.at(-1)?.digest?.blastRadius
-    ?? briefing.currentDigest?.blastRadius
-    ?? null;
+function selectIncidentPackPrimarySummary(briefing, primaryAnalysis) {
+  if (primaryAnalysis === 'casebook') {
+    return briefing.summary.topFindings.find((item) => item.startsWith('Casebook Radar ')) ?? briefing.summary.headline;
+  }
+
+  if (primaryAnalysis === 'regression') {
+    return briefing.summary.topFindings.find((item) => item.startsWith('Regression Radar ')) ?? briefing.summary.headline;
+  }
+
+  if (primaryAnalysis === 'timeline') {
+    return briefing.summary.topFindings.find((item) => item.startsWith('Timeline Radar ')) ?? briefing.summary.headline;
+  }
+
+  if (primaryAnalysis === 'current') {
+    return briefing.summary.topFindings.find((item) => item.startsWith('Current digest ')) ?? briefing.summary.headline;
+  }
+
+  return briefing.summary.headline;
 }
 
-function selectIncidentPackHotspotItems(briefing) {
+function selectIncidentPackBlastRadius(briefing, primaryAnalysis) {
+  if (primaryAnalysis === 'casebook') {
+    return briefing.casebook?.currentDigest?.blastRadius ?? briefing.currentDigest?.blastRadius ?? null;
+  }
+
+  if (primaryAnalysis === 'regression') {
+    return briefing.regression?.candidateDigest?.blastRadius ?? null;
+  }
+
+  if (primaryAnalysis === 'timeline') {
+    return briefing.timeline?.snapshots?.at(-1)?.digest?.blastRadius ?? null;
+  }
+
+  if (primaryAnalysis === 'current') {
+    return briefing.currentDigest?.blastRadius ?? null;
+  }
+
+  return null;
+}
+
+function selectIncidentPackHotspotItems(briefing, primaryAnalysis) {
+  if ((primaryAnalysis === 'casebook' || primaryAnalysis === 'current') && briefing.currentDigest?.hotspots?.length) {
+    return buildHotspotItems(briefing.currentDigest.hotspots);
+  }
+
+  if (primaryAnalysis === 'regression' && briefing.regression?.candidateDigest?.hotspots?.length) {
+    return buildHotspotItems(briefing.regression.candidateDigest.hotspots);
+  }
+
+  if (primaryAnalysis === 'timeline' && briefing.timeline?.hotspots?.length) {
+    return buildTimelineHotspotItems(briefing.timeline.hotspots);
+  }
+
   if (briefing.currentDigest?.hotspots?.length) {
     return buildHotspotItems(briefing.currentDigest.hotspots);
   }

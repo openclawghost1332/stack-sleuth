@@ -17,6 +17,7 @@ export function analyzeCasebook({ current, history }) {
         overlap: buildOverlap(currentSignals, digest),
       };
     })
+    .filter((entry) => entry.digest.totalTraces > 0)
     .sort(compareHistoricalCases);
 
   const incidents = currentDigest.groups.map((group) => {

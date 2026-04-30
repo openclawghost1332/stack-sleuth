@@ -37,6 +37,7 @@ const candidatePath = readOptionValue(args, '--candidate');
 const timelinePath = readOptionValue(args, '--timeline');
 const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
+const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, timelinePath, historyPath });
 const filePath = args.find((arg, index) => {
   if (arg.startsWith('--')) {
     return false;
@@ -66,6 +67,10 @@ if (currentPath && !historyPath) {
   fail('Casebook Radar requires --history when using --current.');
 }
 
+if (workflowArgumentError) {
+  fail(workflowArgumentError);
+}
+
 try {
   if (historyPath) {
     const historyInput = readNamedInput(historyPath, 'history');
@@ -85,6 +90,10 @@ try {
     const casebook = analyzeCasebook({ current: currentInput, history: historyBatches });
     if (casebook.summary.currentTraceCount === 0) {
       fail('Casebook Radar could not excavate any current traces from the provided input.');
+    }
+
+    if (casebook.summary.historicalCaseCount === 0) {
+      fail('Casebook Radar requires at least one usable historical case with a stack trace or excavatable raw log.');
     }
 
     writeOutput(casebook, mode, renderCasebookTextSummary, renderCasebookMarkdownSummary);
@@ -195,6 +204,20 @@ function validateOptionValue(list, flag) {
   const value = list[index + 1] ?? null;
   if (!value || value.startsWith('--')) {
     return `Missing value for ${flag}.`;
+  }
+
+  return null;
+}
+
+function validateWorkflowArguments({ baselinePath, candidatePath, timelinePath, historyPath }) {
+  const activeModes = [
+    historyPath ? 'casebook' : null,
+    timelinePath ? 'timeline' : null,
+    baselinePath || candidatePath ? 'compare' : null,
+  ].filter(Boolean);
+
+  if (activeModes.length > 1) {
+    return 'Choose one workflow mode at a time: casebook, timeline, or compare.';
   }
 
   return null;

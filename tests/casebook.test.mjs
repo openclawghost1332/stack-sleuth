@@ -103,6 +103,23 @@ test('analyzeCasebook classifies current incidents as known or novel and ranks h
   assert.deepEqual(casebook.historicalCases[2].overlap.diagnosisTags, ['nullish-data', 'undefined-property-access']);
 });
 
+test('analyzeCasebook ignores labeled history entries that contain no usable traces', () => {
+  const casebook = analyzeCasebook({
+    current: invoiceTrace,
+    history: [
+      '=== empty noisy label ===',
+      'INFO 2026-04-30 nothing to see here',
+      '',
+      '=== real prior incident ===',
+      invoiceTrace,
+    ].join('\n'),
+  });
+
+  assert.equal(casebook.summary.historicalCaseCount, 1);
+  assert.equal(casebook.summary.topCaseLabel, 'real prior incident');
+  assert.deepEqual(casebook.historicalCases.map((entry) => entry.label), ['real prior incident']);
+});
+
 test('renderCasebook helpers produce copy-ready text and markdown summaries', () => {
   const casebook = analyzeCasebook({
     current: [profileTrace, invoiceTrace, currentNovelTrace].join('\n\n'),

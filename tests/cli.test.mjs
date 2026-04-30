@@ -373,3 +373,29 @@ test('CLI casebook mode exits non-zero when history contains no labeled cases', 
   assert.match(result.stderr, /Casebook Radar requires labeled historical cases/i);
   assert.equal(result.stdout, '');
 });
+
+test('CLI casebook mode exits non-zero when labeled history contains no usable traces', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-casebook-'));
+  const historyPath = path.join(tempDir, 'history.txt');
+  await fs.promises.writeFile(historyPath, ['=== empty noisy label ===', 'INFO 2026-04-30 all green'].join('\n'), 'utf8');
+
+  const result = runCli(['--history', historyPath], { input: casebookCurrentInput });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /requires at least one usable historical case/i);
+  assert.equal(result.stdout, '');
+});
+
+test('CLI exits non-zero when multiple workflow modes are requested together', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-mode-clash-'));
+  const historyPath = path.join(tempDir, 'history.txt');
+  const timelinePath = path.join(tempDir, 'timeline.txt');
+  await fs.promises.writeFile(historyPath, casebookHistoryInput, 'utf8');
+  await fs.promises.writeFile(timelinePath, timelineInput, 'utf8');
+
+  const result = runCli(['--history', historyPath, '--timeline', timelinePath], { input: casebookCurrentInput });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /choose one workflow mode at a time/i);
+  assert.equal(result.stdout, '');
+});

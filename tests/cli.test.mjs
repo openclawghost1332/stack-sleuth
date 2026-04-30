@@ -40,6 +40,23 @@ const casebookCurrentInput = [
   `ProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
 ].join('\n\n');
 
+const incidentPackInput = [
+  '@@ current @@',
+  casebookCurrentInput,
+  '',
+  '@@ history @@',
+  casebookHistoryInput,
+  '',
+  '@@ baseline @@',
+  sampleTrace,
+  '',
+  '@@ candidate @@',
+  [sampleTrace, sampleTrace, comparisonTrace].join('\n\n'),
+  '',
+  '@@ timeline @@',
+  timelineInput,
+].join('\n');
+
 const noisySingleTraceLog = [
   '2026-04-30T01:50:00Z INFO api boot complete',
   `2026-04-30T01:50:01Z ERROR web ${sampleTrace.split('\n').join('\n2026-04-30T01:50:01Z ERROR web ')}`,
@@ -245,6 +262,37 @@ test('CLI compare mode exits non-zero when a compare flag is missing its value',
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Missing value for --baseline/i);
+  assert.equal(result.stdout, '');
+});
+
+test('CLI reads an incident pack with --pack and prints the composed briefing', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-pack-'));
+  const packPath = path.join(tempDir, 'incident-pack.txt');
+  await fs.promises.writeFile(packPath, incidentPackInput, 'utf8');
+
+  const result = runCli(['--pack', packPath]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Incident Pack Briefing/);
+  assert.match(result.stdout, /Available analyses: current, casebook, regression, timeline/);
+  assert.match(result.stdout, /Primary headline: Casebook Radar flagged 1 novel incident in the current batch\./);
+});
+
+test('CLI incident-pack mode supports --json output', () => {
+  const result = runCli(['--pack', '-', '--json'], { input: incidentPackInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.deepEqual(parsed.availableAnalyses, ['current', 'casebook', 'regression', 'timeline']);
+  assert.equal(parsed.summary.counts.novelIncidents, 1);
+  assert.equal(parsed.summary.counts.regressionNew, 1);
+});
+
+test('CLI incident-pack mode exits non-zero when no runnable analysis can be produced', () => {
+  const result = runCli(['--pack', '-'], { input: '@@ history @@\n=== release-2026-04-15 ===\n' + sampleTrace });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Incident Pack mode did not find any runnable analyses/i);
   assert.equal(result.stdout, '');
 });
 

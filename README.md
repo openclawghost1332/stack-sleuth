@@ -6,13 +6,14 @@ Stack Sleuth turns JavaScript, Python, and Ruby stack traces or raw logs into a 
 
 Open `index.html` directly, or serve the folder with any static file server. The browser app uses the same shared analysis engine as the CLI, so excavation status, culprit detection, signatures, support frames, suspect hotspots, blast radius summaries, incident digest output, casebook lookup, regression comparison, and timeline trend calls stay aligned across every workflow.
 
-Use the built-in example buttons to compare seven modes:
+Use the built-in example buttons to compare eight modes:
 - single-trace diagnosis with suspect hotspots
 - raw log excavation from noisy production logs with blast radius service spread and parsed windows
 - repeated traces grouped into an Incident Digest with shared hotspots
 - known-versus-novel incident lookup in Casebook Radar mode with labeled prior incidents
 - baseline and candidate batches compared in Regression Radar mode with hotspot shifts
 - labeled rollout snapshots analyzed in Timeline Radar mode with trend calls and hotspot movement
+- one structured Incident Pack Briefing that composes current, history, regression, and rollout context in a single pass
 - browser copy that includes excavation-aware summaries
 
 ## CLI
@@ -62,6 +63,70 @@ cat repeated-traces-or-logs.txt | node ./bin/stack-sleuth.js --digest
 ```bash
 cat repeated-traces-or-logs.txt | node ./bin/stack-sleuth.js --digest --markdown
 ```
+
+## Incident Pack Briefing
+
+Incident Pack Briefing is the highest-leverage Stack Sleuth workflow when you already have a few related artifacts from an active incident. Instead of running the current batch, casebook, regression compare, and rollout timeline as separate commands, you can paste one structured pack and get one composed briefing back.
+
+### Analyze an incident pack from a file
+
+```bash
+node ./bin/stack-sleuth.js --pack ./incident-pack.txt
+```
+
+### Analyze an incident pack from stdin in JSON mode
+
+```bash
+cat incident-pack.txt | node ./bin/stack-sleuth.js --pack - --json
+```
+
+### Analyze an incident pack in Markdown
+
+```bash
+node ./bin/stack-sleuth.js --pack ./incident-pack.txt --markdown
+```
+
+Use `@@ section @@` headings. Stack Sleuth will run the analyses that have enough evidence and gracefully omit the ones that do not.
+
+```text
+@@ current @@
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+@@ history @@
+=== release-2026-04-15 ===
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+@@ baseline @@
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+@@ candidate @@
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+TypeError: Cannot read properties of undefined (reading 'email')
+    at renderInvoice (/app/src/invoice.js:19:7)
+
+@@ timeline @@
+=== canary ===
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+
+=== full-rollout ===
+TypeError: Cannot read properties of undefined (reading 'email')
+    at renderInvoice (/app/src/invoice.js:19:7)
+```
+
+Supported sections are:
+
+- `@@ current @@` for the current batch or noisy raw logs
+- `@@ history @@` for labeled prior incidents using the `=== label ===` casebook format
+- `@@ baseline @@` and `@@ candidate @@` for Regression Radar
+- `@@ timeline @@` for labeled rollout snapshots using the `=== label ===` timeline format
+
+In the browser, paste the full pack into the shared workspace, then press **Explain trace(s)** or **Load incident pack example** to generate one Incident Pack Briefing and populate the shared result cards.
 
 ## Casebook Radar
 

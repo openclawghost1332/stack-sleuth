@@ -1,6 +1,11 @@
 import { analyzeTrace, formatFrame, renderTextSummary } from './analyze.js';
+import {
+  analyzeIncidentPack,
+  renderIncidentPackTextSummary,
+} from './briefing.js';
 import { analyzeCasebook, renderCasebookTextSummary } from './casebook.js';
 import { analyzeTraceDigest, renderDigestTextSummary } from './digest.js';
+import { parseIncidentPack } from './pack.js';
 import { analyzeRegression } from './regression.js';
 import { analyzeTimeline, renderTimelineTextSummary } from './timeline.js';
 import { extractTraceSet } from './extract.js';
@@ -12,6 +17,7 @@ const loadJsButton = document.querySelector('#load-js-button');
 const loadPythonButton = document.querySelector('#load-python-button');
 const loadRawLogButton = document.querySelector('#load-raw-log-button');
 const loadDigestButton = document.querySelector('#load-digest-button');
+const loadPackButton = document.querySelector('#load-pack-button');
 const copyButton = document.querySelector('#copy-button');
 const caption = document.querySelector('#example-caption');
 
@@ -62,6 +68,7 @@ const jsExample = examples.find((item) => item.label === 'JavaScript undefined p
 const pythonExample = examples.find((item) => item.label === 'Python missing key');
 const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
 const digestExample = examples.find((item) => item.label === 'Repeated incident digest');
+const incidentPackExample = examples.find((item) => item.label === 'Incident pack briefing');
 const casebookExample = examples.find((item) => item.label === 'Casebook Radar');
 const regressionExample = examples.find((item) => item.label === 'Regression radar');
 const timelineExample = examples.find((item) => item.label === 'Timeline radar');
@@ -70,6 +77,12 @@ function renderDiagnosis() {
   const traceText = traceInput.value.trim();
   if (!traceText) {
     resetEmptyState();
+    return;
+  }
+
+  const incidentPack = parseIncidentPack(traceText);
+  if (incidentPack.sectionOrder.length) {
+    renderIncidentPackWorkflow(incidentPack);
     return;
   }
 
@@ -133,6 +146,82 @@ function renderDigest(traceText) {
   checklistValue.replaceChildren(...buildListItems(
     digest.groups[0]?.representative?.diagnosis?.checklist ?? ['Inspect the top repeated incident first.']
   ));
+}
+
+function renderIncidentPackWorkflow(incidentPack) {
+  const briefing = analyzeIncidentPack(incidentPack);
+  const primaryReport = selectIncidentPackPrimaryReport(briefing);
+  const primaryRepresentative = primaryReport?.representative ?? null;
+  const currentDigest = briefing.currentDigest;
+
+  excavationValue.textContent = `Sections: ${briefing.summary.sectionsPresent.join(', ') || 'none'} | Analyses: ${briefing.availableAnalyses.join(', ') || 'none'}`;
+  runtimeValue.textContent = 'incident pack briefing';
+  headlineValue.textContent = briefing.summary.headline;
+  culpritValue.textContent = formatFrame(primaryRepresentative?.culpritFrame ?? null);
+  confidenceValue.textContent = primaryRepresentative?.diagnosis?.confidence ?? 'briefing';
+  tagsValue.textContent = briefing.availableAnalyses.length
+    ? ['incident-pack', ...briefing.availableAnalyses].join(', ')
+    : 'incident-pack';
+  signatureValue.textContent = primaryReport?.signature ?? '-';
+  summaryValue.textContent = briefing.summary.topFindings[0] ?? briefing.summary.headline;
+  blastRadiusValue.textContent = formatBlastRadiusSummary(selectIncidentPackBlastRadius(briefing));
+  digestGroupsValue.replaceChildren(...buildListItems(buildIncidentPackDigestItems(briefing)));
+  supportFramesValue.replaceChildren(...buildListItems(
+    primaryRepresentative?.supportFrames?.length
+      ? primaryRepresentative.supportFrames.map((frame) => formatFrame(frame))
+      : ['Open the top incident-pack finding to inspect nearby supporting frames.']
+  ));
+  hotspotsValue.replaceChildren(...buildListItems(selectIncidentPackHotspotItems(briefing)));
+  checklistValue.replaceChildren(...buildListItems(briefing.summary.checklist));
+
+  if (briefing.casebook) {
+    casebookSummaryValue.textContent = `Casebook Radar matched ${briefing.casebook.summary.knownCount} known incident${briefing.casebook.summary.knownCount === 1 ? '' : 's'} and flagged ${briefing.casebook.summary.novelCount} novel incident${briefing.casebook.summary.novelCount === 1 ? '' : 's'} across ${briefing.casebook.summary.historicalCaseCount} labeled prior-incident cases.`;
+    knownCountValue.textContent = String(briefing.casebook.summary.knownCount);
+    novelCountValue.textContent = String(briefing.casebook.summary.novelCount);
+    closestMatchesValue.replaceChildren(...buildListItems(buildCasebookMatchItems(briefing.casebook.historicalCases)));
+    casebookCaption.textContent = briefing.casebook.summary.topCaseLabel
+      ? `Closest prior incident match: ${briefing.casebook.summary.topCaseLabel}.`
+      : 'Incident Pack Briefing ran Casebook Radar across the current batch and labeled history.';
+  } else {
+    resetCasebookState();
+  }
+
+  if (briefing.regression) {
+    const summary = briefing.regression.summary;
+    regressionSummaryValue.textContent = [
+      `${summary.newCount} new`,
+      `${summary.volumeUpCount} volume-up`,
+      `${summary.recurringCount} recurring`,
+      `${summary.volumeDownCount} volume-down`,
+      `${summary.resolvedCount} resolved`,
+    ].join(', ');
+    regressionIncidentsValue.replaceChildren(...buildListItems(
+      briefing.regression.incidents.length
+        ? briefing.regression.incidents.map((incident) => `${incident.status}: ${incident.candidateCount} vs ${incident.baselineCount} (${formatDelta(incident.delta)}) at ${formatFrame(incident.representative?.culpritFrame ?? null)}`)
+        : ['No incident changes detected.']
+    ));
+    hotspotShiftsValue.replaceChildren(...buildListItems(
+      briefing.regression.hotspotShifts.length
+        ? briefing.regression.hotspotShifts.map((shift) => `${shift.status}: ${shift.label} ${formatDelta(shift.delta)} (${shift.baselineScore} → ${shift.candidateScore})`)
+        : ['No hotspot shifts detected yet.']
+    ));
+  } else {
+    resetRegressionState();
+  }
+
+  if (briefing.timeline) {
+    const summary = briefing.timeline.summary;
+    timelineSummaryValue.textContent = `Latest snapshot ${summary.latestLabel} carries ${summary.latestTotalTraces} traces across ${summary.activeLatestCount} active incidents. Trend mix: ${summary.newCount} new, ${summary.risingCount} rising, ${summary.flappingCount} flapping, ${summary.steadyCount} steady, ${summary.fallingCount} falling, ${summary.resolvedCount} resolved.`;
+    timelineIncidentsValue.replaceChildren(...buildListItems(buildTimelineIncidentItems(briefing.timeline.incidents)));
+    timelineHotspotsValue.replaceChildren(...buildListItems(buildTimelineHotspotItems(briefing.timeline.hotspots)));
+    timelineCaption.textContent = 'Incident Pack Briefing ran Timeline Radar across the labeled rollout snapshots.';
+  } else {
+    resetTimelineState();
+  }
+
+  if (!currentDigest && !briefing.availableAnalyses.length) {
+    summaryValue.textContent = 'Incident Pack Briefing did not find any runnable analyses in this pack yet.';
+  }
 }
 
 function renderRegressionWorkflow() {
@@ -401,6 +490,16 @@ function loadExample(example) {
   renderDiagnosis();
 }
 
+function loadIncidentPackExample(example) {
+  if (!example) {
+    return;
+  }
+
+  traceInput.value = example.pack;
+  caption.textContent = example.caption;
+  renderDiagnosis();
+}
+
 function loadRegressionExample(example) {
   if (!example) {
     return;
@@ -435,6 +534,24 @@ function loadCasebookExample(example) {
 
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
+  const incidentPack = parseIncidentPack(traceText);
+
+  if (incidentPack.sectionOrder.length) {
+    const briefing = analyzeIncidentPack(incidentPack);
+    if (!briefing.availableAnalyses.length) {
+      caption.textContent = 'Incident Pack Briefing needs at least one runnable section before there is anything useful to copy.';
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(renderIncidentPackTextSummary(briefing));
+      caption.textContent = 'Incident Pack Briefing copied to clipboard.';
+    } catch {
+      caption.textContent = 'Clipboard copy unavailable here, but the Incident Pack Briefing is ready to copy manually.';
+    }
+    return;
+  }
+
   const extraction = extractTraceSet(traceText);
 
   if (extraction.traceCount === 0) {
@@ -688,11 +805,54 @@ function buildTimelineChecklist(summary, topIncident) {
   return checklist.length ? checklist : ['Compare labeled snapshots for signature drift, parsing mismatches, or missing traces.'];
 }
 
+function buildIncidentPackDigestItems(briefing) {
+  const items = [...briefing.summary.topFindings];
+
+  if (briefing.omissions.length) {
+    items.push(...briefing.omissions.map((item) => `omission: ${item}`));
+  }
+
+  return items.length ? items : ['Incident Pack Briefing findings will appear here once at least one supported section runs.'];
+}
+
+function selectIncidentPackPrimaryReport(briefing) {
+  return briefing.casebook?.incidents[0]
+    ?? briefing.regression?.incidents[0]
+    ?? briefing.timeline?.incidents[0]
+    ?? briefing.currentDigest?.groups[0]
+    ?? null;
+}
+
+function selectIncidentPackBlastRadius(briefing) {
+  return briefing.casebook?.currentDigest?.blastRadius
+    ?? briefing.regression?.candidateDigest?.blastRadius
+    ?? briefing.timeline?.snapshots?.at(-1)?.digest?.blastRadius
+    ?? briefing.currentDigest?.blastRadius
+    ?? null;
+}
+
+function selectIncidentPackHotspotItems(briefing) {
+  if (briefing.currentDigest?.hotspots?.length) {
+    return buildHotspotItems(briefing.currentDigest.hotspots);
+  }
+
+  if (briefing.regression?.candidateDigest?.hotspots?.length) {
+    return buildHotspotItems(briefing.regression.candidateDigest.hotspots);
+  }
+
+  if (briefing.timeline?.hotspots?.length) {
+    return buildTimelineHotspotItems(briefing.timeline.hotspots);
+  }
+
+  return ['Suspect hotspots will appear here once the incident pack contains a runnable current, candidate, or timeline analysis.'];
+}
+
 explainButton?.addEventListener('click', renderDiagnosis);
 loadJsButton?.addEventListener('click', () => loadExample(jsExample));
 loadPythonButton?.addEventListener('click', () => loadExample(pythonExample));
 loadRawLogButton?.addEventListener('click', () => loadExample(rawLogExample));
 loadDigestButton?.addEventListener('click', () => loadExample(digestExample));
+loadPackButton?.addEventListener('click', () => loadIncidentPackExample(incidentPackExample));
 loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));
 compareButton?.addEventListener('click', renderRegressionWorkflow);
 loadCasebookButton?.addEventListener('click', () => loadCasebookExample(casebookExample));

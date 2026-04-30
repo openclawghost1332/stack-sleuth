@@ -27,6 +27,12 @@ import {
   renderTimelineTextSummary,
   renderTimelineMarkdownSummary,
 } from '../src/timeline.js';
+import {
+  analyzeIncidentPortfolio,
+  parseIncidentPortfolio,
+  renderIncidentPortfolioTextSummary,
+  renderIncidentPortfolioMarkdownSummary,
+} from '../src/portfolio.js';
 import { extractTraceSet, formatExtractionMarkdown, formatExtractionText } from '../src/extract.js';
 import { parseLabeledTraceBatches } from '../src/labeled.js';
 import { parseIncidentPack } from '../src/pack.js';
@@ -36,23 +42,25 @@ const mode = args.includes('--json') ? 'json' : args.includes('--markdown') ? 'm
 const wantsDigest = args.includes('--digest');
 const compareArgumentError = validateCompareArguments(args);
 const packArgumentError = validateOptionValue(args, '--pack');
+const portfolioArgumentError = validateOptionValue(args, '--portfolio');
 const timelineArgumentError = validateOptionValue(args, '--timeline');
 const historyArgumentError = validateOptionValue(args, '--history');
 const currentArgumentError = validateOptionValue(args, '--current');
 const baselinePath = readOptionValue(args, '--baseline');
 const candidatePath = readOptionValue(args, '--candidate');
 const packPath = readOptionValue(args, '--pack');
+const portfolioPath = readOptionValue(args, '--portfolio');
 const timelinePath = readOptionValue(args, '--timeline');
 const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
-const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, packPath, timelinePath, historyPath });
+const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, timelinePath, historyPath });
 const filePath = args.find((arg, index) => {
   if (arg.startsWith('--')) {
     return false;
   }
 
   const previous = args[index - 1] ?? '';
-  return !['--baseline', '--candidate', '--pack', '--timeline', '--history', '--current'].includes(previous);
+  return !['--baseline', '--candidate', '--pack', '--portfolio', '--timeline', '--history', '--current'].includes(previous);
 }) ?? null;
 
 if (compareArgumentError) {
@@ -61,6 +69,10 @@ if (compareArgumentError) {
 
 if (packArgumentError) {
   fail(packArgumentError);
+}
+
+if (portfolioArgumentError) {
+  fail(portfolioArgumentError);
 }
 
 if (timelineArgumentError) {
@@ -84,6 +96,22 @@ if (workflowArgumentError) {
 }
 
 try {
+  if (portfolioPath) {
+    const portfolioInput = portfolioPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(portfolioPath, 'portfolio');
+    const portfolio = parseIncidentPortfolio(portfolioInput);
+    if (!portfolio.packOrder.length) {
+      fail('Portfolio mode requires @@@ label @@@ blocks around one or more incident packs.');
+    }
+
+    const report = analyzeIncidentPortfolio(portfolio);
+    if (!report.summary.runnablePackCount) {
+      fail('Portfolio mode did not find any runnable analyses. Add at least one labeled pack with @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
+    }
+
+    writeOutput(report, mode, renderIncidentPortfolioTextSummary, renderIncidentPortfolioMarkdownSummary);
+    process.exit(0);
+  }
+
   if (packPath) {
     const packInput = packPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(packPath, 'incident-pack');
     const pack = parseIncidentPack(packInput);
@@ -183,6 +211,10 @@ try {
     writeOutput(payload, mode, renderSingleTraceTextSummary, renderSingleTraceMarkdownSummary);
   }
 } catch (error) {
+  if (portfolioPath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read portfolio input: ${error.message}`);
+  }
+
   if (packPath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read incident pack input: ${error.message}`);
   }
@@ -241,16 +273,17 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, timelinePath, historyPath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, timelinePath, historyPath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
+    portfolioPath ? 'portfolio' : null,
     packPath ? 'incident-pack' : null,
     timelinePath ? 'timeline' : null,
     baselinePath || candidatePath ? 'compare' : null,
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: incident-pack, casebook, timeline, or compare.';
+    return 'Choose one workflow mode at a time: portfolio, incident-pack, casebook, timeline, or compare.';
   }
 
   return null;
@@ -275,6 +308,33 @@ function writeOutput(payload, outputMode, textRenderer, markdownRenderer) {
 }
 
 function toSerializablePayload(payload) {
+  if (payload?.portfolio?.packs && Array.isArray(payload?.priorityQueue) && payload?.summary?.runnablePackCount !== undefined) {
+    return {
+      portfolio: {
+        packOrder: payload.portfolio.packOrder,
+      },
+      summary: payload.summary,
+      priorityQueue: payload.priorityQueue.map((item) => ({
+        label: item.label,
+        priorityScore: item.priorityScore,
+        priorityReasons: item.priorityReasons,
+        availableAnalyses: item.report.availableAnalyses,
+        headline: item.report.summary.headline,
+      })),
+      recurringIncidents: payload.recurringIncidents,
+      recurringHotspots: payload.recurringHotspots,
+      packReports: payload.packReports.map((item) => ({
+        label: item.label,
+        runnable: item.runnable,
+        priorityScore: item.priorityScore,
+        priorityReasons: item.priorityReasons,
+        availableAnalyses: item.report.availableAnalyses,
+        omissions: item.report.omissions,
+        summary: item.summary,
+      })),
+    };
+  }
+
   if (!(payload?.pack && Array.isArray(payload?.availableAnalyses) && payload?.summary?.sectionsPresent)) {
     return payload;
   }

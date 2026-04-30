@@ -76,6 +76,42 @@ const incidentPackRegressionPriorityInput = [
   ].join('\n\n'),
 ].join('\n');
 
+const portfolioInput = [
+  '@@@ checkout-prod @@@',
+  '@@ current @@',
+  [
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n\n'),
+  '',
+  '@@@ profile-rollout @@@',
+  '@@ current @@',
+  [
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `ProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n\n'),
+  '',
+  '@@ history @@',
+  [
+    '=== release-2026-04-15 ===',
+    [
+      `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+      `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+    ].join('\n\n'),
+  ].join('\n'),
+  '',
+  '@@@ billing-canary @@@',
+  '@@ baseline @@',
+  `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+  '',
+  '@@ candidate @@',
+  [
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n\n'),
+].join('\n');
+
 const requiredIds = [
   'trace-input',
   'explain-button',
@@ -84,6 +120,7 @@ const requiredIds = [
   'load-raw-log-button',
   'load-digest-button',
   'load-pack-button',
+  'load-portfolio-button',
   'copy-button',
   'example-caption',
   'compare-baseline-input',
@@ -125,6 +162,11 @@ const requiredIds = [
   'timeline-summary-value',
   'timeline-incidents-value',
   'timeline-hotspots-value',
+  'portfolio-summary-value',
+  'portfolio-pack-count-value',
+  'portfolio-priority-value',
+  'portfolio-recurring-incidents-value',
+  'portfolio-recurring-hotspots-value',
 ];
 
 class FakeElement {
@@ -260,8 +302,42 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, /known versus novel/i);
   assert.match(indexHtml, /Timeline Radar/i);
   assert.match(indexHtml, /Incident Pack Briefing/i);
+  assert.match(indexHtml, /Portfolio Radar/i);
   assert.match(indexHtml, />Analyze casebook</i);
   assert.match(indexHtml, />Copy casebook summary</i);
+  assert.match(indexHtml, />Load portfolio example</i);
+});
+
+test('browser portfolio flow ranks packs and surfaces recurring incidents and hotspots', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', portfolioInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'portfolio radar');
+    assert.match(harness.get('headline-value').textContent, /Prioritize profile-rollout first/i);
+    assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
+    assert.match(harness.get('portfolio-priority-value').children[0].textContent, /profile-rollout/);
+    assert.match(harness.get('portfolio-recurring-incidents-value').children[0].textContent, /packs:/i);
+    assert.match(harness.get('portfolio-recurring-hotspots-value').children[0].textContent, /profile\.js/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser portfolio copy support writes the rendered portfolio briefing to the clipboard', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', portfolioInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Stack Sleuth Portfolio Radar/);
+    assert.equal(harness.get('example-caption').textContent, 'Portfolio Radar summary copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
 });
 
 test('browser incident pack flow composes the briefing across current, casebook, regression, and timeline analyses', async () => {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { analyzeCasebook } from '../src/casebook.js';
 import { analyzeIncidentPack } from '../src/briefing.js';
+import { analyzeIncidentPortfolio } from '../src/portfolio.js';
 import { examples } from '../src/examples.js';
 
 test('ships both JavaScript and Python example traces for the demo', () => {
@@ -22,6 +23,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.ok(labels.includes('Regression radar'));
   assert.ok(labels.includes('Timeline radar'));
   assert.ok(labels.includes('Incident pack briefing'));
+  assert.ok(labels.includes('Portfolio radar'));
 
   const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
   assert.match(rawLogExample.caption, /raw log|excavat/i);
@@ -90,6 +92,16 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.deepEqual(briefing.availableAnalyses, ['current', 'casebook', 'regression', 'timeline']);
   assert.equal(briefing.summary.counts.novelIncidents, 1);
   assert.equal(briefing.summary.counts.regressionNew, 1);
+
+  const portfolioExample = examples.find((item) => item.label === 'Portfolio radar');
+  assert.match(portfolioExample.caption, /portfolio|release|ranked/i);
+  assert.match(portfolioExample.portfolio, /@@@ checkout-prod @@@/i);
+  assert.match(portfolioExample.portfolio, /@@@ profile-rollout @@@/i);
+
+  const portfolio = analyzeIncidentPortfolio(portfolioExample.portfolio);
+  assert.equal(portfolio.summary.runnablePackCount, 3);
+  assert.equal(portfolio.priorityQueue[0].label, 'profile-rollout');
+  assert.ok(portfolio.recurringIncidents.some((item) => item.packCount >= 2));
 });
 
 test('browser main uses the shared Casebook Radar example instead of a duplicate fixture', () => {

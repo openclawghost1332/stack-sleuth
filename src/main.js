@@ -6,11 +6,11 @@ import {
 import {
   analyzeIncidentPortfolio,
   parseIncidentPortfolio,
-  renderIncidentPortfolioTextSummary,
   summarizePortfolioPrimaryCulprit,
   selectPrimaryPortfolioIncident,
 } from './portfolio.js';
 import { analyzeCasebook, renderCasebookTextSummary } from './casebook.js';
+import { analyzeCasebookForge, renderCasebookForgeTextSummary } from './forge.js';
 import { analyzeTraceDigest, renderDigestTextSummary } from './digest.js';
 import { parseIncidentPack } from './pack.js';
 import { analyzeRegression } from './regression.js';
@@ -76,6 +76,8 @@ const portfolioPackCountValue = document.querySelector('#portfolio-pack-count-va
 const portfolioPriorityValue = document.querySelector('#portfolio-priority-value');
 const portfolioRecurringIncidentsValue = document.querySelector('#portfolio-recurring-incidents-value');
 const portfolioRecurringHotspotsValue = document.querySelector('#portfolio-recurring-hotspots-value');
+const forgeSummaryValue = document.querySelector('#forge-summary-value');
+const forgeExportValue = document.querySelector('#forge-export-value');
 
 const jsExample = examples.find((item) => item.label === 'JavaScript undefined property');
 const pythonExample = examples.find((item) => item.label === 'Python missing key');
@@ -101,6 +103,7 @@ function renderDiagnosis() {
   }
 
   resetPortfolioState();
+  resetForgeState();
 
   const incidentPack = parseIncidentPack(traceText);
   if (incidentPack.sectionOrder.length) {
@@ -177,6 +180,7 @@ function renderDigest(traceText) {
 
 function renderPortfolioWorkflow(input) {
   const report = input?.priorityQueue ? input : analyzeIncidentPortfolio(input);
+  const forge = analyzeCasebookForge(report);
   const topPack = report.priorityQueue[0] ?? null;
   const primaryIncident = selectPrimaryPortfolioIncident(topPack);
   const topPackLabel = topPack?.label ?? 'none';
@@ -186,13 +190,13 @@ function renderPortfolioWorkflow(input) {
   resetTimelineState();
 
   excavationValue.textContent = `Portfolio packs: ${report.summary.packCount} labeled, ${report.summary.runnablePackCount} runnable`;
-  runtimeValue.textContent = 'portfolio radar';
-  headlineValue.textContent = report.summary.headline;
+  runtimeValue.textContent = 'casebook forge';
+  headlineValue.textContent = forge.summary.headline;
   culpritValue.textContent = summarizePortfolioPrimaryCulprit(report);
   confidenceValue.textContent = topPack ? 'portfolio' : '-';
-  tagsValue.textContent = topPack ? 'portfolio-radar, incident-pack' : 'portfolio-radar';
+  tagsValue.textContent = topPack ? 'casebook-forge, portfolio-radar, incident-pack' : 'casebook-forge, portfolio-radar';
   signatureValue.textContent = topPack ? `top pack: ${topPackLabel}` : '-';
-  summaryValue.textContent = buildPortfolioSummary(report);
+  summaryValue.textContent = `${forge.summary.headline} Portfolio Radar still ranked ${report.summary.runnablePackCount} runnable pack${report.summary.runnablePackCount === 1 ? '' : 's'} for triage.`;
   blastRadiusValue.textContent = buildPortfolioBlastRadiusSummary(topPack, primaryIncident);
   digestGroupsValue.replaceChildren(...buildListItems(buildPortfolioPriorityItems(report.priorityQueue)));
   supportFramesValue.replaceChildren(...buildListItems(
@@ -208,6 +212,8 @@ function renderPortfolioWorkflow(input) {
   portfolioPriorityValue.replaceChildren(...buildListItems(buildPortfolioPriorityItems(report.priorityQueue)));
   portfolioRecurringIncidentsValue.replaceChildren(...buildListItems(buildPortfolioRecurringIncidentItems(report.recurringIncidents)));
   portfolioRecurringHotspotsValue.replaceChildren(...buildListItems(buildPortfolioRecurringHotspotItems(report.recurringHotspots)));
+  forgeSummaryValue.textContent = `${forge.summary.headline} Reusable cases are ready to paste into a labeled history casebook.`;
+  forgeExportValue.textContent = forge.exportText || 'No forged export available yet.';
 }
 
 function renderIncidentPackWorkflow(incidentPack) {
@@ -522,6 +528,7 @@ function renderNoTraceExcavated(extraction) {
 
 function resetEmptyState() {
   resetPortfolioState();
+  resetForgeState();
   excavationValue.textContent = 'Awaiting trace or raw log input';
   headlineValue.textContent = 'Paste one or more traces or raw logs to get started';
   runtimeValue.textContent = 'Awaiting trace';
@@ -557,6 +564,11 @@ function resetPortfolioState() {
   portfolioRecurringHotspotsValue.replaceChildren(...buildListItems([
     'Recurring hotspot files will appear here after Portfolio Radar runs.'
   ]));
+}
+
+function resetForgeState() {
+  forgeSummaryValue.textContent = 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.';
+  forgeExportValue.textContent = 'Forged Casebook export text will appear here after Casebook Forge runs.';
 }
 
 function resetRegressionState() {
@@ -661,16 +673,17 @@ async function copyDiagnosis() {
 
   if (portfolio.packOrder.length) {
     const report = analyzeIncidentPortfolio(portfolio);
-    if (!report.summary.runnablePackCount) {
-      caption.textContent = 'Portfolio Radar needs at least one runnable labeled incident pack before there is anything useful to copy.';
+    const forge = analyzeCasebookForge(report);
+    if (!report.summary.runnablePackCount || !forge.exportText) {
+      caption.textContent = 'Casebook Forge needs at least one runnable labeled incident pack before there is anything useful to copy.';
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(renderIncidentPortfolioTextSummary(report));
-      caption.textContent = 'Portfolio Radar summary copied to clipboard.';
+      await navigator.clipboard.writeText([renderCasebookForgeTextSummary(forge), '', forge.exportText].join('\n').trim());
+      caption.textContent = 'Casebook Forge export copied to clipboard.';
     } catch {
-      caption.textContent = 'Clipboard copy unavailable here, but the Portfolio Radar summary is ready to copy manually.';
+      caption.textContent = 'Clipboard copy unavailable here, but the Casebook Forge export is ready to copy manually.';
     }
     return;
   }
@@ -1186,6 +1199,7 @@ timelineInput?.addEventListener('input', () => {
 
 loadExample(jsExample);
 resetPortfolioState();
+resetForgeState();
 resetRegressionState();
 resetCasebookState();
 resetTimelineState();

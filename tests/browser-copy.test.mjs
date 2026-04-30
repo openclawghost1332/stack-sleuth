@@ -167,6 +167,8 @@ const requiredIds = [
   'portfolio-priority-value',
   'portfolio-recurring-incidents-value',
   'portfolio-recurring-hotspots-value',
+  'forge-summary-value',
+  'forge-export-value',
 ];
 
 class FakeElement {
@@ -308,33 +310,57 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, />Load portfolio example</i);
 });
 
-test('browser portfolio flow ranks packs and surfaces recurring incidents and hotspots', async () => {
+test('browser portfolio flow surfaces Casebook Forge cards alongside Portfolio Radar details', async () => {
   const harness = await loadBrowserHarness();
 
   try {
     await harness.input('trace-input', portfolioInput);
     await harness.click('explain-button');
 
-    assert.equal(harness.get('runtime-value').textContent, 'portfolio radar');
-    assert.match(harness.get('headline-value').textContent, /Prioritize profile-rollout first/i);
+    assert.equal(harness.get('runtime-value').textContent, 'casebook forge');
+    assert.match(harness.get('headline-value').textContent, /Forged \d+ reusable case/i);
+    assert.match(harness.get('summary-value').textContent, /forged/i);
+    assert.match(harness.get('summary-value').textContent, /reusable case/i);
     assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
     assert.match(harness.get('portfolio-priority-value').children[0].textContent, /profile-rollout/);
     assert.match(harness.get('portfolio-recurring-incidents-value').children[0].textContent, /packs:/i);
     assert.match(harness.get('portfolio-recurring-hotspots-value').children[0].textContent, /profile\.js/i);
+    assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
+    assert.match(harness.get('forge-export-value').textContent, /=== release-2026-04-15 ===/);
   } finally {
     harness.restore();
   }
 });
 
-test('browser portfolio copy support writes the rendered portfolio briefing to the clipboard', async () => {
+test('browser portfolio copy support prefers the forged Casebook Forge export on the clipboard', async () => {
   const harness = await loadBrowserHarness();
 
   try {
     await harness.input('trace-input', portfolioInput);
     await harness.click('copy-button');
 
-    assert.match(harness.clipboard.text, /Stack Sleuth Portfolio Radar/);
-    assert.equal(harness.get('example-caption').textContent, 'Portfolio Radar summary copied to clipboard.');
+    assert.match(harness.clipboard.text, /Stack Sleuth Casebook Forge/);
+    assert.match(harness.clipboard.text, /=== release-2026-04-15 ===/);
+    assert.equal(harness.get('example-caption').textContent, 'Casebook Forge export copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser portfolio Casebook Forge cards reset when switching back to a non-portfolio workflow', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', portfolioInput);
+    await harness.click('explain-button');
+    assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
+
+    await harness.input('trace-input', casebookCurrentInput);
+    await harness.click('explain-button');
+
+    assert.notEqual(harness.get('runtime-value').textContent, 'casebook forge');
+    assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');
+    assert.equal(harness.get('forge-export-value').textContent, 'Forged Casebook export text will appear here after Casebook Forge runs.');
   } finally {
     harness.restore();
   }

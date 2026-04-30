@@ -20,6 +20,42 @@ const casebookCurrentInput = [
   `ProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
 ].join('\n\n');
 
+const incidentPackInput = [
+  '@@ current @@',
+  casebookCurrentInput,
+  '',
+  '@@ history @@',
+  casebookHistoryInput,
+  '',
+  '@@ baseline @@',
+  `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+  '',
+  '@@ candidate @@',
+  [
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+  ].join('\n\n'),
+  '',
+  '@@ timeline @@',
+  [
+    '=== canary ===',
+    `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+    '',
+    '=== partial ===',
+    [
+      `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+      `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+    ].join('\n\n'),
+    '',
+    '=== full-rollout ===',
+    [
+      `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
+      `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
+    ].join('\n\n')
+  ].join('\n'),
+].join('\n');
+
 const requiredIds = [
   'trace-input',
   'explain-button',
@@ -27,6 +63,7 @@ const requiredIds = [
   'load-python-button',
   'load-raw-log-button',
   'load-digest-button',
+  'load-pack-button',
   'copy-button',
   'example-caption',
   'compare-baseline-input',
@@ -190,9 +227,11 @@ async function loadBrowserHarness() {
 
 test('browser copy invites pasting one or more traces for digesting, comparing, casebook lookup, and timeline analysis', () => {
   assert.match(indexHtml, /Paste one or more stack traces or raw logs/i);
+  assert.match(indexHtml, /incident pack/i);
   assert.match(indexHtml, /Stack trace, raw log, or incident bundle/i);
   assert.match(indexHtml, /Paste one or more JavaScript, Python, or Ruby traces or raw logs here/i);
   assert.match(indexHtml, />Explain trace\(s\)<\/button>/i);
+  assert.match(indexHtml, />Load incident pack example</i);
   assert.match(indexHtml, />Load raw log example</i);
   assert.match(indexHtml, /Regression Radar/i);
   assert.match(indexHtml, /Casebook Radar/i);
@@ -200,8 +239,43 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, /Labeled history casebook/i);
   assert.match(indexHtml, /known versus novel/i);
   assert.match(indexHtml, /Timeline Radar/i);
+  assert.match(indexHtml, /Incident Pack Briefing/i);
   assert.match(indexHtml, />Analyze casebook</i);
   assert.match(indexHtml, />Copy casebook summary</i);
+});
+
+test('browser incident pack flow composes the briefing across current, casebook, regression, and timeline analyses', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', incidentPackInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'incident pack briefing');
+    assert.equal(harness.get('headline-value').textContent, 'Casebook Radar flagged 1 novel incident in the current batch.');
+    assert.match(harness.get('summary-value').textContent, /Casebook Radar matched 1 known incident and flagged 1 novel incident/i);
+    assert.match(harness.get('casebook-summary-value').textContent, /matched 1 known incident and flagged 1 novel incident/i);
+    assert.match(harness.get('regression-summary-value').textContent, /1 new, 1 volume-up/i);
+    assert.match(harness.get('timeline-summary-value').textContent, /1 new/i);
+    assert.match(harness.get('checklist-value').children[0].textContent, /Inspect novel incidents first/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser incident pack copy support writes the rendered briefing to the clipboard', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', incidentPackInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Stack Sleuth Incident Pack Briefing/);
+    assert.match(harness.clipboard.text, /Available analyses: current, casebook, regression, timeline/);
+    assert.equal(harness.get('example-caption').textContent, 'Incident Pack Briefing copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
 });
 
 test('browser Casebook Radar analyze flow renders known and novel counts plus the closest historical match', async () => {

@@ -64,6 +64,23 @@ const timelineTrace = [
   [javascriptTrace, javascriptTrace, javascriptTrace, dashboardTrace, rubyTrace, regressionTrace, alertTrace].join('\n\n'),
 ].join('\n');
 
+const incidentPackTrace = [
+  '@@ current @@',
+  casebookCurrentTrace,
+  '',
+  '@@ history @@',
+  casebookHistoryTrace,
+  '',
+  '@@ baseline @@',
+  `${javascriptTrace}\n\n${pythonTrace}`,
+  '',
+  '@@ candidate @@',
+  `${javascriptTrace}\n\n${javascriptTrace}\n\n${regressionTrace}`,
+  '',
+  '@@ timeline @@',
+  timelineTrace,
+].join('\n');
+
 export const examples = [
   {
     label: 'JavaScript undefined property',
@@ -101,5 +118,10 @@ export const examples = [
     label: 'Timeline radar',
     caption: 'A rollout timeline across canary, 25-percent, and full-rollout snapshots exposes one new incident, one rising incident, one flapping incident, one steady incident, one falling incident, and one resolved incident.',
     timeline: timelineTrace,
+  },
+  {
+    label: 'Incident pack briefing',
+    caption: 'One structured incident pack folds today\'s batch, the casebook, a regression compare, and a rollout timeline into a single briefing that is easy to paste into chat or an incident doc.',
+    pack: incidentPackTrace,
   }
 ];

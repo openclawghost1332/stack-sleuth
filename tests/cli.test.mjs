@@ -95,6 +95,40 @@ const portfolioInput = [
   [sampleTrace, sampleTrace, comparisonTrace].join('\n\n'),
 ].join('\n');
 
+const notebookPackInput = [
+  '# Checkout incident notebook',
+  '',
+  '## Current incident',
+  casebookCurrentInput,
+  '',
+  '## Prior incidents',
+  casebookHistoryInput,
+  '',
+  '## Baseline',
+  sampleTrace,
+  '',
+  '## Candidate',
+  [sampleTrace, sampleTrace, comparisonTrace].join('\n\n'),
+  '',
+  '## Timeline',
+  timelineInput,
+].join('\n');
+
+const notebookPortfolioInput = [
+  '# Pack: checkout-prod',
+  '',
+  '## Current incident',
+  [sampleTrace, sampleTrace].join('\n\n'),
+  '',
+  '# Pack: billing-canary',
+  '',
+  '## Baseline',
+  sampleTrace,
+  '',
+  '## Candidate',
+  [sampleTrace, sampleTrace, comparisonTrace].join('\n\n'),
+].join('\n');
+
 const noisySingleTraceLog = [
   '2026-04-30T01:50:00Z INFO api boot complete',
   `2026-04-30T01:50:01Z ERROR web ${sampleTrace.split('\n').join('\n2026-04-30T01:50:01Z ERROR web ')}`,
@@ -553,6 +587,35 @@ test('CLI casebook mode exits non-zero when labeled history contains no usable t
   assert.equal(result.stdout, '');
 });
 
+test('CLI reads a markdown incident notebook with --notebook and routes it into an incident pack briefing', () => {
+  const result = runCli(['--notebook', '-'], { input: notebookPackInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Notebook normalization/i);
+  assert.match(result.stdout, /Kind: pack \(5 sections\)/i);
+  assert.match(result.stdout, /@@ current @@/);
+  assert.match(result.stdout, /Stack Sleuth Incident Pack Briefing/);
+});
+
+test('CLI reads a grouped markdown notebook with --notebook --json and routes it into portfolio radar', () => {
+  const result = runCli(['--notebook', '-', '--json'], { input: notebookPortfolioInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.notebook.kind, 'portfolio');
+  assert.equal(parsed.summary.runnablePackCount, 2);
+  assert.match(parsed.notebook.normalizedText, /@@@ checkout-prod @@@/);
+  assert.equal(parsed.routed.mode, 'portfolio');
+});
+
+test('CLI notebook mode exits non-zero when no supported notebook headings are present', () => {
+  const result = runCli(['--notebook', '-'], { input: '# notes\n\nNothing actionable yet.' });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Notebook mode requires supported headings|supported incident sections|did not contain any supported incident headings/i);
+  assert.equal(result.stdout, '');
+});
+
 test('CLI exits non-zero when multiple workflow modes are requested together', async () => {
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-mode-clash-'));
   const historyPath = path.join(tempDir, 'history.txt');
@@ -560,7 +623,7 @@ test('CLI exits non-zero when multiple workflow modes are requested together', a
   await fs.promises.writeFile(historyPath, casebookHistoryInput, 'utf8');
   await fs.promises.writeFile(timelinePath, timelineInput, 'utf8');
 
-  const result = runCli(['--history', historyPath, '--timeline', timelinePath], { input: casebookCurrentInput });
+  const result = runCli(['--notebook', '-', '--timeline', timelinePath], { input: notebookPackInput });
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /choose one workflow mode at a time/i);

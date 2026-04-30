@@ -40,6 +40,11 @@ import {
 } from '../src/forge.js';
 import { extractTraceSet, formatExtractionMarkdown, formatExtractionText } from '../src/extract.js';
 import { parseLabeledTraceBatches } from '../src/labeled.js';
+import {
+  parseIncidentNotebook,
+  renderNormalizedNotebookText,
+  routeIncidentNotebook,
+} from '../src/notebook.js';
 import { parseIncidentPack } from '../src/pack.js';
 
 const args = process.argv.slice(2);
@@ -49,6 +54,7 @@ const compareArgumentError = validateCompareArguments(args);
 const packArgumentError = validateOptionValue(args, '--pack');
 const portfolioArgumentError = validateOptionValue(args, '--portfolio');
 const forgeArgumentError = validateOptionValue(args, '--forge');
+const notebookArgumentError = validateOptionValue(args, '--notebook');
 const timelineArgumentError = validateOptionValue(args, '--timeline');
 const historyArgumentError = validateOptionValue(args, '--history');
 const currentArgumentError = validateOptionValue(args, '--current');
@@ -57,17 +63,18 @@ const candidatePath = readOptionValue(args, '--candidate');
 const packPath = readOptionValue(args, '--pack');
 const portfolioPath = readOptionValue(args, '--portfolio');
 const forgePath = readOptionValue(args, '--forge');
+const notebookPath = readOptionValue(args, '--notebook');
 const timelinePath = readOptionValue(args, '--timeline');
 const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
-const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, timelinePath, historyPath });
+const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, timelinePath, historyPath });
 const filePath = args.find((arg, index) => {
   if (arg.startsWith('--')) {
     return false;
   }
 
   const previous = args[index - 1] ?? '';
-  return !['--baseline', '--candidate', '--pack', '--portfolio', '--forge', '--timeline', '--history', '--current'].includes(previous);
+  return !['--baseline', '--candidate', '--pack', '--portfolio', '--forge', '--notebook', '--timeline', '--history', '--current'].includes(previous);
 }) ?? null;
 
 if (compareArgumentError) {
@@ -84,6 +91,10 @@ if (portfolioArgumentError) {
 
 if (forgeArgumentError) {
   fail(forgeArgumentError);
+}
+
+if (notebookArgumentError) {
+  fail(notebookArgumentError);
 }
 
 if (timelineArgumentError) {
@@ -107,6 +118,35 @@ if (workflowArgumentError) {
 }
 
 try {
+  if (notebookPath) {
+    const notebookInput = notebookPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(notebookPath, 'notebook');
+    const notebook = parseIncidentNotebook(notebookInput);
+    if (notebook.kind === 'unsupported') {
+      fail(notebook.reason ?? 'Notebook mode requires supported headings like Current incident, Prior incidents, Baseline, Candidate, or Timeline.');
+    }
+
+    const routed = routeIncidentNotebook({
+      notebook,
+      analyzers: {
+        pack(normalizedText) {
+          return {
+            mode: 'pack',
+            report: analyzeIncidentPack(normalizedText),
+          };
+        },
+        portfolio(normalizedText) {
+          return {
+            mode: 'portfolio',
+            report: analyzeIncidentPortfolio(normalizedText),
+          };
+        },
+      },
+    });
+
+    writeOutput({ notebook, routed }, mode, renderNotebookCliTextSummary, renderNotebookCliMarkdownSummary);
+    process.exit(0);
+  }
+
   if (forgePath) {
     const forgeInput = forgePath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(forgePath, 'forge');
     const portfolio = parseIncidentPortfolio(forgeInput);
@@ -238,6 +278,10 @@ try {
     writeOutput(payload, mode, renderSingleTraceTextSummary, renderSingleTraceMarkdownSummary);
   }
 } catch (error) {
+  if (notebookPath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read notebook input: ${error.message}`);
+  }
+
   if (portfolioPath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read portfolio input: ${error.message}`);
   }
@@ -304,18 +348,19 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, timelinePath, historyPath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, timelinePath, historyPath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     portfolioPath ? 'portfolio' : null,
     forgePath ? 'forge' : null,
+    notebookPath ? 'notebook' : null,
     packPath ? 'incident-pack' : null,
     timelinePath ? 'timeline' : null,
     baselinePath || candidatePath ? 'compare' : null,
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: forge, portfolio, incident-pack, casebook, timeline, or compare.';
+    return 'Choose one workflow mode at a time: forge, portfolio, notebook, incident-pack, casebook, timeline, or compare.';
   }
 
   return null;
@@ -340,6 +385,18 @@ function writeOutput(payload, outputMode, textRenderer, markdownRenderer) {
 }
 
 function toSerializablePayload(payload) {
+  if (payload?.notebook && payload?.routed?.report) {
+    const routedPayload = toSerializablePayload(payload.routed.report);
+    return {
+      notebook: serializeNotebook(payload.notebook),
+      routed: {
+        mode: payload.routed.mode,
+        summary: routedPayload.summary ?? null,
+      },
+      ...routedPayload,
+    };
+  }
+
   if (Array.isArray(payload?.cases) && typeof payload?.exportText === 'string' && payload?.summary?.caseCount !== undefined) {
     return {
       portfolio: {
@@ -458,6 +515,74 @@ function renderSingleTraceMarkdownSummary(report) {
   }
 
   return summary;
+}
+
+function serializeNotebook(notebook) {
+  if (notebook?.kind === 'portfolio') {
+    return {
+      kind: notebook.kind,
+      packOrder: notebook.packOrder,
+      packs: notebook.packs.map((pack) => ({
+        label: pack.label,
+        sectionOrder: pack.sectionOrder,
+      })),
+      normalizedText: renderNormalizedNotebookText(notebook),
+    };
+  }
+
+  if (notebook?.kind === 'pack') {
+    return {
+      kind: notebook.kind,
+      sectionOrder: notebook.sectionOrder,
+      normalizedText: renderNormalizedNotebookText(notebook),
+    };
+  }
+
+  return {
+    kind: notebook?.kind ?? 'unsupported',
+    reason: notebook?.reason ?? null,
+    normalizedText: '',
+  };
+}
+
+function renderNotebookCliTextSummary(payload) {
+  const routedText = payload.routed.mode === 'portfolio'
+    ? renderIncidentPortfolioTextSummary(payload.routed.report)
+    : renderIncidentPackTextSummary(payload.routed.report);
+  const countLabel = payload.notebook.kind === 'portfolio'
+    ? `Kind: portfolio (${payload.notebook.packOrder.length} packs)`
+    : `Kind: pack (${payload.notebook.sectionOrder.length} sections)`;
+
+  return [
+    'Notebook normalization',
+    countLabel,
+    '',
+    renderNormalizedNotebookText(payload.notebook),
+    '',
+    routedText,
+  ].join('\n').trim();
+}
+
+function renderNotebookCliMarkdownSummary(payload) {
+  const routedMarkdown = payload.routed.mode === 'portfolio'
+    ? renderIncidentPortfolioMarkdownSummary(payload.routed.report)
+    : renderIncidentPackMarkdownSummary(payload.routed.report);
+  const countLabel = payload.notebook.kind === 'portfolio'
+    ? `Kind: portfolio (${payload.notebook.packOrder.length} packs)`
+    : `Kind: pack (${payload.notebook.sectionOrder.length} sections)`;
+
+  return [
+    '# Notebook normalization',
+    '',
+    `- **${countLabel}**`,
+    '',
+    '## Normalized incident workflow',
+    '```text',
+    renderNormalizedNotebookText(payload.notebook),
+    '```',
+    '',
+    routedMarkdown,
+  ].join('\n').trim();
 }
 
 function renderForgeCliTextSummary(report) {

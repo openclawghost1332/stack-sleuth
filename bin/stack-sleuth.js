@@ -62,6 +62,10 @@ if (currentArgumentError) {
   fail(currentArgumentError);
 }
 
+if (currentPath && !historyPath) {
+  fail('Casebook Radar requires --history when using --current.');
+}
+
 try {
   if (historyPath) {
     const historyInput = readNamedInput(historyPath, 'history');

@@ -223,6 +223,7 @@ function renderCasebookWorkflow() {
 
   if (!current || !history) {
     resetCasebookState();
+    resetEmptyState();
     return;
   }
 
@@ -231,12 +232,14 @@ function renderCasebookWorkflow() {
   if (casebook.summary.currentTraceCount === 0) {
     casebookCaption.textContent = 'Casebook Radar could not excavate a current trace yet. Paste a fuller stack trace or raw log snippet first.';
     resetCasebookState();
+    resetEmptyState();
     return;
   }
 
   if (casebook.summary.historicalCaseCount === 0) {
     casebookCaption.textContent = 'Casebook Radar needs labeled prior incidents like === release-2026-04-15 === before it can compare anything.';
     resetCasebookState();
+    resetEmptyState();
     return;
   }
 
@@ -740,12 +743,14 @@ casebookCurrentInput?.addEventListener('input', () => {
   if (!casebookCurrentInput.value.trim() || !casebookHistoryInput.value.trim()) {
     casebookCaption.textContent = 'Paste a current incident batch plus labeled prior incidents to see which failures look known versus novel.';
     resetCasebookState();
+    resetEmptyState();
   }
 });
 casebookHistoryInput?.addEventListener('input', () => {
   if (!casebookCurrentInput.value.trim() || !casebookHistoryInput.value.trim()) {
     casebookCaption.textContent = 'Paste a current incident batch plus labeled prior incidents to see which failures look known versus novel.';
     resetCasebookState();
+    resetEmptyState();
   }
 });
 timelineInput?.addEventListener('input', () => {

@@ -330,6 +330,18 @@ test('CLI supports --history with --current - in markdown mode', async () => {
   assert.match(result.stdout, /- \*\*Classification:\*\* novel/);
 });
 
+test('CLI treats --current without --history as a Casebook Radar invocation error', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-casebook-'));
+  const currentPath = path.join(tempDir, 'current.txt');
+  await fs.promises.writeFile(currentPath, casebookCurrentInput, 'utf8');
+
+  const result = runCli(['--current', currentPath], { input: sampleTrace });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Casebook Radar requires --history when using --current/i);
+  assert.equal(result.stdout, '');
+});
+
 test('CLI casebook mode exits non-zero when current input is empty', async () => {
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-casebook-'));
   const historyPath = path.join(tempDir, 'history.txt');

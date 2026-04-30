@@ -52,6 +52,7 @@ import {
   routeIncidentNotebook,
 } from '../src/notebook.js';
 import { parseIncidentPack } from '../src/pack.js';
+import { loadIncidentWorkspace } from '../src/workspace.js';
 
 const args = process.argv.slice(2);
 const mode = args.includes('--json') ? 'json' : args.includes('--markdown') ? 'markdown' : 'text';
@@ -66,6 +67,7 @@ const timelineArgumentError = validateOptionValue(args, '--timeline');
 const datasetArgumentError = validateOptionValue(args, '--dataset');
 const historyArgumentError = validateOptionValue(args, '--history');
 const currentArgumentError = validateOptionValue(args, '--current');
+const workspaceArgumentError = validateOptionValue(args, '--workspace');
 const baselinePath = readOptionValue(args, '--baseline');
 const candidatePath = readOptionValue(args, '--candidate');
 const packPath = readOptionValue(args, '--pack');
@@ -77,14 +79,40 @@ const timelinePath = readOptionValue(args, '--timeline');
 const datasetPath = readOptionValue(args, '--dataset');
 const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
-const workflowArgumentError = validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, mergeCasebookPath, timelinePath, datasetPath, historyPath });
+const workspacePath = readOptionValue(args, '--workspace');
+const workflowArgumentError = validateWorkflowArguments({
+  baselinePath,
+  candidatePath,
+  packPath,
+  portfolioPath,
+  forgePath,
+  notebookPath,
+  mergeCasebookPath,
+  timelinePath,
+  datasetPath,
+  historyPath,
+  workspacePath,
+});
 const filePath = args.find((arg, index) => {
   if (arg.startsWith('--')) {
     return false;
   }
 
   const previous = args[index - 1] ?? '';
-  return !['--baseline', '--candidate', '--pack', '--portfolio', '--forge', '--notebook', '--merge-casebook', '--timeline', '--dataset', '--history', '--current'].includes(previous);
+  return ![
+    '--baseline',
+    '--candidate',
+    '--pack',
+    '--portfolio',
+    '--forge',
+    '--notebook',
+    '--merge-casebook',
+    '--timeline',
+    '--dataset',
+    '--history',
+    '--current',
+    '--workspace',
+  ].includes(previous);
 }) ?? null;
 
 if (compareArgumentError) {
@@ -127,6 +155,10 @@ if (currentArgumentError) {
   fail(currentArgumentError);
 }
 
+if (workspaceArgumentError) {
+  fail(workspaceArgumentError);
+}
+
 if (currentPath && !historyPath) {
   fail('Casebook Radar requires --history when using --current.');
 }
@@ -136,6 +168,48 @@ if (workflowArgumentError) {
 }
 
 try {
+  if (workspacePath) {
+    const workspace = loadIncidentWorkspace(workspacePath);
+
+    if (workspace.kind === 'notebook') {
+      const notebook = parseIncidentNotebook(workspace.input);
+      if (notebook.kind === 'unsupported') {
+        fail(notebook.reason ?? 'Workspace mode requires supported incident notebook headings like Current incident, Prior incidents, Baseline, Candidate, or Timeline.');
+      }
+
+      const routed = routeNotebookForCli(notebook);
+
+      if (routed.mode === 'pack' && !routed.report.availableAnalyses.length) {
+        fail('Workspace mode did not find any runnable analyses after notebook normalization. Provide at least Current incident, Baseline plus Candidate, or a valid Timeline section.');
+      }
+
+      if (routed.mode === 'portfolio' && !routed.report.summary.runnablePackCount) {
+        fail('Workspace mode did not find any runnable analyses after notebook normalization. Add at least one pack with Current incident, Baseline plus Candidate, or a valid Timeline section.');
+      }
+
+      writeOutput({ workspace, notebook, routed }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary);
+      process.exit(0);
+    }
+
+    if (workspace.kind === 'portfolio') {
+      const report = analyzeIncidentPortfolio(workspace.normalizedText);
+      if (!report.summary.runnablePackCount) {
+        fail('Workspace mode did not find any runnable analyses. Add at least one labeled pack with @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
+      }
+
+      writeOutput({ workspace, routed: { mode: 'portfolio', report } }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary);
+      process.exit(0);
+    }
+
+    const report = analyzeIncidentPack(workspace.normalizedText);
+    if (!report.availableAnalyses.length) {
+      fail('Workspace mode did not find any runnable analyses. Provide at least @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
+    }
+
+    writeOutput({ workspace, routed: { mode: 'pack', report } }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary);
+    process.exit(0);
+  }
+
   if (notebookPath) {
     const notebookInput = notebookPath === '-' ? fs.readFileSync(0, 'utf8') : readNotebookInput(notebookPath);
     const notebook = parseIncidentNotebook(notebookInput);
@@ -143,23 +217,7 @@ try {
       fail(notebook.reason ?? 'Notebook mode requires supported headings like Current incident, Prior incidents, Baseline, Candidate, or Timeline.');
     }
 
-    const routed = routeIncidentNotebook({
-      notebook,
-      analyzers: {
-        pack(normalizedText) {
-          return {
-            mode: 'pack',
-            report: analyzeIncidentPack(normalizedText),
-          };
-        },
-        portfolio(normalizedText) {
-          return {
-            mode: 'portfolio',
-            report: analyzeIncidentPortfolio(normalizedText),
-          };
-        },
-      },
-    });
+    const routed = routeNotebookForCli(notebook);
 
     if (routed.mode === 'pack' && !routed.report.availableAnalyses.length) {
       fail('Notebook mode did not find any runnable analyses after normalization. Provide at least Current incident, Baseline plus Candidate, or a valid Timeline section.');
@@ -350,6 +408,10 @@ try {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read notebook input: ${error.message}`);
   }
 
+  if (workspacePath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read workspace input: ${error.message}`);
+  }
+
   if (portfolioPath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read portfolio input: ${error.message}`);
   }
@@ -420,12 +482,13 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, mergeCasebookPath, timelinePath, datasetPath, historyPath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, notebookPath, mergeCasebookPath, timelinePath, datasetPath, historyPath, workspacePath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     portfolioPath ? 'portfolio' : null,
     forgePath ? 'forge' : null,
     notebookPath ? 'notebook' : null,
+    workspacePath ? 'workspace' : null,
     mergeCasebookPath ? 'merge-casebook' : null,
     packPath ? 'incident-pack' : null,
     timelinePath ? 'timeline' : null,
@@ -434,7 +497,7 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: forge, merge-casebook, portfolio, notebook, incident-pack, casebook, timeline, dataset, or compare.';
+    return 'Choose one workflow mode at a time: forge, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, dataset, or compare.';
   }
 
   return null;
@@ -467,6 +530,31 @@ function writeOutput(payload, outputMode, textRenderer, markdownRenderer) {
 }
 
 function toSerializablePayload(payload) {
+  if (payload?.workspace && payload?.notebook && payload?.routed?.report) {
+    const routedPayload = toSerializablePayload(payload.routed.report);
+    return {
+      workspace: serializeWorkspace(payload.workspace),
+      notebook: serializeNotebook(payload.notebook),
+      routed: {
+        mode: payload.routed.mode,
+        summary: routedPayload.summary ?? null,
+      },
+      ...routedPayload,
+    };
+  }
+
+  if (payload?.workspace && payload?.routed?.report) {
+    const routedPayload = toSerializablePayload(payload.routed.report);
+    return {
+      workspace: serializeWorkspace(payload.workspace),
+      routed: {
+        mode: payload.routed.mode,
+        summary: routedPayload.summary ?? null,
+      },
+      ...routedPayload,
+    };
+  }
+
   if (payload?.notebook && payload?.routed?.report) {
     const routedPayload = toSerializablePayload(payload.routed.report);
     return {
@@ -674,6 +762,62 @@ function serializeNotebook(notebook) {
     reason: notebook?.reason ?? null,
     normalizedText: '',
   };
+}
+
+function serializeWorkspace(workspace) {
+  return {
+    kind: workspace?.kind ?? 'unsupported',
+    path: workspace?.path ?? null,
+    recognizedFiles: workspace?.recognizedFiles ?? [],
+    packOrder: workspace?.packOrder ?? [],
+    packs: Array.isArray(workspace?.packs)
+      ? workspace.packs.map((pack) => ({
+        label: pack.label,
+        recognizedFiles: pack.recognizedFiles ?? [],
+      }))
+      : [],
+    omittedPacks: workspace?.omittedPacks ?? [],
+  };
+}
+
+function routeNotebookForCli(notebook) {
+  return routeIncidentNotebook({
+    notebook,
+    analyzers: {
+      pack(normalizedText) {
+        return {
+          mode: 'pack',
+          report: analyzeIncidentPack(normalizedText),
+        };
+      },
+      portfolio(normalizedText) {
+        return {
+          mode: 'portfolio',
+          report: analyzeIncidentPortfolio(normalizedText),
+        };
+      },
+    },
+  });
+}
+
+function renderWorkspaceCliTextSummary(payload) {
+  if (payload.notebook) {
+    return renderNotebookCliTextSummary(payload);
+  }
+
+  return payload.routed.mode === 'portfolio'
+    ? renderIncidentPortfolioTextSummary(payload.routed.report)
+    : renderIncidentPackTextSummary(payload.routed.report);
+}
+
+function renderWorkspaceCliMarkdownSummary(payload) {
+  if (payload.notebook) {
+    return renderNotebookCliMarkdownSummary(payload);
+  }
+
+  return payload.routed.mode === 'portfolio'
+    ? renderIncidentPortfolioMarkdownSummary(payload.routed.report)
+    : renderIncidentPackMarkdownSummary(payload.routed.report);
 }
 
 function renderNotebookCliTextSummary(payload) {

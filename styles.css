@@ -193,7 +193,8 @@ textarea {
 
 #forge-export-value,
 #dataset-export-value,
-#merge-export-value {
+#merge-export-value,
+#handoff-export-value {
   white-space: pre-wrap;
 }
 

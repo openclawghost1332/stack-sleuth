@@ -129,6 +129,25 @@ const notebookPortfolioInput = [
   [sampleTrace, sampleTrace, comparisonTrace].join('\n\n'),
 ].join('\n');
 
+const notebookHistoryOnlyInput = [
+  '# Incident notes',
+  '',
+  '## Prior incidents',
+  casebookHistoryInput,
+].join('\n');
+
+const notebookUnrunnablePortfolioInput = [
+  '# Pack: archive-a',
+  '',
+  '## Prior incidents',
+  casebookHistoryInput,
+  '',
+  '# Pack: archive-b',
+  '',
+  '## Prior incidents',
+  casebookHistoryInput,
+].join('\n');
+
 const noisySingleTraceLog = [
   '2026-04-30T01:50:00Z INFO api boot complete',
   `2026-04-30T01:50:01Z ERROR web ${sampleTrace.split('\n').join('\n2026-04-30T01:50:01Z ERROR web ')}`,
@@ -613,6 +632,22 @@ test('CLI notebook mode exits non-zero when no supported notebook headings are p
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Notebook mode requires supported headings|supported incident sections|did not contain any supported incident headings/i);
+  assert.equal(result.stdout, '');
+});
+
+test('CLI notebook pack mode exits non-zero when normalization produces no runnable analyses', () => {
+  const result = runCli(['--notebook', '-'], { input: notebookHistoryOnlyInput });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Notebook mode did not find any runnable analyses/i);
+  assert.equal(result.stdout, '');
+});
+
+test('CLI notebook portfolio mode exits non-zero when every normalized pack is unrunnable', () => {
+  const result = runCli(['--notebook', '-', '--json'], { input: notebookUnrunnablePortfolioInput });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Notebook mode did not find any runnable analyses/i);
   assert.equal(result.stdout, '');
 });
 

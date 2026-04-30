@@ -119,7 +119,7 @@ if (workflowArgumentError) {
 
 try {
   if (notebookPath) {
-    const notebookInput = notebookPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(notebookPath, 'notebook');
+    const notebookInput = notebookPath === '-' ? fs.readFileSync(0, 'utf8') : readNotebookInput(notebookPath);
     const notebook = parseIncidentNotebook(notebookInput);
     if (notebook.kind === 'unsupported') {
       fail(notebook.reason ?? 'Notebook mode requires supported headings like Current incident, Prior incidents, Baseline, Candidate, or Timeline.');
@@ -142,6 +142,14 @@ try {
         },
       },
     });
+
+    if (routed.mode === 'pack' && !routed.report.availableAnalyses.length) {
+      fail('Notebook mode did not find any runnable analyses after normalization. Provide at least Current incident, Baseline plus Candidate, or a valid Timeline section.');
+    }
+
+    if (routed.mode === 'portfolio' && !routed.report.summary.runnablePackCount) {
+      fail('Notebook mode did not find any runnable analyses after normalization. Add at least one pack with Current incident, Baseline plus Candidate, or a valid Timeline section.');
+    }
 
     writeOutput({ notebook, routed }, mode, renderNotebookCliTextSummary, renderNotebookCliMarkdownSummary);
     process.exit(0);
@@ -371,6 +379,14 @@ function readNamedInput(targetPath, label) {
     return fs.readFileSync(targetPath, 'utf8');
   } catch (error) {
     throw new Error(`Could not read ${label} trace file: ${error.message}`);
+  }
+}
+
+function readNotebookInput(targetPath) {
+  try {
+    return fs.readFileSync(targetPath, 'utf8');
+  } catch (error) {
+    throw new Error(`Could not read notebook input file: ${error.message}`);
   }
 }
 

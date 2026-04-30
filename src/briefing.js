@@ -220,6 +220,13 @@ function buildTopFindings({ currentDigest, casebook, regression, timeline }) {
 
 function buildChecklist({ currentDigest, casebook, regression, timeline, omissions }) {
   const checklist = [];
+  const topGuidance = selectTopCasebookGuidance(casebook);
+
+  if (topGuidance?.fix) {
+    checklist.push(
+      `Reuse the recorded fix from ${topGuidance.label}${topGuidance.owner ? ` (owner ${topGuidance.owner})` : ''} before widening the incident scope.`,
+    );
+  }
 
   if ((casebook?.summary.novelCount ?? 0) > 0) {
     checklist.push('Inspect novel incidents first so brand-new breakages do not hide behind known repeats.');
@@ -254,6 +261,16 @@ function buildChecklist({ currentDigest, casebook, regression, timeline, omissio
   }
 
   return checklist.length ? [...new Set(checklist)].slice(0, 5) : ['Add at least one supported section with usable traces, then rerun the incident pack briefing.'];
+}
+
+function selectTopCasebookGuidance(casebook) {
+  for (const incident of casebook?.incidents ?? []) {
+    if (incident.matchingGuidance?.length) {
+      return incident.matchingGuidance[0];
+    }
+  }
+
+  return null;
 }
 
 function formatCount(count, noun) {

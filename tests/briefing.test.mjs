@@ -17,6 +17,9 @@ const fullPackInput = [
   '@@ history @@',
   [
     '=== release-2026-04-15 ===',
+    '>>> summary: Checkout profile payload dropped account metadata before render',
+    '>>> fix: Guard renderProfile before reading account.name',
+    '>>> owner: web-platform',
     [sampleTrace, comparisonTrace].join('\n\n'),
     '',
     '=== profile-rewrite ===',
@@ -65,9 +68,11 @@ test('renderIncidentPack summaries stay copy-ready in text and markdown', () => 
   assert.match(text, /Stack Sleuth Incident Pack Briefing/);
   assert.match(text, /Available analyses: current, casebook, regression, timeline/);
   assert.match(text, /Primary headline: Casebook Radar flagged 1 novel incident in the current batch\./);
+  assert.match(text, /Reuse the recorded fix from release-2026-04-15 \(owner web-platform\) before widening the incident scope\./);
   assert.match(markdown, /^# Stack Sleuth Incident Pack Briefing/m);
   assert.match(markdown, /- \*\*Available analyses:\*\* current, casebook, regression, timeline/);
   assert.match(markdown, /## Key findings/);
+  assert.match(markdown, /Reuse the recorded fix from release-2026-04-15 \(owner web-platform\) before widening the incident scope\./);
 });
 
 test('analyzeIncidentPack degrades gracefully for partial packs and nested section problems', () => {

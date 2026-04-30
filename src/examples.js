@@ -42,6 +42,10 @@ const rawLogTrace = [
 
 const casebookHistoryTrace = [
   '=== release-2026-04-15 ===',
+  '>>> summary: Checkout profile payload dropped account metadata before render',
+  '>>> fix: Guard renderProfile before reading account.name',
+  '>>> owner: web-platform',
+  '>>> runbook: https://example.com/runbooks/profile-null',
   [javascriptTrace, regressionTrace].join('\n\n'),
   '',
   '=== profile-rewrite ===',
@@ -124,7 +128,7 @@ export const examples = [
   },
   {
     label: 'Casebook Radar',
-    caption: 'Today\'s incident batch matches one known failure and one novel profile hydration break, so the casebook lookup reads like a real incident-memory handoff.',
+    caption: 'Today\'s incident batch matches one known failure and one novel profile hydration break, and the known match recalls the last fix, owner, and runbook context like a real incident-memory handoff.',
     current: casebookCurrentTrace,
     history: casebookHistoryTrace,
   },

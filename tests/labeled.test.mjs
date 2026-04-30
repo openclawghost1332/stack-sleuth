@@ -44,3 +44,27 @@ test('parseLabeledTraceBatches normalizes CRLF input for copy-paste friendly bat
   assert.doesNotMatch(batches[0].traces, /\r/);
   assert.equal(batches[1].label, 'second');
 });
+
+test('parseLabeledTraceBatches extracts optional leading metadata lines without polluting trace bodies', () => {
+  const batches = parseLabeledTraceBatches([
+    '=== release-2026-04-15 ===',
+    '>>> summary: Checkout profile payload dropped account metadata',
+    '>>> fix: Guard renderProfile before reading account.name',
+    '>>> owner: web-platform',
+    '>>> runbook: https://example.com/runbooks/profile-null',
+    firstTrace,
+    '',
+    '=== full-rollout ===',
+    secondTrace,
+  ].join('\n'));
+
+  assert.deepEqual(batches[0].metadata, {
+    summary: 'Checkout profile payload dropped account metadata',
+    fix: 'Guard renderProfile before reading account.name',
+    owner: 'web-platform',
+    runbook: 'https://example.com/runbooks/profile-null',
+  });
+  assert.match(batches[0].traces, /^TypeError:/);
+  assert.doesNotMatch(batches[0].traces, /^>>> /m);
+  assert.deepEqual(batches[1].metadata, {});
+});

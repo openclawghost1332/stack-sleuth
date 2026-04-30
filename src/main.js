@@ -926,9 +926,17 @@ function buildCasebookMatchItems(historicalCases) {
     return ['Closest prior incidents will appear here after a Casebook Radar lookup.'];
   }
 
-  return historicalCases.slice(0, 5).map((entry) => (
-    `${entry.label}: ${entry.overlap.exactSignatureCount} exact matches, ${entry.overlap.culpritPathCount} shared culprit paths, ${entry.overlap.diagnosisTagCount} shared diagnosis tags`
-  ));
+  return historicalCases.slice(0, 5).map((entry) => {
+    const guidance = [];
+    if (entry.metadata?.owner) {
+      guidance.push(`owner ${entry.metadata.owner}`);
+    }
+    if (entry.metadata?.fix) {
+      guidance.push(`fix ${entry.metadata.fix}`);
+    }
+
+    return `${entry.label}: ${entry.overlap.exactSignatureCount} exact matches, ${entry.overlap.culpritPathCount} shared culprit paths, ${entry.overlap.diagnosisTagCount} shared diagnosis tags${guidance.length ? `, ${guidance.join(', ')}` : ''}`;
+  });
 }
 
 function buildCasebookChecklist(casebook) {

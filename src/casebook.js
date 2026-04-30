@@ -11,6 +11,7 @@ export function analyzeCasebook({ current, history }) {
       const digest = analyzeTraceDigest(batch.traces);
       return {
         label: batch.label,
+        metadata: normalizeGuidanceMetadata(batch.metadata),
         traces: batch.traces,
         digest,
         historyIndex,
@@ -24,11 +25,19 @@ export function analyzeCasebook({ current, history }) {
     const matchingCases = historicalCases
       .filter((entry) => entry.overlap.exactSignatures.includes(group.signature))
       .map((entry) => entry.label);
+    const matchingGuidance = historicalCases
+      .filter((entry) => entry.overlap.exactSignatures.includes(group.signature))
+      .map((entry) => ({
+        label: entry.label,
+        ...entry.metadata,
+      }))
+      .filter(hasMeaningfulGuidance);
 
     return {
       signature: group.signature,
       classification: matchingCases.length ? 'known' : 'novel',
       matchingCases,
+      matchingGuidance,
       count: group.count,
       culpritPath: normalizeCulpritPath(group.representative?.culpritFrame),
       diagnosisTags: [...group.tags],
@@ -68,6 +77,9 @@ export function renderCasebookTextSummary(casebook) {
     if (incident.matchingCases.length) {
       sections.push(`  Known in: ${incident.matchingCases.join(', ')}`);
     }
+    for (const guidance of incident.matchingGuidance ?? []) {
+      sections.push(...formatTextGuidance(guidance));
+    }
     sections.push(`  Tags: ${incident.diagnosisTags.join(', ')}`);
   }
 
@@ -96,6 +108,9 @@ export function renderCasebookMarkdownSummary(casebook) {
     lines.push(`- **Culprit:** ${formatMarkdownCode(formatFrame(incident.representative?.culpritFrame ?? null))}`);
     if (incident.matchingCases.length) {
       lines.push(`- **Known in:** ${escapeMarkdownText(incident.matchingCases.join(', '))}`);
+    }
+    for (const guidance of incident.matchingGuidance ?? []) {
+      lines.push(...formatMarkdownGuidance(guidance));
     }
     lines.push(`- **Tags:** ${escapeMarkdownText(incident.diagnosisTags.join(', '))}`);
     lines.push('');
@@ -173,8 +188,71 @@ function formatMarkdownClosestCases(historicalCases) {
 
   return historicalCases
     .slice(0, 5)
-    .map((entry) => `- **${escapeMarkdownText(entry.label)}:** exact ${entry.overlap.exactSignatureCount}, culprit paths ${entry.overlap.culpritPathCount}, tags ${entry.overlap.diagnosisTagCount}`)
+    .map((entry) => {
+      const guidanceSuffix = formatClosestCaseGuidance(entry.metadata);
+      return `- **${escapeMarkdownText(entry.label)}:** exact ${entry.overlap.exactSignatureCount}, culprit paths ${entry.overlap.culpritPathCount}, tags ${entry.overlap.diagnosisTagCount}${guidanceSuffix}`;
+    })
     .join('\n');
+}
+
+function normalizeGuidanceMetadata(metadata) {
+  const normalized = {};
+  for (const key of ['summary', 'fix', 'owner', 'runbook']) {
+    const value = String(metadata?.[key] ?? '').trim();
+    if (value) {
+      normalized[key] = value;
+    }
+  }
+  return normalized;
+}
+
+function hasMeaningfulGuidance(guidance) {
+  return Boolean(guidance?.summary || guidance?.fix || guidance?.owner || guidance?.runbook);
+}
+
+function formatTextGuidance(guidance) {
+  const lines = [`  Recall: ${guidance.label}`];
+  if (guidance.summary) {
+    lines.push(`  Summary: ${guidance.summary}`);
+  }
+  if (guidance.fix) {
+    lines.push(`  Fix: ${guidance.fix}`);
+  }
+  if (guidance.owner) {
+    lines.push(`  Owner: ${guidance.owner}`);
+  }
+  if (guidance.runbook) {
+    lines.push(`  Runbook: ${guidance.runbook}`);
+  }
+  return lines;
+}
+
+function formatMarkdownGuidance(guidance) {
+  const lines = [`- **Recall:** ${escapeMarkdownText(guidance.label)}`];
+  if (guidance.summary) {
+    lines.push(`- **Summary:** ${escapeMarkdownText(guidance.summary)}`);
+  }
+  if (guidance.fix) {
+    lines.push(`- **Fix:** ${escapeMarkdownText(guidance.fix)}`);
+  }
+  if (guidance.owner) {
+    lines.push(`- **Owner:** ${escapeMarkdownText(guidance.owner)}`);
+  }
+  if (guidance.runbook) {
+    lines.push(`- **Runbook:** ${escapeMarkdownText(guidance.runbook)}`);
+  }
+  return lines;
+}
+
+function formatClosestCaseGuidance(metadata) {
+  const fragments = [];
+  if (metadata?.owner) {
+    fragments.push(`owner ${escapeMarkdownText(metadata.owner)}`);
+  }
+  if (metadata?.fix) {
+    fragments.push(`fix ${escapeMarkdownText(metadata.fix)}`);
+  }
+  return fragments.length ? `, ${fragments.join(', ')}` : '';
 }
 
 function formatMarkdownCode(value) {

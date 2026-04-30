@@ -7,6 +7,10 @@ const stylesCss = fs.readFileSync(new URL('../styles.css', import.meta.url), 'ut
 
 const casebookHistoryInput = [
   '=== release-2026-04-15 ===',
+  '>>> summary: Checkout profile payload dropped account metadata before render',
+  '>>> fix: Guard renderProfile before reading account.name',
+  '>>> owner: web-platform',
+  '>>> runbook: https://example.com/runbooks/profile-null',
   [
     `TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`,
     `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
@@ -446,7 +450,7 @@ test('browser incident pack flow composes the briefing across current, casebook,
     assert.match(harness.get('casebook-summary-value').textContent, /matched 1 known incident and flagged 1 novel incident/i);
     assert.match(harness.get('regression-summary-value').textContent, /1 new, 1 volume-up/i);
     assert.match(harness.get('timeline-summary-value').textContent, /1 new/i);
-    assert.match(harness.get('checklist-value').children[0].textContent, /Inspect novel incidents first/i);
+    assert.match(harness.get('checklist-value').children[0].textContent, /Reuse the recorded fix from release-2026-04-15/i);
   } finally {
     harness.restore();
   }
@@ -516,7 +520,7 @@ test('browser Casebook Radar analyze flow renders known and novel counts plus th
     assert.match(harness.get('casebook-summary-value').textContent, /matched 1 known incident and flagged 1 novel incident/i);
     const closestMatches = harness.get('closest-matches-value').children.map((child) => child.textContent);
     assert.equal(closestMatches.length, 2);
-    assert.match(closestMatches[0], /^release-2026-04-15: 1 exact matches, 1 shared culprit paths, 2 shared diagnosis tags$/);
+    assert.match(closestMatches[0], /^release-2026-04-15: 1 exact matches, 1 shared culprit paths, 2 shared diagnosis tags, owner web-platform, fix Guard renderProfile before reading account\.name$/);
     assert.match(closestMatches[1], /^profile-rewrite: 1 exact matches, 1 shared culprit paths, 2 shared diagnosis tags$/);
     assert.equal(harness.get('casebook-caption').textContent, 'Closest prior incident match: release-2026-04-15.');
   } finally {
@@ -536,6 +540,8 @@ test('browser Casebook Radar copy support writes the rendered summary to the cli
     assert.match(harness.clipboard.text, /Known incidents: 1/);
     assert.match(harness.clipboard.text, /Novel incidents: 1/);
     assert.match(harness.clipboard.text, /Known in: release-2026-04-15/);
+    assert.match(harness.clipboard.text, /Fix: Guard renderProfile before reading account\.name/);
+    assert.match(harness.clipboard.text, /Owner: web-platform/);
     assert.equal(harness.get('casebook-caption').textContent, 'Casebook Radar summary copied to clipboard.');
   } finally {
     harness.restore();

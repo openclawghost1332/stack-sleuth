@@ -35,6 +35,18 @@ const casebookHistoryInput = [
   sampleTrace,
 ].join('\n');
 
+const annotatedCasebookHistoryInput = [
+  '=== release-2026-04-15 ===',
+  '>>> summary: Checkout profile payload dropped account metadata before render',
+  '>>> fix: Guard renderProfile before reading account.name',
+  '>>> owner: web-platform',
+  '>>> runbook: https://example.com/runbooks/profile-null',
+  [sampleTrace, comparisonTrace].join('\n\n'),
+  '',
+  '=== profile-rewrite ===',
+  sampleTrace,
+].join('\n');
+
 const casebookCurrentInput = [
   sampleTrace,
   `ProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
@@ -435,6 +447,20 @@ test('CLI reads current stdin plus labeled history file and prints a Casebook Ra
   assert.match(result.stdout, /Known incidents: 1/);
   assert.match(result.stdout, /Novel incidents: 1/);
   assert.match(result.stdout, /Closest historical cases: release-2026-04-15/i);
+});
+
+test('CLI Casebook Radar surfaces matched runbook recall from annotated history', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-casebook-'));
+  const historyPath = path.join(tempDir, 'history.txt');
+  await fs.promises.writeFile(historyPath, annotatedCasebookHistoryInput, 'utf8');
+
+  const result = runCli(['--history', historyPath], { input: casebookCurrentInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Known in: release-2026-04-15/);
+  assert.match(result.stdout, /Fix: Guard renderProfile before reading account\.name/);
+  assert.match(result.stdout, /Owner: web-platform/);
+  assert.match(result.stdout, /Runbook: https:\/\/example\.com\/runbooks\/profile-null/);
 });
 
 test('CLI supports --history with --current file input in json mode', async () => {

@@ -44,7 +44,7 @@ import {
   renderCasebookMergeTextSummary,
   renderCasebookMergeMarkdownSummary,
 } from '../src/merge.js';
-import { buildCasebookDataset } from '../src/dataset.js';
+import { buildCasebookDataset, inspectDatasetHistoryInput } from '../src/dataset.js';
 import { extractTraceSet, formatExtractionMarkdown, formatExtractionText } from '../src/extract.js';
 import {
   parseIncidentNotebook,
@@ -262,6 +262,15 @@ try {
 
     if (!currentInput.trim()) {
       fail('Casebook Radar requires non-empty current input. Pipe current traces or use --current <path|->.');
+    }
+
+    const datasetHistory = inspectDatasetHistoryInput(historyInput);
+    if (!datasetHistory.valid && datasetHistory.reason === 'missing-export-text') {
+      fail('Casebook Dataset history must include a non-empty exportText payload.');
+    }
+
+    if (!datasetHistory.valid && datasetHistory.reason === 'wrong-kind') {
+      fail(`Casebook Dataset history uses unsupported kind: ${datasetHistory.parsed?.kind ?? 'unknown'}.`);
     }
 
     const historyBatches = parseCasebookHistoryInput(historyInput);

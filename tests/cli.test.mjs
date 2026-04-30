@@ -438,6 +438,20 @@ test('CLI Casebook Radar accepts a saved dataset JSON file through --history', a
   assert.match(result.stdout, /Known in: profile-js-generic-runtime-error/);
 });
 
+test('CLI Casebook Radar reports a dataset-specific error for malformed saved dataset JSON', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bad-dataset-'));
+  const datasetPath = path.join(tempDir, 'history.json');
+  await fs.promises.writeFile(datasetPath, JSON.stringify({
+    kind: 'stack-sleuth-casebook-dataset',
+    version: 1,
+    exportText: '',
+  }), 'utf8');
+
+  const result = runCli(['--history', datasetPath], { input: casebookCurrentInput });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Casebook Dataset history must include a non-empty exportText payload/i);
+});
+
 test('CLI dataset mode supports --json and --markdown output', () => {
   const jsonResult = runCli(['--dataset', '-', '--json'], { input: portfolioInput });
   assert.equal(jsonResult.status, 0, jsonResult.stderr);

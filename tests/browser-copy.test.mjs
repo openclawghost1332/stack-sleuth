@@ -213,6 +213,7 @@ const requiredIds = [
   'load-notebook-button',
   'load-pack-button',
   'load-portfolio-button',
+  'load-dataset-button',
   'load-merge-button',
   'copy-button',
   'example-caption',
@@ -411,8 +412,25 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, />Analyze casebook</i);
   assert.match(indexHtml, />Copy casebook summary</i);
   assert.match(indexHtml, />Load portfolio example</i);
+  assert.match(indexHtml, />Load Casebook Dataset example</i);
   assert.match(indexHtml, />Load Casebook Merge example</i);
   assert.match(indexHtml, />Copy result</i);
+});
+
+test('browser Casebook Dataset example button loads the shared portfolio example and surfaces dataset output', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.click('load-dataset-button');
+
+    assert.match(harness.get('trace-input').value, /@@@ checkout-prod @@@/);
+    assert.equal(harness.get('runtime-value').textContent, 'portfolio radar');
+    assert.match(harness.get('dataset-summary-value').textContent, /Casebook Dataset captured 3 merged cases/i);
+    assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
+    assert.match(harness.get('example-caption').textContent, /portable dataset handoff/i);
+  } finally {
+    harness.restore();
+  }
 });
 
 test('browser notebook flow routes markdown incident notes into notebook mode and copies the normalized bundle plus briefing', async () => {

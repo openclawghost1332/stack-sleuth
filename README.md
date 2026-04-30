@@ -311,7 +311,7 @@ cat current.log | node ./bin/stack-sleuth.js --history ./casebook-dataset.json
 
 That makes the dataset a durable casebook snapshot instead of a one-time report.
 
-In the browser, Portfolio Radar now surfaces the same dataset summary and reusable export text in dedicated Casebook Dataset cards, so the visible triage view and the saved CLI artifact stay aligned.
+In the browser, Portfolio Radar now surfaces the same dataset summary and reusable export text in dedicated Casebook Dataset cards, so the visible triage view and the saved CLI artifact stay aligned. You can also press **Load Casebook Dataset example** to open the shared portfolio example directly in that dataset-oriented view.
 
 ## Casebook Merge
 

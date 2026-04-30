@@ -31,16 +31,33 @@ export function buildCasebookDataset(input) {
 }
 
 export function parseDatasetHistory(input) {
+  const result = inspectDatasetHistoryInput(input);
+  if (!result.valid) {
+    return null;
+  }
+
+  return result.history;
+}
+
+export function inspectDatasetHistoryInput(input) {
   const parsed = parseDatasetInput(input);
   if (!parsed) {
-    return null;
+    return { valid: false, reason: 'not-dataset' };
   }
 
-  if (parsed.kind !== DATASET_KIND || typeof parsed.exportText !== 'string' || !parsed.exportText.trim()) {
-    return null;
+  if (parsed.kind !== DATASET_KIND) {
+    return { valid: false, reason: 'wrong-kind', parsed };
   }
 
-  return parseLabeledTraceBatches(parsed.exportText);
+  if (typeof parsed.exportText !== 'string' || !parsed.exportText.trim()) {
+    return { valid: false, reason: 'missing-export-text', parsed };
+  }
+
+  return {
+    valid: true,
+    parsed,
+    history: parseLabeledTraceBatches(parsed.exportText),
+  };
 }
 
 function parseDatasetInput(input) {

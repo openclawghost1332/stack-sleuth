@@ -21,6 +21,16 @@ const profileHydrationTrace = `ProfileHydrationError: Profile payload missing ac
     at updateView (/app/src/view.js:42:5)
     at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
 
+const alertTrace = `TypeError: Cannot read properties of undefined (reading 'title')
+    at showAlert (/app/src/alerts/toast.js:11:4)
+    at refreshAlerts (/app/src/alerts/index.js:5:2)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
+
+const alternateProfileTrace = `TypeError: Cannot read properties of undefined (reading 'email')
+    at renderProfileCard (/app/src/profile.js:144:11)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)`;
+
 const portfolioFixture = [
   '@@@ checkout-prod @@@',
   '@@ current @@',
@@ -104,6 +114,60 @@ test('analyzeCasebookMerge flags duplicate-signature guidance conflicts without 
   assert.ok(report.cases[0].conflicts.some((conflict) => /owner conflict/i.test(conflict)));
   assert.match(report.exportText, /^=== release-2026-04-15 ===/m);
   assert.match(report.exportText, /^>>> owner: web-platform$/m);
+});
+
+test('analyzeCasebookMerge keeps historical-only entries and avoids false label conflicts for repeated history labels across packs', () => {
+  const repeatedHistoryFixture = [
+    '@@@ checkout-prod @@@',
+    '@@ current @@',
+    profileTrace,
+    '',
+    '@@ history @@',
+    [
+      '=== release-2026-04-15 ===',
+      '>>> owner: web-platform',
+      [profileTrace, alertTrace].join('\n\n'),
+    ].join('\n'),
+    '',
+    '@@@ billing-canary @@@',
+    '@@ baseline @@',
+    profileTrace,
+    '',
+    '@@ candidate @@',
+    [profileTrace, invoiceTrace].join('\n\n'),
+    '',
+    '@@ history @@',
+    [
+      '=== release-2026-04-15 ===',
+      '>>> owner: web-platform',
+      [profileTrace, alertTrace].join('\n\n'),
+    ].join('\n'),
+  ].join('\n');
+
+  const report = analyzeCasebookMerge(repeatedHistoryFixture);
+  const historicalOnlyCase = report.cases.find((entry) => entry.isHistoricalOnly);
+
+  assert.equal(report.summary.historicalOnlyCaseCount, 1);
+  assert.equal(report.summary.conflictCount, 0);
+  assert.ok(historicalOnlyCase);
+  assert.equal(historicalOnlyCase.label, 'release-2026-04-15-2');
+  assert.equal(historicalOnlyCase.metadata.owner, 'web-platform');
+  assert.match(report.exportText, /^=== release-2026-04-15-2 ===/m);
+});
+
+test('analyzeCasebookMerge deduplicates fallback labels for new forged cases without history', () => {
+  const collisionFixture = [
+    '@@@ profile-collision @@@',
+    '@@ current @@',
+    [profileTrace, alternateProfileTrace].join('\n\n'),
+  ].join('\n');
+
+  const report = analyzeCasebookMerge(collisionFixture);
+
+  assert.deepEqual(report.cases.map((entry) => entry.label), [
+    'profile-js-nullish-data',
+    'profile-js-nullish-data-2',
+  ]);
 });
 
 test('renderCasebookMerge summaries are copy-ready', () => {

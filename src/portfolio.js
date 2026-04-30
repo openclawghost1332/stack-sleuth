@@ -498,8 +498,8 @@ export function describeResponseQueueEntry(entry) {
 
 export function describeRoutingGap(kind, item) {
   return kind === 'owner'
-    ? `No recalled owner: ${item.label}`
-    : `No recalled runbook: ${item.label}`;
+    ? `No recalled owner from exact casebook matches: ${item.label}`
+    : `No recalled runbook from exact casebook matches: ${item.label}`;
 }
 
 function emptyPortfolio(source = '') {

@@ -117,10 +117,10 @@ Expected: full suite green with both workflows present.
 - [ ] **Step 1: Validate the ship-ready artifact with publish helper**
 
 ```bash
-python3 /home/node/.openclaw/workspace/scripts/publish_helper.py /home/node/.openclaw/workspace/projects/stack-sleuth
+python3 scripts/publish_helper.py projects/stack-sleuth
 ```
 
-Expected: `publish_guard: OK`. If the worktree path still trips a pointer false positive, export tracked files to a clean temp directory and validate that export instead.
+Expected: `publish_guard: OK` when run from the workspace root. If a nested worktree path still trips a pointer false positive, export tracked files to a clean temp directory and validate that export instead.
 
 - [ ] **Step 2: Push the promotion branch**
 

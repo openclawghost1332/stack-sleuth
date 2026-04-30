@@ -223,24 +223,21 @@ function renderPortfolioWorkflow(input) {
   const topPack = report.priorityQueue[0] ?? null;
   const primaryIncident = selectPrimaryPortfolioIncident(topPack);
   const topPackLabel = topPack?.label ?? 'none';
-  const preferMerge = merge.summary.existingCaseCount > 0;
 
   resetCasebookState();
   resetRegressionState();
   resetTimelineState();
 
   excavationValue.textContent = `Portfolio packs: ${report.summary.packCount} labeled, ${report.summary.runnablePackCount} runnable`;
-  runtimeValue.textContent = preferMerge ? 'casebook merge' : 'casebook forge';
-  headlineValue.textContent = preferMerge ? merge.summary.headline : forge.summary.headline;
+  runtimeValue.textContent = 'portfolio radar';
+  headlineValue.textContent = `Portfolio Radar ranked ${report.summary.runnablePackCount} runnable pack${report.summary.runnablePackCount === 1 ? '' : 's'}.`;
   culpritValue.textContent = summarizePortfolioPrimaryCulprit(report);
   confidenceValue.textContent = topPack ? 'portfolio' : '-';
   tagsValue.textContent = topPack
-    ? [preferMerge ? 'casebook-merge' : 'casebook-forge', 'portfolio-radar', 'incident-pack'].join(', ')
-    : [preferMerge ? 'casebook-merge' : 'casebook-forge', 'portfolio-radar'].join(', ');
+    ? ['portfolio-radar', 'casebook-forge', 'casebook-merge', 'incident-pack'].join(', ')
+    : ['portfolio-radar', 'casebook-forge', 'casebook-merge'].join(', ');
   signatureValue.textContent = topPack ? `top pack: ${topPackLabel}` : '-';
-  summaryValue.textContent = preferMerge
-    ? `${merge.summary.headline} ${merge.summary.reviewHeadline} Portfolio Radar still ranked ${report.summary.runnablePackCount} runnable pack${report.summary.runnablePackCount === 1 ? '' : 's'} for triage.`
-    : `${forge.summary.headline} Portfolio Radar still ranked ${report.summary.runnablePackCount} runnable pack${report.summary.runnablePackCount === 1 ? '' : 's'} for triage.`;
+  summaryValue.textContent = buildPortfolioSummary(report);
   blastRadiusValue.textContent = buildPortfolioBlastRadiusSummary(topPack, primaryIncident);
   digestGroupsValue.replaceChildren(...buildListItems(buildPortfolioPriorityItems(report.priorityQueue)));
   supportFramesValue.replaceChildren(...buildListItems(
@@ -804,27 +801,17 @@ async function copyDiagnosis() {
 
   if (portfolio.packOrder.length) {
     const report = analyzeIncidentPortfolio(portfolio);
-    const forge = analyzeCasebookForge(report);
-    const merge = analyzeCasebookMerge(report);
-    const preferMerge = merge.summary.existingCaseCount > 0;
-    const copyText = preferMerge
-      ? [renderCasebookMergeTextSummary(merge), '', merge.exportText].join('\n').trim()
-      : [renderCasebookForgeTextSummary(forge), '', forge.exportText].join('\n').trim();
 
-    if (!report.summary.runnablePackCount || !(preferMerge ? merge.exportText : forge.exportText)) {
-      caption.textContent = preferMerge
-        ? 'Casebook Merge needs at least one runnable labeled incident pack before there is anything useful to copy.'
-        : 'Casebook Forge needs at least one runnable labeled incident pack before there is anything useful to copy.';
+    if (!report.summary.runnablePackCount) {
+      caption.textContent = 'Portfolio Radar needs at least one runnable labeled incident pack before there is anything useful to copy.';
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(copyText);
-      caption.textContent = preferMerge ? 'Casebook Merge export copied to clipboard.' : 'Casebook Forge export copied to clipboard.';
+      await navigator.clipboard.writeText(renderIncidentPortfolioTextSummary(report));
+      caption.textContent = 'Portfolio Radar summary copied to clipboard.';
     } catch {
-      caption.textContent = preferMerge
-        ? 'Clipboard copy unavailable here, but the Casebook Merge export is ready to copy manually.'
-        : 'Clipboard copy unavailable here, but the Casebook Forge export is ready to copy manually.';
+      caption.textContent = 'Clipboard copy unavailable here, but the Portfolio Radar summary is ready to copy manually.';
     }
     return;
   }

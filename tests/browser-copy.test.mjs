@@ -466,8 +466,8 @@ test('browser multi-pack notebook analyze flow routes # Pack headings into portf
     await harness.input('trace-input', notebookPortfolioInput);
     await harness.click('explain-button');
 
-    assert.equal(harness.get('runtime-value').textContent, 'casebook merge');
-    assert.match(harness.get('headline-value').textContent, /Merged 3 casebook entries/i);
+    assert.equal(harness.get('runtime-value').textContent, 'portfolio radar');
+    assert.match(harness.get('headline-value').textContent, /Portfolio Radar ranked 3 runnable packs/i);
     assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
     assert.match(harness.get('portfolio-priority-value').children[0].textContent, /profile-rollout/);
     assert.match(harness.get('forge-export-value').textContent, /=== release-2026-04-15 ===/);
@@ -501,17 +501,16 @@ test('browser Casebook export styling preserves multiline formatting for manual 
   assert.match(stylesCss, /#forge-export-value,\s*#merge-export-value\s*\{[^}]*white-space:\s*pre-wrap/i);
 });
 
-test('browser portfolio flow surfaces Casebook Forge and Casebook Merge cards alongside Portfolio Radar details', async () => {
+test('browser portfolio flow keeps Portfolio Radar as the primary runtime while surfacing Casebook Forge and Casebook Merge cards', async () => {
   const harness = await loadBrowserHarness();
 
   try {
     await harness.input('trace-input', portfolioInput);
     await harness.click('explain-button');
 
-    assert.equal(harness.get('runtime-value').textContent, 'casebook merge');
-    assert.match(harness.get('headline-value').textContent, /Merged 3 casebook entries/i);
-    assert.match(harness.get('summary-value').textContent, /Merged 3 casebook entries/i);
-    assert.match(harness.get('summary-value').textContent, /No merge conflicts detected/i);
+    assert.equal(harness.get('runtime-value').textContent, 'portfolio radar');
+    assert.match(harness.get('headline-value').textContent, /Portfolio Radar ranked 3 runnable packs/i);
+    assert.match(harness.get('summary-value').textContent, /Top priority: profile-rollout/i);
     assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
     assert.match(harness.get('portfolio-priority-value').children[0].textContent, /profile-rollout/);
     assert.match(harness.get('portfolio-recurring-incidents-value').children[0].textContent, /packs:/i);
@@ -528,17 +527,17 @@ test('browser portfolio flow surfaces Casebook Forge and Casebook Merge cards al
   }
 });
 
-test('browser portfolio copy support prefers the Casebook Merge export on the clipboard when history is present', async () => {
+test('browser portfolio copy support keeps Portfolio Radar as the clipboard artifact even when merge data is available', async () => {
   const harness = await loadBrowserHarness();
 
   try {
     await harness.input('trace-input', portfolioInput);
     await harness.click('copy-button');
 
-    assert.match(harness.clipboard.text, /Stack Sleuth Casebook Merge/);
-    assert.match(harness.clipboard.text, /=== release-2026-04-15 ===/);
-    assert.match(harness.clipboard.text, />>> seen-count: 3/);
-    assert.equal(harness.get('example-caption').textContent, 'Casebook Merge export copied to clipboard.');
+    assert.match(harness.clipboard.text, /Stack Sleuth Portfolio Radar/);
+    assert.match(harness.clipboard.text, /Response queue/);
+    assert.doesNotMatch(harness.clipboard.text, /Stack Sleuth Casebook Merge/);
+    assert.equal(harness.get('example-caption').textContent, 'Portfolio Radar summary copied to clipboard.');
   } finally {
     harness.restore();
   }

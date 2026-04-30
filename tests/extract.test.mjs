@@ -37,6 +37,29 @@ test('extractTraceSet preserves clean traces as direct input', () => {
   assert.deepEqual(result.traces, [cleanTrace]);
 });
 
+test('extractTraceSet preserves service and timestamp context for excavated traces', () => {
+  const extraction = extractTraceSet([
+    "2026-04-30T03:00:00Z ERROR web TypeError: Cannot read properties of undefined (reading 'name')",
+    '2026-04-30T03:00:00Z ERROR web     at renderProfile (/app/src/profile.js:88:17)',
+    "2026-04-30T03:00:04Z ERROR billing TypeError: Cannot read properties of undefined (reading 'email')",
+    '2026-04-30T03:00:04Z ERROR billing     at renderInvoice (/app/src/invoice.js:19:7)'
+  ].join('\n'));
+
+  assert.equal(extraction.entries.length, 2);
+  assert.deepEqual(extraction.entries[0].context.services, ['web']);
+  assert.equal(extraction.entries[0].context.firstSeen, '2026-04-30T03:00:00.000Z');
+  assert.deepEqual(extraction.entries[1].context.services, ['billing']);
+  assert.equal(extraction.entries[1].context.lastSeen, '2026-04-30T03:00:04.000Z');
+});
+
+test('extractTraceSet keeps direct traces additive and context-free', () => {
+  const extraction = extractTraceSet(cleanTrace);
+
+  assert.equal(extraction.mode, 'direct');
+  assert.equal(extraction.entries[0].context.firstSeen, null);
+  assert.deepEqual(extraction.entries[0].context.services, []);
+});
+
 test('extractTraceSet does not hallucinate traces from random chatter', () => {
   const result = extractTraceSet([
     '2026-04-30T01:00:00Z INFO api boot complete',

@@ -20,7 +20,9 @@ test('examples expose distinct single-trace, digest, regression, and timeline de
 
   const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
   assert.match(rawLogExample.caption, /raw log|excavat/i);
+  assert.match(rawLogExample.caption, /blast radius|affected services/i);
   assert.match(rawLogExample.trace, /INFO|ERROR/);
+  assert.match(rawLogExample.trace, /billing/);
 
   const digestExample = examples.find((item) => item.label === 'Repeated incident digest');
   assert.match(digestExample.caption, /repeat/i);

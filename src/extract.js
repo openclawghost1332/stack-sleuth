@@ -2,6 +2,11 @@ const PYTHON_CHAIN_MARKER = /^(?:The above exception was the direct cause of the
 const TRACEBACK_LINE = 'Traceback (most recent call last):';
 const JAVASCRIPT_HEADER_PATTERN = /((?:Uncaught\s+)?[A-Za-z_$][\w$.]*(?:Error|Exception)(?::\s*.*)?)$/;
 const PYTHON_ERROR_PATTERN = /([A-Za-z_][\w.]*:\s*.+)$/;
+const LOG_PREFIX_PATTERNS = [
+  /^(?<timestamp>\d{4}-\d{2}-\d{2}[T ][0-9:.]+Z?)\s+(?<level>[A-Z]+)\s+(?<service>[a-zA-Z0-9._-]+)\s+(?<message>.*)$/,
+  /^(?<timestamp>\d{4}-\d{2}-\d{2}[T ][0-9:.]+Z?)\s+(?<level>[A-Z]+)\s+(?<message>.*)$/,
+  /^\[(?<service>[^\]]+)\]\s+(?<level>[A-Z]+)\s+(?<message>.*)$/,
+];
 
 export function extractTraceSet(input) {
   const source = String(input ?? '').replace(/\r\n/g, '\n').trim();
@@ -74,66 +79,75 @@ function splitDirectTraceChunks(source) {
 }
 
 function scanRawLogs(source) {
-  const traces = [];
-  const lines = source.split('\n');
+  const entries = [];
+  const parsedLines = source.split('\n').map((line) => ({ raw: line, ...parseLogLine(line) }));
   let ignoredLineCount = 0;
   let current = null;
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const rawLine = lines[index] ?? '';
-    const nextNonEmptyLine = findNextNonEmptyLine(lines, index + 1);
-    const start = findTraceStart(rawLine, nextNonEmptyLine);
-
-    if (current && start && shouldTreatStartAsContinuation(current, start)) {
-      current.lines.push(normalizeTraceLine(start.trace, current.runtime));
-      continue;
-    }
-
-    if (current && start) {
-      ignoredLineCount += finalizeCurrentTrace(current, traces);
-      current = createTrace(start.runtime, start.trace);
-      continue;
-    }
+  for (let index = 0; index < parsedLines.length; index += 1) {
+    const parsedLine = parsedLines[index];
+    const nextNonEmptyLine = findNextNonEmptyParsedLine(parsedLines, index + 1);
+    const start = findTraceStart(parsedLine.message, nextNonEmptyLine?.message ?? null)
+      ?? findTraceStart(parsedLine.raw, nextNonEmptyLine?.raw ?? null);
 
     if (current) {
-      const continuation = findTraceContinuation(rawLine, current.runtime, current.lines.at(-1));
-      if (continuation) {
-        current.lines.push(normalizeTraceLine(continuation, current.runtime));
+      if (start && shouldTreatStartAsContinuation(current, start)) {
+        current.lines.push(normalizeTraceLine(start.trace, current.runtime));
+        mergeContext(current.context, parsedLine.context);
         continue;
       }
 
-      ignoredLineCount += finalizeCurrentTrace(current, traces);
+      if (start) {
+        ignoredLineCount += finalizeCurrentTrace(current, entries);
+        current = createTrace(start.runtime, start.trace, parsedLine.context);
+        continue;
+      }
+
+      const continuation = findTraceContinuation(parsedLine.message, current.runtime, current.lines.at(-1))
+        ?? findTraceContinuation(parsedLine.raw, current.runtime, current.lines.at(-1));
+      if (continuation) {
+        current.lines.push(normalizeTraceLine(continuation, current.runtime));
+        mergeContext(current.context, parsedLine.context);
+        continue;
+      }
+
+      ignoredLineCount += finalizeCurrentTrace(current, entries);
       current = null;
     }
 
     if (start) {
-      current = createTrace(start.runtime, start.trace);
-    } else {
-      ignoredLineCount += 1;
+      current = createTrace(start.runtime, start.trace, parsedLine.context);
+      continue;
     }
+
+    ignoredLineCount += 1;
   }
 
   if (current) {
-    ignoredLineCount += finalizeCurrentTrace(current, traces);
+    ignoredLineCount += finalizeCurrentTrace(current, entries);
   }
 
-  return buildResult('extracted', traces, ignoredLineCount);
+  return buildResult('extracted', entries, ignoredLineCount);
 }
 
-function createTrace(runtime, trace) {
+function createTrace(runtime, trace, context) {
   return {
     runtime,
     lines: [normalizeTraceLine(trace, runtime)],
+    context: cloneMutableContext(context),
   };
 }
 
-function finalizeCurrentTrace(current, traces) {
+function finalizeCurrentTrace(current, entries) {
   const normalized = current.lines.join('\n').trim();
   if (!normalized || !isUsableTrace(current.runtime, current.lines)) {
     return current.lines.filter((line) => line.trim()).length;
   }
 
-  traces.push(normalized);
+  entries.push({
+    trace: normalized,
+    context: finalizeContext(current.context),
+  });
   return 0;
 }
 
@@ -165,6 +179,10 @@ function isUsableTrace(runtime, lines) {
 function detectSectionRuntime(section) {
   const lines = String(section ?? '').split('\n');
   const firstLine = lines.find((line) => line.trim()) ?? '';
+
+  if (parseLogLine(firstLine).message !== firstLine) {
+    return null;
+  }
 
   if (firstLine === TRACEBACK_LINE) {
     return 'python';
@@ -285,9 +303,87 @@ function normalizeTraceLine(line, runtime) {
   return value;
 }
 
-function findNextNonEmptyLine(lines, startIndex) {
+function parseLogLine(line) {
+  const value = String(line ?? '');
+  for (const pattern of LOG_PREFIX_PATTERNS) {
+    const match = value.match(pattern);
+    if (!match?.groups) {
+      continue;
+    }
+
+    return {
+      message: match.groups.message ?? value,
+      context: createLineContext({
+        service: match.groups.service ?? null,
+        level: match.groups.level ?? null,
+        timestamp: normalizeTimestamp(match.groups.timestamp ?? null),
+      }),
+    };
+  }
+
+  return {
+    message: value,
+    context: createLineContext({}),
+  };
+}
+
+function createLineContext({ service = null, level = null, timestamp = null } = {}) {
+  return {
+    services: service ? [service] : [],
+    levels: level ? [level] : [],
+    firstSeen: timestamp,
+    lastSeen: timestamp,
+  };
+}
+
+function cloneMutableContext(context) {
+  return {
+    services: new Set(context?.services ?? []),
+    levels: new Set(context?.levels ?? []),
+    firstSeen: context?.firstSeen ?? null,
+    lastSeen: context?.lastSeen ?? null,
+  };
+}
+
+function mergeContext(target, context) {
+  for (const service of context?.services ?? []) {
+    target.services.add(service);
+  }
+
+  for (const level of context?.levels ?? []) {
+    target.levels.add(level);
+  }
+
+  if (context?.firstSeen) {
+    target.firstSeen = !target.firstSeen || context.firstSeen < target.firstSeen ? context.firstSeen : target.firstSeen;
+  }
+
+  if (context?.lastSeen) {
+    target.lastSeen = !target.lastSeen || context.lastSeen > target.lastSeen ? context.lastSeen : target.lastSeen;
+  }
+}
+
+function finalizeContext(context) {
+  return {
+    services: [...(context?.services ?? [])].sort(),
+    levels: [...(context?.levels ?? [])].sort(),
+    firstSeen: context?.firstSeen ?? null,
+    lastSeen: context?.lastSeen ?? null,
+  };
+}
+
+function normalizeTimestamp(value) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.valueOf()) ? null : parsed.toISOString();
+}
+
+function findNextNonEmptyParsedLine(lines, startIndex) {
   for (let index = startIndex; index < lines.length; index += 1) {
-    if (String(lines[index] ?? '').trim()) {
+    if (String(lines[index]?.message ?? '').trim()) {
       return lines[index];
     }
   }
@@ -295,11 +391,18 @@ function findNextNonEmptyLine(lines, startIndex) {
   return null;
 }
 
-function buildResult(mode, traces, ignoredLineCount) {
+function buildResult(mode, tracesOrEntries, ignoredLineCount) {
+  const entries = Array.isArray(tracesOrEntries)
+    ? tracesOrEntries.map((entry) => typeof entry === 'string'
+      ? { trace: entry, context: finalizeContext(cloneMutableContext(createLineContext())) }
+      : { trace: entry.trace, context: finalizeContext(cloneMutableContext(entry.context)) })
+    : [];
+
   return {
     mode,
-    traces,
-    traceCount: traces.length,
+    traces: entries.map((entry) => entry.trace),
+    entries,
+    traceCount: entries.length,
     ignoredLineCount,
   };
 }

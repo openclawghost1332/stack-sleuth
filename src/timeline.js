@@ -1,4 +1,4 @@
-import { analyzeTraceDigest } from './digest.js';
+import { analyzeTraceDigest, createEmptyBlastRadius, mergeBlastRadius } from './digest.js';
 import { formatFrame } from './analyze.js';
 import { formatExtractionMarkdown, formatExtractionText } from './extract.js';
 
@@ -73,6 +73,9 @@ export function renderTimelineTextSummary(timeline) {
   for (const incident of timeline.incidents) {
     sections.push(`${incident.trend}: ${formatSeries(incident.series)} ${incident.signature}`);
     sections.push(`  Culprit: ${formatFrame(incident.representative?.culpritFrame ?? null)}`);
+    for (const detail of formatBlastRadiusTextLines(incident.blastRadius)) {
+      sections.push(`  ${detail}`);
+    }
   }
 
   return sections.join('\n').trim();
@@ -105,6 +108,9 @@ export function renderTimelineMarkdownSummary(timeline) {
     lines.push(`- **Series:** ${escapeMarkdownText(formatSeries(incident.series))}`);
     lines.push(`- **Signature:** ${formatMarkdownCode(incident.signature)}`);
     lines.push(`- **Culprit:** ${formatMarkdownCode(formatFrame(incident.representative?.culpritFrame ?? null))}`);
+    for (const detail of formatBlastRadiusMarkdownLines(incident.blastRadius)) {
+      lines.push(detail);
+    }
     lines.push(`- **Summary:** ${escapeMarkdownText(incident.representative?.diagnosis?.summary ?? 'No summary available yet.')}`);
     lines.push('');
   }
@@ -129,6 +135,10 @@ function buildIncidentTimeline(snapshots) {
         peakCount: Math.max(...series, 0),
         labels: snapshots.map((snapshot) => snapshot.label),
         representative: selectRepresentative(groups),
+        blastRadius: groups
+          .filter(Boolean)
+          .map((group) => group.blastRadius)
+          .reduce((aggregate, blastRadius) => mergeBlastRadius(aggregate, blastRadius), createEmptyBlastRadius('direct')),
       };
     })
     .sort(compareTimelineEntries);
@@ -224,6 +234,42 @@ function compareTimelineEntries(left, right) {
 
 function formatSeries(series) {
   return series.join(' → ');
+}
+
+function formatBlastRadiusTextLines(blastRadius) {
+  const lines = [];
+  const services = blastRadius?.services?.map((service) => `${service.name} ${service.count}x`).join(', ');
+  if (services) {
+    lines.push(`Blast radius: ${services}`);
+  }
+
+  if (blastRadius?.firstSeen || blastRadius?.lastSeen) {
+    lines.push(`Window: ${formatWindow(blastRadius.firstSeen, blastRadius.lastSeen)}`);
+  }
+
+  return lines;
+}
+
+function formatBlastRadiusMarkdownLines(blastRadius) {
+  const lines = [];
+  const services = blastRadius?.services?.map((service) => `${service.name} ${service.count}x`).join(', ');
+  if (services) {
+    lines.push(`- **Blast radius:** ${escapeMarkdownText(services)}`);
+  }
+
+  if (blastRadius?.firstSeen || blastRadius?.lastSeen) {
+    lines.push(`- **Window:** ${escapeMarkdownText(formatWindow(blastRadius.firstSeen, blastRadius.lastSeen))}`);
+  }
+
+  return lines;
+}
+
+function formatWindow(firstSeen, lastSeen) {
+  if (firstSeen && lastSeen) {
+    return `${firstSeen} → ${lastSeen}`;
+  }
+
+  return firstSeen ?? lastSeen ?? 'Unavailable';
 }
 
 function formatTextHotspots(hotspots) {

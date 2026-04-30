@@ -33,6 +33,12 @@ const noisySingleTraceLog = [
   '2026-04-30T01:50:02Z INFO request complete',
 ].join('\n');
 
+const noisyDigestLog = [
+  '2026-04-30T03:00:00Z INFO api boot complete',
+  `2026-04-30T03:00:01Z ERROR web ${sampleTrace.split('\n').join('\n2026-04-30T03:00:01Z ERROR web ')}`,
+  `2026-04-30T03:00:04Z ERROR billing ${comparisonTrace.split('\n').join('\n2026-04-30T03:00:04Z ERROR billing ')}`,
+].join('\n');
+
 function runCli(args = [], options = {}) {
   return spawnSync(process.execPath, [cliPath.pathname, ...args], {
     encoding: 'utf8',
@@ -124,6 +130,26 @@ test('CLI supports --digest --json output', () => {
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.groupCount, 2);
   assert.equal(parsed.hotspots[0].label, 'profile.js');
+});
+
+test('CLI text output includes blast radius details for noisy digests', () => {
+  const result = runCli(['--digest'], { input: noisyDigestLog });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Blast radius: web 1x, billing 1x/);
+  assert.match(result.stdout, /Window: 2026-04-30T03:00:01.000Z → 2026-04-30T03:00:04.000Z/);
+});
+
+test('CLI json output preserves additive blast radius metadata', () => {
+  const result = runCli(['--digest', '--json'], { input: noisyDigestLog });
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.deepEqual(parsed.blastRadius.services, [
+    { name: 'web', count: 1 },
+    { name: 'billing', count: 1 }
+  ]);
+  assert.equal(parsed.blastRadius.origin, 'extracted');
 });
 
 test('CLI exits non-zero for empty stdin input', () => {

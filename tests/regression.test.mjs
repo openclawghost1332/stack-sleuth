@@ -189,6 +189,16 @@ test('analyzeRegression compares noisy baseline and candidate logs', () => {
   assert.equal(regression.summary.volumeUpCount, 1);
 });
 
+test('analyzeRegression carries blast radius metadata into incident comparisons', () => {
+  const regression = analyzeRegression({ baseline: noisyBaseline, candidate: noisyCandidate });
+
+  assert.deepEqual(regression.incidents[0].blastRadius.services, [
+    { name: 'billing', count: 1 }
+  ]);
+  assert.equal(regression.incidents[1].blastRadius.firstSeen, '2026-04-30T01:30:01.000Z');
+  assert.equal(regression.incidents[1].blastRadius.lastSeen, '2026-04-30T01:31:02.000Z');
+});
+
 test('renderRegression helpers produce copy-ready text and markdown summaries', () => {
   const regression = analyzeRegression({
     baseline: [repeatedJavascriptTrace, repeatedPythonTrace].join('\n\n'),
@@ -211,4 +221,12 @@ test('renderRegression helpers produce copy-ready text and markdown summaries', 
   assert.match(markdown, /## Hotspot shifts\n- `profile\.js` \(volume-up, baseline 3, candidate 6, delta \+3\)\n- `invoice\.js` \(new, baseline 0, candidate 3, delta \+3\)\n- `service\.py` \(resolved, baseline 3, candidate 0, delta -3\)/);
   assert.match(markdown, /## New incidents/);
   assert.match(markdown, /## Volume-up incidents/);
+});
+
+test('regression renderers include blast radius details when noisy logs add service spread', () => {
+  const regression = analyzeRegression({ baseline: noisyBaseline, candidate: noisyCandidate });
+
+  assert.match(renderRegressionTextSummary(regression), /Blast radius: billing 1x/);
+  assert.match(renderRegressionTextSummary(regression), /Window: 2026-04-30T01:30:01.000Z → 2026-04-30T01:31:02.000Z/);
+  assert.match(renderRegressionMarkdownSummary(regression), /\*\*Blast radius:\*\* billing 1x/);
 });

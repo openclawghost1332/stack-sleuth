@@ -86,7 +86,7 @@ export const examples = [
     trace: `${javascriptTrace}\n\n${javascriptTrace}\n\n${pythonTrace}`
   },
   {
-    label: 'Casebook radar',
+    label: 'Casebook Radar',
     caption: 'Today\'s incident batch matches one known failure and one novel profile hydration break, so the casebook lookup reads like a real incident-memory handoff.',
     current: casebookCurrentTrace,
     history: casebookHistoryTrace,

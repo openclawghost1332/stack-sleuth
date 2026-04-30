@@ -95,6 +95,7 @@ TypeError: Cannot read properties of undefined (reading 'name')
 === profile-rewrite ===
 TypeError: Cannot read properties of undefined (reading 'name')
     at renderProfile (/app/src/profile.js:88:17)
+
 TypeError: Cannot read properties of undefined (reading 'email')
     at renderInvoice (/app/src/invoice.js:19:7)
 ```

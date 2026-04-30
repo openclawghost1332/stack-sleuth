@@ -62,28 +62,9 @@ const jsExample = examples.find((item) => item.label === 'JavaScript undefined p
 const pythonExample = examples.find((item) => item.label === 'Python missing key');
 const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
 const digestExample = examples.find((item) => item.label === 'Repeated incident digest');
+const casebookExample = examples.find((item) => item.label === 'Casebook Radar');
 const regressionExample = examples.find((item) => item.label === 'Regression radar');
 const timelineExample = examples.find((item) => item.label === 'Timeline radar');
-const casebookExample = {
-  caption: 'Casebook Radar checks today\'s incident bundle against labeled prior incidents so you can separate known repeats from fresh failures fast.',
-  current: [
-    jsExample?.trace,
-    `ProfileHydrationError: Profile payload missing account metadata
-    at renderProfileState (/app/src/profile.js:102:9)
-    at updateView (/app/src/view.js:42:5)
-    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
-  ].filter(Boolean).join('\n\n'),
-  history: [
-    '=== release-2026-04-15 ===',
-    [jsExample?.trace, regressionExample?.candidate?.split('\n\n')?.at(-1)].filter(Boolean).join('\n\n'),
-    '',
-    '=== profile-rewrite ===',
-    `ProfileHydrationError: Profile hydration returned an empty account shell
-    at renderProfileState (/app/src/profile.js:111:9)
-    at updateView (/app/src/view.js:42:5)
-    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
-  ].join('\n')
-};
 
 function renderDiagnosis() {
   const traceText = traceInput.value.trim();

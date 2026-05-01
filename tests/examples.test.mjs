@@ -137,6 +137,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
 
   const datasetExample = examples.find((item) => item.label === 'Casebook Dataset');
   assert.match(datasetExample.caption, /replay|saved dataset|dataset handoff/i);
+  assert.match(datasetExample.caption, /Casebook Steward|what to document next/i);
   assert.equal(typeof datasetExample.dataset, 'string');
   assert.match(datasetExample.dataset, /"kind": "stack-sleuth-casebook-dataset"/i);
 
@@ -149,6 +150,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
 
   const chronicleExample = examples.find((item) => item.label === 'Casebook Chronicle');
   assert.match(chronicleExample.caption, /saved datasets|release windows|drift|chronicle/i);
+  assert.match(chronicleExample.caption, /Casebook Steward/i);
   assert.equal(typeof chronicleExample.chronicle, 'string');
   assert.match(chronicleExample.chronicle, /=== release-a ===/i);
   assert.match(chronicleExample.chronicle, /"kind": "stack-sleuth-casebook-dataset"/i);
@@ -165,6 +167,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
 
   const shelfExample = examples.find((item) => item.label === 'Casebook Shelf');
   assert.match(shelfExample.caption, /shelf|saved datasets|invalid/i);
+  assert.match(shelfExample.caption, /Casebook Steward/i);
   assert.equal(typeof shelfExample.shelf, 'string');
   assert.match(shelfExample.shelf, /"kind": "stack-sleuth-casebook-shelf"/i);
 
@@ -173,7 +176,11 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(shelfReplay.shelf.summary.validSnapshotCount, 2);
   assert.equal(shelfReplay.shelf.summary.invalidSnapshotCount, 1);
   assert.equal(shelfReplay.shelf.summary.latestGateVerdict, 'watch');
+  assert.match(shelfReplay.shelf.summary.latestStewardHeadline, /Casebook Steward found/i);
   assert.equal(shelfReplay.shelf.chronicle.summary.snapshotCount, 2);
+
+  const mergeExample = examples.find((item) => item.label === 'Casebook Merge');
+  assert.match(mergeExample.caption, /what to document next|Casebook Steward/i);
 });
 
 test('browser main uses the shared Casebook Radar example instead of a duplicate fixture', () => {

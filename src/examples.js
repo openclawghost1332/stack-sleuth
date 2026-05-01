@@ -247,22 +247,22 @@ export const examples = [
   },
   {
     label: 'Casebook Dataset',
-    caption: 'A saved Casebook Dataset JSON artifact replays the preserved release gate verdict, routing, recurring hotspot, and reusable casebook export story without needing the original portfolio input.',
+    caption: 'A saved Casebook Dataset JSON artifact replays the preserved release gate verdict, routing, recurring hotspot, reusable casebook export story, and Casebook Steward backlog without needing the original portfolio input.',
     dataset: datasetReplay,
   },
   {
     label: 'Casebook Chronicle',
-    caption: 'Several saved Casebook Dataset snapshots stitched into one chronicle reveal release gate drift, owner load, recurring hotspot drift, and casebook movement across release windows without pretending to recover raw trace detail.',
+    caption: 'Several saved Casebook Dataset snapshots stitched into one chronicle reveal release gate drift, Casebook Steward drift, owner load, recurring hotspot drift, and casebook movement across release windows without pretending to recover raw trace detail.',
     chronicle: chronicleReplay,
   },
   {
     label: 'Casebook Shelf',
-    caption: 'A saved dataset shelf catalogs several saved snapshots, keeps invalid warning entries visible, and replays the latest saved library state plus release gate and chronicle drift without pretending to recover raw traces.',
+    caption: 'A saved dataset shelf catalogs several saved snapshots, keeps invalid warning entries visible, and replays the latest saved library state plus release gate, chronicle drift, and the latest Casebook Steward backlog without pretending to recover raw traces.',
     shelf: shelfReplay,
   },
   {
     label: 'Casebook Merge',
-    caption: 'A labeled incident portfolio plus embedded history turns into a living casebook update that preserves human guidance, adds seen-count and source-packs metadata, and flags merge conflicts when older entries disagree.',
+    caption: 'A labeled incident portfolio plus embedded history turns into a living casebook update that preserves human guidance, adds seen-count and source-packs metadata, flags merge conflicts when older entries disagree, and tells responders what to document next through Casebook Steward.',
     portfolio: portfolioTrace,
   }
 ];

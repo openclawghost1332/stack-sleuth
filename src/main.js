@@ -325,7 +325,7 @@ function renderPortfolioWorkflow(input) {
   handoffExportValue.textContent = handoff.exportText || 'No handoff export available yet.';
   forgeSummaryValue.textContent = `${forge.summary.headline} Reusable cases are ready to paste into a labeled history casebook.`;
   forgeExportValue.textContent = forge.exportText || 'No forged export available yet.';
-  datasetSummaryValue.textContent = `${dataset.summary.headline} Release Gate ${dataset.gate.verdict.toUpperCase()} is preserved inside the saved dataset for later replay.`;
+  datasetSummaryValue.textContent = `${dataset.summary.headline} Release Gate ${dataset.gate.verdict.toUpperCase()} is preserved inside the saved dataset for later replay, and Casebook Steward is ready to show what to document next.`;
   datasetPackCountValue.textContent = `${dataset.summary.runnablePackCount} / ${dataset.summary.packCount}`;
   datasetExportValue.textContent = dataset.exportText || 'No dataset export available yet.';
   mergeSummaryValue.textContent = `${merge.summary.headline} ${merge.summary.reviewHeadline}`;
@@ -354,7 +354,8 @@ function renderDatasetReplayWorkflow(report) {
   confidenceValue.textContent = 'replay';
   tagsValue.textContent = 'dataset-replay, casebook-dataset';
   signatureValue.textContent = `${report.kind}@${report.version}`;
-  summaryValue.textContent = `Replayed ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'}, ${responseOwnerCount} response owner${responseOwnerCount === 1 ? '' : 's'}, ${recurringIncidentCount} recurring incident signature${recurringIncidentCount === 1 ? '' : 's'}, and ${recurringHotspotCount} recurring hotspot${recurringHotspotCount === 1 ? '' : 's'} from a saved Casebook Dataset artifact. Release Gate verdict: ${report.gate?.verdict ?? 'needs-input'}.`;
+  const stewardActionCount = report.steward?.summary?.actionCount ?? 0;
+  summaryValue.textContent = `Replayed ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'}, ${responseOwnerCount} response owner${responseOwnerCount === 1 ? '' : 's'}, ${recurringIncidentCount} recurring incident signature${recurringIncidentCount === 1 ? '' : 's'}, ${recurringHotspotCount} recurring hotspot${recurringHotspotCount === 1 ? '' : 's'}, and ${stewardActionCount} Casebook Steward action${stewardActionCount === 1 ? '' : 's'} from a saved Casebook Dataset artifact. Release Gate verdict: ${report.gate?.verdict ?? 'needs-input'}.`;
   blastRadiusValue.textContent = 'Saved datasets preserve routing and reusable incident-memory state, not culprit-level blast radius detail. Reopen the source portfolio input for trace-level excavation context.';
   digestGroupsValue.replaceChildren(...buildListItems(buildDatasetReplayPackItems(report.portfolio?.packOrder)));
   supportFramesValue.replaceChildren(...buildListItems([
@@ -384,7 +385,7 @@ function renderDatasetReplayWorkflow(report) {
   forgeSummaryValue.textContent = `Saved dataset replay preserved ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'} and one reusable casebook export.`;
   forgeExportValue.textContent = report.exportText || 'No reusable casebook export was preserved in this saved dataset.';
 
-  datasetSummaryValue.textContent = `${report.summary.headline} Saved dataset replay is using the portable artifact directly, with Release Gate ${report.gate?.verdict?.toUpperCase?.() ?? 'NEEDS INPUT'} preserved.`;
+  datasetSummaryValue.textContent = `${report.summary.headline} Saved dataset replay is using the portable artifact directly, with Release Gate ${report.gate?.verdict?.toUpperCase?.() ?? 'NEEDS INPUT'} preserved and Casebook Steward ready to show what to document next.`;
   datasetPackCountValue.textContent = `${report.summary.runnablePackCount} / ${report.summary.packCount}`;
   datasetExportValue.textContent = report.exportText || 'No dataset export available in this saved artifact.';
 
@@ -416,8 +417,8 @@ function renderShelfWorkflow(report) {
   tagsValue.textContent = 'casebook-shelf, saved-artifact';
   signatureValue.textContent = `${report.kind}@${report.version}`;
   summaryValue.textContent = report.chronicle
-    ? `This saved dataset shelf replays ${report.summary.validSnapshotCount} valid snapshots, keeps ${warningCount} warning entr${warningCount === 1 ? 'y' : 'ies'} visible, layers chronicle drift on top of the latest saved library state, and preserves latest Release Gate ${report.summary.latestGateVerdict.toUpperCase()}.`
-    : `This saved dataset shelf replays ${report.summary.validSnapshotCount} valid snapshot${report.summary.validSnapshotCount === 1 ? '' : 's'}, keeps ${warningCount} warning entr${warningCount === 1 ? 'y' : 'ies'} visible, and preserves latest Release Gate ${report.summary.latestGateVerdict.toUpperCase()}. Add one more valid saved dataset to unlock chronicle drift.`;
+    ? `This saved dataset shelf replays ${report.summary.validSnapshotCount} valid snapshots, keeps ${warningCount} warning entr${warningCount === 1 ? 'y' : 'ies'} visible, layers chronicle drift on top of the latest saved library state, preserves latest Release Gate ${report.summary.latestGateVerdict.toUpperCase()}, and keeps the latest Casebook Steward backlog visible.`
+    : `This saved dataset shelf replays ${report.summary.validSnapshotCount} valid snapshot${report.summary.validSnapshotCount === 1 ? '' : 's'}, keeps ${warningCount} warning entr${warningCount === 1 ? 'y' : 'ies'} visible, preserves latest Release Gate ${report.summary.latestGateVerdict.toUpperCase()}, and keeps the latest Casebook Steward backlog visible. Add one more valid saved dataset to unlock chronicle drift.`;
   blastRadiusValue.textContent = 'Saved shelf artifacts preserve dataset-level routing, hotspot, and casebook inventory. They do not recover raw trace blast radius, support frames, or culprit-level call stacks.';
   digestGroupsValue.replaceChildren(...buildListItems(buildShelfInventoryItems(report.snapshots)));
   supportFramesValue.replaceChildren(...buildListItems([
@@ -437,8 +438,8 @@ function renderShelfWorkflow(report) {
   ]));
 
   timelineSummaryValue.textContent = report.chronicle
-    ? `Casebook Shelf latest snapshot ${latestLabel} replays chronicle drift across ${report.chronicle.summary.snapshotCount} valid saved datasets, with Release Gate ${report.summary.latestGateVerdict.toUpperCase()}.`
-    : `Casebook Shelf latest snapshot ${latestLabel} is replayable with Release Gate ${report.summary.latestGateVerdict.toUpperCase()}, but chronicle drift needs at least two valid saved datasets.`;
+    ? `Casebook Shelf latest snapshot ${latestLabel} replays chronicle drift across ${report.chronicle.summary.snapshotCount} valid saved datasets, with Release Gate ${report.summary.latestGateVerdict.toUpperCase()} and latest steward note: ${report.summary.latestStewardHeadline}`
+    : `Casebook Shelf latest snapshot ${latestLabel} is replayable with Release Gate ${report.summary.latestGateVerdict.toUpperCase()} and latest steward note: ${report.summary.latestStewardHeadline}, but chronicle drift needs at least two valid saved datasets.`;
   timelineIncidentsValue.replaceChildren(...buildListItems(
     report.chronicle
       ? ['Owner trends across saved snapshots:', ...buildChronicleOwnerItems(report.chronicle.ownerTrends)]
@@ -792,7 +793,7 @@ function renderChronicleWorkflow(input) {
   confidenceValue.textContent = 'saved artifact';
   tagsValue.textContent = ['chronicle', topOwner?.trend, topHotspot?.trend].filter(Boolean).join(', ');
   signatureValue.textContent = topCase?.signature ?? `chronicle:${report.summary.latestLabel}`;
-  summaryValue.textContent = `Casebook Chronicle compared ${report.summary.snapshotCount} saved datasets. Latest snapshot ${report.summary.latestLabel} preserves ${report.summary.latestPackCount} packs, ${report.summary.latestOwnerCount} response owner${report.summary.latestOwnerCount === 1 ? '' : 's'}, ${report.summary.latestHotspotCount} recurring hotspot${report.summary.latestHotspotCount === 1 ? '' : 's'}, ${report.summary.latestCaseCount} casebook case${report.summary.latestCaseCount === 1 ? '' : 's'}, and Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}.`;
+  summaryValue.textContent = `Casebook Chronicle compared ${report.summary.snapshotCount} saved datasets. Latest snapshot ${report.summary.latestLabel} preserves ${report.summary.latestPackCount} packs, ${report.summary.latestOwnerCount} response owner${report.summary.latestOwnerCount === 1 ? '' : 's'}, ${report.summary.latestHotspotCount} recurring hotspot${report.summary.latestHotspotCount === 1 ? '' : 's'}, ${report.summary.latestCaseCount} casebook case${report.summary.latestCaseCount === 1 ? '' : 's'}, Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}, and steward drift ${report.summary.stewardDrift.direction}.`;
   blastRadiusValue.textContent = 'Saved chronicle snapshots preserve dataset-level routing, hotspot, and case counts, but not raw trace blast radius, support frames, or culprit-level call stacks.';
   digestGroupsValue.replaceChildren(...buildListItems(buildChronicleOwnerItems(report.ownerTrends)));
   supportFramesValue.replaceChildren(...buildListItems([
@@ -801,7 +802,7 @@ function renderChronicleWorkflow(input) {
   hotspotsValue.replaceChildren(...buildListItems(buildChronicleHotspotItems(report.hotspotTrends, latestDataset)));
   checklistValue.replaceChildren(...buildListItems(buildChronicleChecklist(report)));
 
-  timelineSummaryValue.textContent = `Casebook Chronicle latest snapshot ${report.summary.latestLabel} spans ${report.summary.latestPackCount} packs. Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()} and ${report.summary.gateDrift.summary} Trend mix: ${report.summary.newOwnerCount} new owners, ${report.summary.risingOwnerCount} rising owners, ${report.summary.newHotspotCount} new hotspots, ${report.summary.risingHotspotCount} rising hotspots, ${report.summary.newCaseCount} new cases, ${report.summary.resolvedCaseCount} resolved cases.`;
+  timelineSummaryValue.textContent = `Casebook Chronicle latest snapshot ${report.summary.latestLabel} spans ${report.summary.latestPackCount} packs. Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}, ${report.summary.gateDrift.summary}, and steward drift ${report.summary.stewardDrift.direction}. Trend mix: ${report.summary.newOwnerCount} new owners, ${report.summary.risingOwnerCount} rising owners, ${report.summary.newHotspotCount} new hotspots, ${report.summary.risingHotspotCount} rising hotspots, ${report.summary.newCaseCount} new cases, ${report.summary.resolvedCaseCount} resolved cases.`;
   timelineIncidentsValue.replaceChildren(...buildListItems(buildChronicleTrendItems(report)));
   timelineHotspotsValue.replaceChildren(...buildListItems(buildChronicleHotspotItems(report.hotspotTrends, latestDataset)));
   caption.textContent = latestSnapshot

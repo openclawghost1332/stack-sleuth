@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stack Sleuth Incident Dossier</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07111f;
+        --panel: #0f1b2d;
+        --panel-strong: #15253d;
+        --border: #243653;
+        --text: #e8eef9;
+        --muted: #9cb0cf;
+        --accent: #78e6c9;
+        --accent-strong: #34d6b2;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #10233e 0%, var(--bg) 60%);
+        color: var(--text);
+      }
+      main {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+      }
+      .hero, .section, .metric-card {
+        background: rgba(15, 27, 45, 0.92);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+      }
+      .hero {
+        padding: 28px;
+        margin-bottom: 20px;
+      }
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--accent);
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1, h2 {
+        margin: 0;
+        line-height: 1.15;
+      }
+      h1 {
+        font-size: clamp(2rem, 4vw, 3.3rem);
+      }
+      .headline {
+        margin: 14px 0 0;
+        color: var(--muted);
+        font-size: 1.05rem;
+        line-height: 1.6;
+      }
+      .meta {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 14px;
+        margin-bottom: 20px;
+      }
+      .metric-card {
+        padding: 18px;
+      }
+      .metric-label {
+        display: block;
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+      }
+      .metric-value {
+        font-size: 1.35rem;
+        color: var(--text);
+      }
+      .sections {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+      }
+      .section {
+        padding: 22px;
+      }
+      .section.wide {
+        grid-column: 1 / -1;
+      }
+      h2 {
+        font-size: 1.15rem;
+        margin-bottom: 12px;
+      }
+      p, li {
+        color: var(--text);
+        line-height: 1.55;
+      }
+      ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+      li + li {
+        margin-top: 8px;
+      }
+      pre {
+        margin: 0;
+        padding: 14px;
+        overflow-x: auto;
+        border-radius: 14px;
+        background: var(--panel-strong);
+        border: 1px solid var(--border);
+        color: #d7f7ef;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        white-space: pre-wrap;
+      }
+      @media (max-width: 720px) {
+        main { padding: 20px 14px 48px; }
+        .hero, .section, .metric-card { border-radius: 16px; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Portfolio Radar</p>
+        <h1>Stack Sleuth Incident Dossier</h1>
+        <p class="headline">Prioritize profile-rollout first because it contains 1 novel casebook incident.</p>
+        <p class="meta">Generated at 2026-05-01T09:26:22.288Z</p>
+      </section>
+      <section class="metrics">
+        <article class="metric-card">
+          <span class="metric-label">Runnable packs</span>
+          <strong class="metric-value">3</strong>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Release gate</span>
+          <strong class="metric-value">hold</strong>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Recurring incidents</span>
+          <strong class="metric-value">1</strong>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">Recurring hotspots</span>
+          <strong class="metric-value">2</strong>
+        </article>
+      </section>
+      <section class="sections">
+        <article class="section">
+          <h2>Summary</h2>
+          <ul>
+            <li>Headline: Prioritize profile-rollout first because it contains 1 novel casebook incident.</li><li>Portfolio packs: 3</li><li>Runnable packs: 3</li><li>Unrunnable packs: 0</li>
+          </ul>
+        </article>
+        <article class="section wide">
+          <h2>Release gate</h2>
+          <ul>
+            <li>Release gate: hold</li><li>Verdict: hold</li><li>Summary: Release gate is hold with 3 blockers, 4 warnings.</li><li>Blockers: 1 novel incidents, 1 regression-new incidents, 2 unowned runnable packs</li><li>Warnings: 2 runbook gaps, 1 regression-volume-up incidents, 2 recurring hotspots, 1 recurring incidents</li><li>Next action: Stop the release and inspect the blocking packs first.</li>
+          </ul>
+        </article>
+        <article class="section">
+          <h2>Priority queue</h2>
+          <ul>
+            <li>1. profile-rollout: it contains 1 novel casebook incident, its current digest has 2 incident groups across 2 traces</li><li>2. billing-canary: it introduces 1 new regression incident, it shows 1 volume-up regression incident</li><li>3. checkout-prod: its current digest has 1 incident group across 2 traces</li>
+          </ul>
+        </article>
+        <article class="section">
+          <h2>Response queue</h2>
+          <ul>
+            <li>web-platform: profile-rollout (summary Checkout profile payload dropped account metadata before render; fix Guard renderProfile before reading account.name; runbook https://example.com/runbooks/profile-null)</li>
+          </ul>
+        </article>
+        <article class="section">
+          <h2>Routing gaps</h2>
+          <ul>
+            <li>No recalled owner from exact casebook matches: billing-canary</li><li>No recalled owner from exact casebook matches: checkout-prod</li><li>No recalled runbook from exact casebook matches: billing-canary</li><li>No recalled runbook from exact casebook matches: checkout-prod</li>
+          </ul>
+        </article>
+        <article class="section">
+          <h2>Recurring incidents</h2>
+          <ul>
+            <li>2 packs: checkout-prod, profile-rollout (javascript|TypeError|app/src/profile.js:88|nullish-data,undefined-property-access)</li>
+          </ul>
+        </article>
+        <article class="section">
+          <h2>Recurring hotspots</h2>
+          <ul>
+            <li>3 packs: profile.js (checkout-prod, profile-rollout, billing-canary)</li><li>3 packs: view.js (checkout-prod, profile-rollout, billing-canary)</li>
+          </ul>
+        </article>
+        <article class="section">
+          <h2>Checklist</h2>
+          <ul>
+            <li>Start with profile-rollout because it ranks first in the portfolio queue.</li><li>Check the recurring cross-pack signatures next so one shared failure does not fragment the triage effort.</li><li>Inspect the shared hotspot files because they may explain several packs at once.</li><li>Confirm novel casebook incidents before assuming every pack is just a repeat of known failures.</li><li>Review candidate-only regression incidents before widening the rollout or release exposure.</li>
+          </ul>
+        </article>
+        <article class="section">
+          <h2>Handoff Briefing summary</h2>
+          <p>Prepared 5 handoff packets from 3 runnable packs.</p>
+        </article>
+        <article class="section wide">
+          <h2>Handoff Briefing export</h2>
+          <pre>Owner: web-platform
+Packs: profile-rollout
+Why now: profile-rollout: it contains 1 novel casebook incident | profile-rollout: its current digest has 2 incident groups across 2 traces
+Recall summary: Checkout profile payload dropped account metadata before render
+Recall fix: Guard renderProfile before reading account.name
+Recall runbook: https://example.com/runbooks/profile-null
+Ask: Have web-platform review profile-rollout first and confirm ownership for the next update.
+
+Gap: ownership
+Packs: checkout-prod
+Why now: checkout-prod: its current digest has 1 incident group across 2 traces
+Ask: Assign an owner for checkout-prod before the next handoff.
+
+Gap: runbook
+Packs: checkout-prod
+Why now: checkout-prod: its current digest has 1 incident group across 2 traces
+Ask: Capture or link a runbook for checkout-prod before the next handoff.
+
+Gap: ownership
+Packs: billing-canary
+Why now: billing-canary: it introduces 1 new regression incident | billing-canary: it shows 1 volume-up regression incident
+Ask: Assign an owner for billing-canary before the next handoff.
+
+Gap: runbook
+Packs: billing-canary
+Why now: billing-canary: it introduces 1 new regression incident | billing-canary: it shows 1 volume-up regression incident
+Ask: Capture or link a runbook for billing-canary before the next handoff.</pre>
+        </article>
+        <article class="section">
+          <h2>Casebook Forge summary</h2>
+          <p>Forged 3 reusable cases from 3 runnable packs.</p>
+        </article>
+        <article class="section wide">
+          <h2>Casebook Forge export</h2>
+          <pre>=== release-2026-04-15 ===
+TypeError: Cannot read properties of undefined (reading &#39;name&#39;)
+    at renderProfile (/app/src/profile.js:88:17)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+=== profile-js-generic-runtime-error ===
+ProfileHydrationError: Profile payload missing account metadata
+    at renderProfileState (/app/src/profile.js:102:9)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+=== invoice-js-nullish-data ===
+TypeError: Cannot read properties of undefined (reading &#39;email&#39;)
+    at renderInvoice (/app/src/invoice.js:19:7)
+    at refreshBilling (/app/src/billing.js:57:3)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)</pre>
+        </article>
+        <article class="section">
+          <h2>Casebook Dataset summary</h2>
+          <p>Casebook Dataset captured 3 merged cases from 3 packs.</p>
+        </article>
+        <article class="section wide">
+          <h2>Casebook Dataset export</h2>
+          <pre>=== release-2026-04-15 ===
+&gt;&gt;&gt; summary: Checkout profile payload dropped account metadata before render
+&gt;&gt;&gt; fix: Guard renderProfile before reading account.name
+&gt;&gt;&gt; owner: web-platform
+&gt;&gt;&gt; runbook: https://example.com/runbooks/profile-null
+&gt;&gt;&gt; seen-count: 3
+&gt;&gt;&gt; source-packs: checkout-prod, profile-rollout, billing-canary
+TypeError: Cannot read properties of undefined (reading &#39;name&#39;)
+    at renderProfile (/app/src/profile.js:88:17)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+=== release-2026-04-15-2 ===
+&gt;&gt;&gt; summary: Checkout profile payload dropped account metadata before render
+&gt;&gt;&gt; fix: Guard renderProfile before reading account.name
+&gt;&gt;&gt; owner: web-platform
+&gt;&gt;&gt; runbook: https://example.com/runbooks/profile-null
+&gt;&gt;&gt; seen-count: 1
+&gt;&gt;&gt; source-packs: billing-canary
+TypeError: Cannot read properties of undefined (reading &#39;email&#39;)
+    at renderInvoice (/app/src/invoice.js:19:7)
+    at refreshBilling (/app/src/billing.js:57:3)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+=== profile-js-generic-runtime-error ===
+&gt;&gt;&gt; summary: No specific pattern matched, so focus on the failing inputs and recent changes around renderProfileState (/app/src/profile.js:102).
+&gt;&gt;&gt; seen-count: 1
+&gt;&gt;&gt; source-packs: profile-rollout
+ProfileHydrationError: Profile payload missing account metadata
+    at renderProfileState (/app/src/profile.js:102:9)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)</pre>
+        </article>
+        <article class="section">
+          <h2>Casebook Merge review</h2>
+          <ul>
+            <li>release-2026-04-15: label conflict: release-2026-04-15, profile-rewrite</li>
+          </ul>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

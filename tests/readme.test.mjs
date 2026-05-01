@@ -194,3 +194,20 @@ test('README documents Casebook Merge workflows for browser and CLI living-caseb
   assert.match(readme, /living casebook|updated casebook|merge conflicts/i);
   assert.match(readme, /source-packs|seen-count/i);
 });
+
+test('README documents standalone HTML dossier export and the committed sample artifact', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Incident dossier|HTML dossier|standalone HTML/i);
+  assert.match(readme, /--html/);
+  assert.match(readme, /--pack .*--html|--portfolio .*--html|--notebook .*--html/i);
+  assert.match(readme, /sample\/portfolio-dossier\.html/i);
+  assert.match(readme, /phone-friendly|shareable|standalone/i);
+});
+
+test('sample portfolio dossier artifact is committed as standalone HTML', () => {
+  const sample = fs.readFileSync(new URL('../sample/portfolio-dossier.html', import.meta.url), 'utf8');
+  assert.match(sample, /<!doctype html>/i);
+  assert.match(sample, /Stack Sleuth Incident Dossier/i);
+  assert.match(sample, /Portfolio Radar/i);
+  assert.match(sample, /Handoff Briefing export/i);
+});

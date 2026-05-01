@@ -1,0 +1,68 @@
+@@@ checkout-prod @@@
+@@ current @@
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+@@@ profile-rollout @@@
+@@ current @@
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+ProfileHydrationError: Profile payload missing account metadata
+    at renderProfileState (/app/src/profile.js:102:9)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+@@ history @@
+=== release-2026-04-15 ===
+>>> summary: Checkout profile payload dropped account metadata before render
+>>> fix: Guard renderProfile before reading account.name
+>>> owner: web-platform
+>>> runbook: https://example.com/runbooks/profile-null
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+TypeError: Cannot read properties of undefined (reading 'email')
+    at renderInvoice (/app/src/invoice.js:19:7)
+    at refreshBilling (/app/src/billing.js:57:3)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+=== profile-rewrite ===
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+@@@ billing-canary @@@
+@@ baseline @@
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+@@ candidate @@
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+TypeError: Cannot read properties of undefined (reading 'name')
+    at renderProfile (/app/src/profile.js:88:17)
+    at updateView (/app/src/view.js:42:5)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+TypeError: Cannot read properties of undefined (reading 'email')
+    at renderInvoice (/app/src/invoice.js:19:7)
+    at refreshBilling (/app/src/billing.js:57:3)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)

@@ -1136,6 +1136,57 @@ test('CLI exits non-zero when multiple workflow modes are requested together', a
   assert.equal(result.stdout, '');
 });
 
+test('CLI supports --pack --html output', () => {
+  const result = runCli(['--pack', '-', '--html'], { input: incidentPackInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /<!doctype html>/i);
+  assert.match(result.stdout, /Stack Sleuth Incident Dossier/i);
+  assert.match(result.stdout, /Incident Pack/i);
+  assert.match(result.stdout, /Checklist/i);
+  assert.equal(result.stderr, '');
+});
+
+test('CLI supports --portfolio --html output', () => {
+  const result = runCli(['--portfolio', '-', '--html'], { input: portfolioInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /<!doctype html>/i);
+  assert.match(result.stdout, /Portfolio Radar/i);
+  assert.match(result.stdout, /Release gate/i);
+  assert.match(result.stdout, /Handoff Briefing export/i);
+});
+
+test('CLI routes notebook, workspace, and capsule workflows into HTML dossiers', async (t) => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-html-workspace-'));
+  t.after(() => fs.promises.rm(tempDir, { recursive: true, force: true }));
+
+  await fs.promises.writeFile(path.join(tempDir, 'notebook.md'), notebookPackInput, 'utf8');
+
+  const notebookResult = runCli(['--notebook', '-', '--html'], { input: notebookPackInput });
+  const workspaceResult = runCli(['--workspace', tempDir, '--html']);
+  const capsuleResult = runCli(['--capsule', '-', '--html'], { input: capsulePortfolioInput });
+
+  assert.equal(notebookResult.status, 0, notebookResult.stderr);
+  assert.equal(workspaceResult.status, 0, workspaceResult.stderr);
+  assert.equal(capsuleResult.status, 0, capsuleResult.stderr);
+
+  assert.match(notebookResult.stdout, /<!doctype html>/i);
+  assert.match(notebookResult.stdout, /Notebook normalization/i);
+  assert.match(workspaceResult.stdout, /<!doctype html>/i);
+  assert.match(workspaceResult.stdout, /Workspace/i);
+  assert.match(capsuleResult.stdout, /<!doctype html>/i);
+  assert.match(capsuleResult.stdout, /Capsule/i);
+});
+
+test('CLI rejects --html for unsupported workflows', () => {
+  const result = runCli(['--html'], { input: sampleTrace });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /HTML output is currently supported only for --pack, --portfolio, --notebook, --workspace, and --capsule workflows/i);
+  assert.equal(result.stdout, '');
+});
+
 import { buildReleaseGate } from '../src/gate.js';
 
 function buildCapsuleArtifact(relativePath, excerpt, options = {}) {

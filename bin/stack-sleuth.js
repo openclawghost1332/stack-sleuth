@@ -41,6 +41,7 @@ import {
   renderIncidentPortfolioTextSummary,
   renderIncidentPortfolioMarkdownSummary,
 } from '../src/portfolio.js';
+import { renderIncidentDossierHtml } from '../src/report.js';
 import {
   buildHandoffBriefing,
   renderHandoffTextSummary,
@@ -85,7 +86,14 @@ import {
 } from '../src/capsule.js';
 
 const args = process.argv.slice(2);
-const mode = args.includes('--json') ? 'json' : args.includes('--markdown') ? 'markdown' : 'text';
+const outputArgumentError = validateOutputArguments(args);
+const mode = args.includes('--json')
+  ? 'json'
+  : args.includes('--markdown')
+    ? 'markdown'
+    : args.includes('--html')
+      ? 'html'
+      : 'text';
 const wantsDigest = args.includes('--digest');
 const compareArgumentError = validateCompareArguments(args);
 const packArgumentError = validateOptionValue(args, '--pack');
@@ -141,6 +149,14 @@ const workflowArgumentError = validateWorkflowArguments({
   workspacePath,
   capsulePath,
 });
+const htmlWorkflowArgumentError = validateHtmlWorkflowSupport({
+  mode,
+  packPath,
+  portfolioPath,
+  notebookPath,
+  workspacePath,
+  capsulePath,
+});
 const filePath = args.find((arg, index) => {
   if (arg.startsWith('--')) {
     return false;
@@ -171,6 +187,10 @@ const filePath = args.find((arg, index) => {
 
 if (compareArgumentError) {
   fail(compareArgumentError);
+}
+
+if (outputArgumentError) {
+  fail(outputArgumentError);
 }
 
 if (packArgumentError) {
@@ -245,6 +265,10 @@ if (workflowArgumentError) {
   fail(workflowArgumentError);
 }
 
+if (htmlWorkflowArgumentError) {
+  fail(htmlWorkflowArgumentError);
+}
+
 try {
   if (workspacePath) {
     const workspace = loadIncidentWorkspace(workspacePath);
@@ -265,7 +289,7 @@ try {
         fail('Workspace mode did not find any runnable analyses after notebook normalization. Add at least one pack with Current incident, Baseline plus Candidate, or a valid Timeline section.');
       }
 
-      writeOutput({ workspace, notebook, routed }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary);
+      writeOutput({ workspace, notebook, routed }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary, renderWorkspaceCliHtmlSummary);
       process.exit(0);
     }
 
@@ -275,7 +299,7 @@ try {
         fail('Workspace mode did not find any runnable analyses. Add at least one labeled pack with @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
       }
 
-      writeOutput({ workspace, routed: { mode: 'portfolio', report } }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary);
+      writeOutput({ workspace, routed: { mode: 'portfolio', report } }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary, renderWorkspaceCliHtmlSummary);
       process.exit(0);
     }
 
@@ -284,7 +308,7 @@ try {
       fail('Workspace mode did not find any runnable analyses. Provide at least @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
     }
 
-    writeOutput({ workspace, routed: { mode: 'pack', report } }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary);
+    writeOutput({ workspace, routed: { mode: 'pack', report } }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary, renderWorkspaceCliHtmlSummary);
     process.exit(0);
   }
 
@@ -301,7 +325,7 @@ try {
       ? { mode: 'portfolio', report: analyzeIncidentPortfolio(capsule.normalizedText) }
       : { mode: 'pack', report: analyzeIncidentPack(capsule.normalizedText) };
 
-    writeOutput({ capsule, routed }, mode, renderCapsuleCliTextSummary, renderCapsuleCliMarkdownSummary);
+    writeOutput({ capsule, routed }, mode, renderCapsuleCliTextSummary, renderCapsuleCliMarkdownSummary, renderCapsuleCliHtmlSummary);
     process.exit(0);
   }
 
@@ -322,7 +346,7 @@ try {
       fail('Notebook mode did not find any runnable analyses after normalization. Add at least one pack with Current incident, Baseline plus Candidate, or a valid Timeline section.');
     }
 
-    writeOutput({ notebook, routed }, mode, renderNotebookCliTextSummary, renderNotebookCliMarkdownSummary);
+    writeOutput({ notebook, routed }, mode, renderNotebookCliTextSummary, renderNotebookCliMarkdownSummary, renderNotebookCliHtmlSummary);
     process.exit(0);
   }
 
@@ -453,7 +477,7 @@ try {
       fail('Portfolio mode did not find any runnable analyses. Add at least one labeled pack with @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
     }
 
-    writeOutput(report, mode, renderIncidentPortfolioTextSummary, renderIncidentPortfolioMarkdownSummary);
+    writeOutput(report, mode, renderIncidentPortfolioTextSummary, renderIncidentPortfolioMarkdownSummary, renderPortfolioCliHtmlSummary);
     process.exit(0);
   }
 
@@ -469,7 +493,7 @@ try {
       fail('Incident Pack mode did not find any runnable analyses. Provide at least @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
     }
 
-    writeOutput(briefing, mode, renderIncidentPackTextSummary, renderIncidentPackMarkdownSummary);
+    writeOutput(briefing, mode, renderIncidentPackTextSummary, renderIncidentPackMarkdownSummary, renderPackCliHtmlSummary);
     process.exit(0);
   }
 
@@ -666,6 +690,13 @@ function validateCompareArguments(list) {
   return null;
 }
 
+function validateOutputArguments(list) {
+  const outputFlags = ['--json', '--markdown', '--html'].filter((flag) => list.includes(flag));
+  return outputFlags.length > 1
+    ? 'Choose one output mode at a time: --json, --markdown, or --html.'
+    : null;
+}
+
 function validateOptionValue(list, flag) {
   const index = list.indexOf(flag);
   if (index === -1) {
@@ -705,6 +736,16 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
   }
 
   return null;
+}
+
+function validateHtmlWorkflowSupport({ mode, packPath, portfolioPath, notebookPath, workspacePath, capsulePath }) {
+  if (mode !== 'html') {
+    return null;
+  }
+
+  return packPath || portfolioPath || notebookPath || workspacePath || capsulePath
+    ? null
+    : 'HTML output is currently supported only for --pack, --portfolio, --notebook, --workspace, and --capsule workflows.';
 }
 
 function readNamedInput(targetPath, label) {
@@ -752,9 +793,14 @@ function readShelfDirectoryEntries(targetPath) {
     }));
 }
 
-function writeOutput(payload, outputMode, textRenderer, markdownRenderer) {
+function writeOutput(payload, outputMode, textRenderer, markdownRenderer, htmlRenderer = null) {
   if (outputMode === 'json') {
     process.stdout.write(`${JSON.stringify(toSerializablePayload(payload), null, 2)}\n`);
+  } else if (outputMode === 'html') {
+    if (!htmlRenderer) {
+      fail('HTML output is currently supported only for --pack, --portfolio, --notebook, --workspace, and --capsule workflows.');
+    }
+    process.stdout.write(`${htmlRenderer(payload)}\n`);
   } else if (outputMode === 'markdown') {
     process.stdout.write(`${markdownRenderer(payload)}\n`);
   } else {
@@ -1129,6 +1175,44 @@ function renderCapsuleCliMarkdownSummary(payload) {
   return payload.routed.mode === 'portfolio'
     ? renderIncidentPortfolioMarkdownSummary(payload.routed.report)
     : renderIncidentPackMarkdownSummary(payload.routed.report);
+}
+
+function renderPackCliHtmlSummary(report) {
+  return renderIncidentDossierHtml({ mode: 'pack', report, originLabel: 'Incident Pack Briefing' });
+}
+
+function renderPortfolioCliHtmlSummary(report) {
+  return renderIncidentDossierHtml({ mode: 'portfolio', report, originLabel: 'Portfolio Radar' });
+}
+
+function renderNotebookCliHtmlSummary(payload) {
+  return renderIncidentDossierHtml({
+    mode: payload.routed.mode,
+    report: payload.routed.report,
+    originLabel: payload.routed.mode === 'portfolio'
+      ? 'Notebook normalization · Portfolio Radar'
+      : 'Notebook normalization · Incident Pack',
+  });
+}
+
+function renderWorkspaceCliHtmlSummary(payload) {
+  return renderIncidentDossierHtml({
+    mode: payload.routed.mode,
+    report: payload.routed.report,
+    originLabel: payload.routed.mode === 'portfolio'
+      ? 'Workspace · Portfolio Radar'
+      : 'Workspace · Incident Pack',
+  });
+}
+
+function renderCapsuleCliHtmlSummary(payload) {
+  return renderIncidentDossierHtml({
+    mode: payload.routed.mode,
+    report: payload.routed.report,
+    originLabel: payload.routed.mode === 'portfolio'
+      ? 'Capsule · Portfolio Radar'
+      : 'Capsule · Incident Pack',
+  });
 }
 
 function renderNotebookCliTextSummary(payload) {

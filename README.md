@@ -72,6 +72,37 @@ cat repeated-traces-or-logs.txt | node ./bin/stack-sleuth.js --digest
 cat repeated-traces-or-logs.txt | node ./bin/stack-sleuth.js --digest --markdown
 ```
 
+## Standalone HTML dossier export
+
+Stack Sleuth can now turn its richest structured workflows into a standalone HTML incident dossier that is easy to share in chat, attach to a ticket, or open on a phone without rerunning the CLI.
+
+HTML dossier export is currently supported for:
+- `--pack`
+- `--portfolio`
+- `--notebook`
+- `--workspace`
+- `--capsule`
+
+### Emit an incident-pack dossier
+
+```bash
+node ./bin/stack-sleuth.js --pack ./incident-pack.txt --html > ./incident-pack-dossier.html
+```
+
+### Emit a portfolio dossier
+
+```bash
+node ./bin/stack-sleuth.js --portfolio ./sample/portfolio.txt --html > ./sample/portfolio-dossier.html
+```
+
+### Emit a notebook dossier from stdin
+
+```bash
+cat incident-note.md | node ./bin/stack-sleuth.js --notebook - --html > ./incident-note-dossier.html
+```
+
+The committed sample artifact lives at `sample/portfolio-dossier.html`, generated from `sample/portfolio.txt`. It is a shareable, phone-friendly command-deck view that includes the release gate, priority queue, response queue, routing gaps, recurring signals, and reusable exports.
+
 ## Notebook ingest
 
 Notebook ingest is the fastest way to reuse the richer Incident Pack Briefing and Portfolio Radar workflows when the source artifact is already a markdown handoff note instead of an `@@` or `@@@` bundle.

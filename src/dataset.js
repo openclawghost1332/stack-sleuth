@@ -2,8 +2,8 @@ import { analyzeIncidentPortfolio } from './portfolio.js';
 import { analyzeCasebookMerge } from './merge.js';
 import { parseLabeledTraceBatches } from './labeled.js';
 
-const DATASET_KIND = 'stack-sleuth-casebook-dataset';
-const DATASET_VERSION = 1;
+export const DATASET_KIND = 'stack-sleuth-casebook-dataset';
+export const DATASET_VERSION = 1;
 
 export function buildCasebookDataset(input) {
   const portfolioReport = input?.priorityQueue ? input : analyzeIncidentPortfolio(input);
@@ -40,45 +40,108 @@ export function parseDatasetHistory(input) {
 }
 
 export function inspectDatasetHistoryInput(input) {
-  const parsed = parseDatasetInput(input);
-  if (!parsed) {
-    return { valid: false, reason: 'not-dataset' };
+  const result = inspectReplayDatasetInput(input);
+  if (!result.valid) {
+    return result;
   }
+
+  if (!result.dataset.exportText.trim()) {
+    return { valid: false, reason: 'missing-export-text', parsed: result.parsed };
+  }
+
+  return {
+    valid: true,
+    parsed: result.parsed,
+    dataset: result.dataset,
+    history: parseLabeledTraceBatches(result.dataset.exportText),
+  };
+}
+
+export function inspectReplayDatasetInput(input) {
+  const parsedInput = parseDatasetInput(input);
+  if (!parsedInput.valid) {
+    return { valid: false, reason: parsedInput.reason };
+  }
+
+  const parsed = parsedInput.parsed;
 
   if (parsed.kind !== DATASET_KIND) {
     return { valid: false, reason: 'wrong-kind', parsed };
   }
 
-  if (typeof parsed.exportText !== 'string' || !parsed.exportText.trim()) {
-    return { valid: false, reason: 'missing-export-text', parsed };
+  if (parsed.version !== DATASET_VERSION) {
+    return {
+      valid: false,
+      reason: 'unsupported-version',
+      parsed,
+      supportedVersion: DATASET_VERSION,
+    };
   }
 
   return {
     valid: true,
     parsed,
-    history: parseLabeledTraceBatches(parsed.exportText),
+    dataset: normalizeDataset(parsed),
   };
+}
+
+export function renderDatasetTextSummary(report) {
+  return [
+    'Stack Sleuth Casebook Dataset',
+    report.summary.headline,
+    `Portfolio packs: ${report.summary.packCount}`,
+    `Runnable packs: ${report.summary.runnablePackCount}`,
+    `Response owners: ${report.summary.ownerCount}`,
+    `Merged cases: ${report.summary.mergedCaseCount}`,
+    `Conflicts: ${report.summary.conflictCount}`,
+    '',
+    'Reusable casebook export',
+    report.exportText,
+  ].join('\n').trim();
+}
+
+export function renderDatasetMarkdownSummary(report) {
+  return [
+    '# Stack Sleuth Casebook Dataset',
+    '',
+    `- **Headline:** ${report.summary.headline}`,
+    `- **Portfolio packs:** ${report.summary.packCount}`,
+    `- **Runnable packs:** ${report.summary.runnablePackCount}`,
+    `- **Response owners:** ${report.summary.ownerCount}`,
+    `- **Merged cases:** ${report.summary.mergedCaseCount}`,
+    `- **Conflicts:** ${report.summary.conflictCount}`,
+    '',
+    '## Reusable casebook export',
+    '```text',
+    report.exportText,
+    '```',
+  ].join('\n').trim();
 }
 
 function parseDatasetInput(input) {
   if (!input || typeof input === 'number' || typeof input === 'boolean') {
-    return null;
+    return { valid: false, reason: 'not-dataset' };
   }
 
   if (typeof input === 'string') {
     const source = input.trim();
     if (!source.startsWith('{')) {
-      return null;
+      return { valid: false, reason: 'not-dataset' };
     }
 
     try {
-      return JSON.parse(source);
+      return { valid: true, parsed: JSON.parse(source) };
     } catch {
-      return null;
+      return {
+        valid: false,
+        reason: source.includes(DATASET_KIND) ? 'invalid-json' : 'not-dataset',
+      };
     }
   }
 
-  return typeof input === 'object' ? input : null;
+  return typeof input === 'object'
+    ? { valid: true, parsed: input }
+    : { valid: false, reason: 'not-dataset' };
 }
 
 function buildDatasetSummary(portfolioReport, mergeReport) {
@@ -98,4 +161,33 @@ function buildDatasetSummary(portfolioReport, mergeReport) {
     mergeHeadline: mergeReport.summary?.headline ?? 'No merge headline available.',
     ownerCount,
   };
+}
+
+function normalizeDataset(parsed) {
+  return {
+    kind: DATASET_KIND,
+    version: DATASET_VERSION,
+    summary: {
+      headline: String(parsed.summary?.headline ?? 'No dataset headline available.'),
+      packCount: toCount(parsed.summary?.packCount),
+      runnablePackCount: toCount(parsed.summary?.runnablePackCount),
+      mergedCaseCount: toCount(parsed.summary?.mergedCaseCount),
+      conflictCount: toCount(parsed.summary?.conflictCount),
+      portfolioHeadline: String(parsed.summary?.portfolioHeadline ?? 'No portfolio headline available.'),
+      mergeHeadline: String(parsed.summary?.mergeHeadline ?? 'No merge headline available.'),
+      ownerCount: toCount(parsed.summary?.ownerCount),
+    },
+    portfolio: {
+      packOrder: Array.isArray(parsed.portfolio?.packOrder) ? parsed.portfolio.packOrder : [],
+    },
+    responseQueue: Array.isArray(parsed.responseQueue) ? parsed.responseQueue : [],
+    recurringIncidents: Array.isArray(parsed.recurringIncidents) ? parsed.recurringIncidents : [],
+    recurringHotspots: Array.isArray(parsed.recurringHotspots) ? parsed.recurringHotspots : [],
+    cases: Array.isArray(parsed.cases) ? parsed.cases : [],
+    exportText: typeof parsed.exportText === 'string' ? parsed.exportText : '',
+  };
+}
+
+function toCount(value) {
+  return Number.isInteger(value) && value >= 0 ? value : 0;
 }

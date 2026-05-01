@@ -460,6 +460,42 @@ test('CLI reads a portfolio with --dataset and prints a Casebook Dataset summary
   assert.match(result.stdout, /Reusable casebook export/);
 });
 
+test('CLI replays a saved dataset from stdin in text mode', () => {
+  const datasetResult = runCli(['--dataset', '-', '--json'], { input: portfolioInput });
+  assert.equal(datasetResult.status, 0, datasetResult.stderr);
+
+  const result = runCli(['--replay-dataset', '-'], { input: datasetResult.stdout });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Casebook Dataset/);
+  assert.match(result.stdout, /Response owners: 1/);
+  assert.match(result.stdout, /Reusable casebook export/);
+});
+
+test('CLI replays a saved dataset in markdown mode', () => {
+  const datasetResult = runCli(['--dataset', '-', '--json'], { input: portfolioInput });
+  assert.equal(datasetResult.status, 0, datasetResult.stderr);
+
+  const result = runCli(['--replay-dataset', '-', '--markdown'], { input: datasetResult.stdout });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^# Stack Sleuth Casebook Dataset/m);
+  assert.match(result.stdout, /## Reusable casebook export/);
+});
+
+test('CLI replays a saved dataset in json mode', () => {
+  const datasetResult = runCli(['--dataset', '-', '--json'], { input: portfolioInput });
+  assert.equal(datasetResult.status, 0, datasetResult.stderr);
+
+  const result = runCli(['--replay-dataset', '-', '--json'], { input: datasetResult.stdout });
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.kind, 'stack-sleuth-casebook-dataset');
+  assert.equal(parsed.version, 1);
+  assert.equal(parsed.summary.ownerCount, 1);
+});
+
 test('CLI Casebook Radar accepts a saved dataset JSON file through --history', async () => {
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-dataset-'));
   const datasetPath = path.join(tempDir, 'history.json');
@@ -485,6 +521,36 @@ test('CLI Casebook Radar reports a dataset-specific error for malformed saved da
   const result = runCli(['--history', datasetPath], { input: casebookCurrentInput });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Casebook Dataset history must include a non-empty exportText payload/i);
+});
+
+test('CLI replay mode reports unsupported dataset versions clearly', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bad-dataset-'));
+  const datasetPath = path.join(tempDir, 'history.json');
+  const datasetResult = runCli(['--dataset', '-', '--json'], { input: portfolioInput });
+  assert.equal(datasetResult.status, 0, datasetResult.stderr);
+  const dataset = JSON.parse(datasetResult.stdout);
+  dataset.version = 99;
+  await fs.promises.writeFile(datasetPath, JSON.stringify(dataset), 'utf8');
+
+  const result = runCli(['--replay-dataset', datasetPath]);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Casebook Dataset replay uses unsupported version 99\. Supported version: 1\./i);
+});
+
+test('CLI Casebook Radar reports unsupported dataset versions clearly', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bad-dataset-'));
+  const datasetPath = path.join(tempDir, 'history.json');
+  const datasetResult = runCli(['--dataset', '-', '--json'], { input: portfolioInput });
+  assert.equal(datasetResult.status, 0, datasetResult.stderr);
+  const dataset = JSON.parse(datasetResult.stdout);
+  dataset.version = 99;
+  await fs.promises.writeFile(datasetPath, JSON.stringify(dataset), 'utf8');
+
+  const result = runCli(['--history', datasetPath], { input: casebookCurrentInput });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Casebook Dataset history uses unsupported version 99\. Supported version: 1\./i);
 });
 
 test('CLI dataset mode supports --json and --markdown output', () => {

@@ -1,3 +1,5 @@
+import { buildCasebookDataset } from './dataset.js';
+
 const javascriptTrace = `TypeError: Cannot read properties of undefined (reading 'name')
     at renderProfile (/app/src/profile.js:88:17)
     at updateView (/app/src/view.js:42:5)
@@ -124,6 +126,8 @@ const portfolioTrace = [
   `${javascriptTrace}\n\n${javascriptTrace}\n\n${regressionTrace}`,
 ].join('\n');
 
+const datasetReplay = JSON.stringify(buildCasebookDataset(portfolioTrace), null, 2);
+
 export const examples = [
   {
     label: 'JavaScript undefined property',
@@ -189,8 +193,8 @@ export const examples = [
   },
   {
     label: 'Casebook Dataset',
-    caption: 'A labeled incident portfolio packages response routing, recurring hotspots, and a reusable merged casebook export into one portable dataset handoff.',
-    portfolio: portfolioTrace,
+    caption: 'A saved Casebook Dataset JSON artifact replays the preserved routing, recurring hotspot, and reusable casebook export story without needing the original portfolio input.',
+    dataset: datasetReplay,
   },
   {
     label: 'Casebook Merge',

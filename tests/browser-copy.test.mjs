@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { buildCasebookDataset } from '../src/dataset.js';
 
 const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const stylesCss = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
@@ -138,6 +139,12 @@ const portfolioInput = [
     `TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)`
   ].join('\n\n'),
 ].join('\n');
+
+const datasetReplayInput = JSON.stringify(buildCasebookDataset(portfolioInput), null, 2);
+const unsupportedDatasetReplayInput = JSON.stringify({
+  ...buildCasebookDataset(portfolioInput),
+  version: 99,
+}, null, 2);
 
 const notebookPackInput = [
   '# Checkout incident notebook',
@@ -439,17 +446,50 @@ test('browser Handoff Briefing example button loads the shared portfolio example
   }
 });
 
-test('browser Casebook Dataset example button loads the shared portfolio example and surfaces dataset output', async () => {
+test('browser Casebook Dataset example button loads saved dataset JSON and replays the preserved dataset view', async () => {
   const harness = await loadBrowserHarness();
 
   try {
     await harness.click('load-dataset-button');
 
-    assert.match(harness.get('trace-input').value, /@@@ checkout-prod @@@/);
-    assert.equal(harness.get('runtime-value').textContent, 'portfolio radar');
+    assert.match(harness.get('trace-input').value, /"kind": "stack-sleuth-casebook-dataset"/);
+    assert.equal(harness.get('runtime-value').textContent, 'dataset replay');
     assert.match(harness.get('dataset-summary-value').textContent, /Casebook Dataset captured 3 merged cases/i);
+    assert.match(harness.get('portfolio-response-queue-value').children[0].textContent, /web-platform/);
     assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
-    assert.match(harness.get('example-caption').textContent, /portable dataset handoff/i);
+    assert.match(harness.get('example-caption').textContent, /saved dataset|replay/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser dataset replay copy support writes the saved dataset summary to the clipboard', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', datasetReplayInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Stack Sleuth Casebook Dataset/);
+    assert.match(harness.clipboard.text, /Response owners: 1/);
+    assert.match(harness.clipboard.text, /Reusable casebook export/);
+    assert.equal(harness.get('example-caption').textContent, 'Casebook Dataset replay copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser dataset replay reports unsupported dataset versions clearly', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', unsupportedDatasetReplayInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'dataset replay error');
+    assert.match(harness.get('headline-value').textContent, /unsupported version 99/i);
+    assert.match(harness.get('summary-value').textContent, /supported version: 1/i);
+    assert.match(harness.get('example-caption').textContent, /unsupported version 99/i);
   } finally {
     harness.restore();
   }

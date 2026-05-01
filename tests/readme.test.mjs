@@ -148,9 +148,12 @@ test('README documents Casebook Dataset workflows for browser and CLI handoff', 
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.match(readme, /Casebook Dataset/i);
   assert.match(readme, /--dataset/);
+  assert.match(readme, /--replay-dataset/);
   assert.match(readme, /saved JSON blob|JSON artifact/i);
   assert.match(readme, /exportText/i);
   assert.match(readme, /--history .*casebook-dataset\.json|casebook-dataset\.json/i);
+  assert.match(readme, /paste a saved dataset JSON blob|saved dataset JSON/i);
+  assert.match(readme, /unsupported version|supported version/i);
 });
 
 test('README documents Casebook Merge workflows for browser and CLI living-casebook updates', () => {

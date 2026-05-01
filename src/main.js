@@ -16,7 +16,11 @@ import { buildHandoffBriefing } from './handoff.js';
 import { analyzeCasebook, renderCasebookTextSummary } from './casebook.js';
 import { analyzeCasebookForge, renderCasebookForgeTextSummary } from './forge.js';
 import { analyzeCasebookMerge, renderCasebookMergeTextSummary } from './merge.js';
-import { buildCasebookDataset } from './dataset.js';
+import {
+  buildCasebookDataset,
+  inspectReplayDatasetInput,
+  renderDatasetTextSummary,
+} from './dataset.js';
 import { analyzeTraceDigest, renderDigestTextSummary } from './digest.js';
 import { parseIncidentPack } from './pack.js';
 import { analyzeRegression } from './regression.js';
@@ -122,6 +126,17 @@ function renderDiagnosis() {
   const traceText = traceInput.value.trim();
   if (!traceText) {
     resetEmptyState();
+    return;
+  }
+
+  const replay = inspectReplayDatasetInput(traceText);
+  if (replay.valid) {
+    renderDatasetReplayWorkflow(replay.dataset);
+    return;
+  }
+
+  if (shouldRenderDatasetReplayError(replay, traceText)) {
+    renderDatasetReplayError(replay);
     return;
   }
 
@@ -283,6 +298,102 @@ function renderPortfolioWorkflow(input) {
       : ['No merge conflicts detected.']
   ));
   mergeExportValue.textContent = merge.exportText || 'No merged export available yet.';
+}
+
+function renderDatasetReplayWorkflow(report) {
+  resetCasebookState();
+  resetRegressionState();
+  resetTimelineState();
+
+  const responseOwnerCount = report.responseQueue?.length ?? 0;
+  const recurringIncidentCount = report.recurringIncidents?.length ?? 0;
+  const recurringHotspotCount = report.recurringHotspots?.length ?? 0;
+  const mergedCaseCount = report.cases?.length ?? report.summary?.mergedCaseCount ?? 0;
+
+  excavationValue.textContent = `Saved dataset replay: ${report.summary.packCount} packs, ${report.summary.runnablePackCount} runnable`;
+  runtimeValue.textContent = 'dataset replay';
+  headlineValue.textContent = report.summary.headline;
+  culpritValue.textContent = 'Saved dataset artifact';
+  confidenceValue.textContent = 'replay';
+  tagsValue.textContent = 'dataset-replay, casebook-dataset';
+  signatureValue.textContent = `${report.kind}@${report.version}`;
+  summaryValue.textContent = `Replayed ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'}, ${responseOwnerCount} response owner${responseOwnerCount === 1 ? '' : 's'}, ${recurringIncidentCount} recurring incident signature${recurringIncidentCount === 1 ? '' : 's'}, and ${recurringHotspotCount} recurring hotspot${recurringHotspotCount === 1 ? '' : 's'} from a saved Casebook Dataset artifact.`;
+  blastRadiusValue.textContent = 'Saved datasets preserve routing and reusable incident-memory state, not culprit-level blast radius detail. Reopen the source portfolio input for trace-level excavation context.';
+  digestGroupsValue.replaceChildren(...buildListItems(buildDatasetReplayPackItems(report.portfolio?.packOrder)));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Saved dataset artifacts do not preserve support frames. Reopen the original traces if you need nearby frame context.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems(buildPortfolioRecurringHotspotItems(report.recurringHotspots ?? [])));
+  checklistValue.replaceChildren(...buildListItems([
+    'Route the preserved response queue first so recalled owners see the replayed incident memory quickly.',
+    'Paste the saved export text into Casebook Radar or an @@ history @@ section when you want fresh current-versus-history matching.',
+    'Reopen the original portfolio input if you need ranked pack reasons or culprit-level trace detail that the saved dataset does not preserve.',
+  ]));
+
+  portfolioSummaryValue.textContent = `${report.summary.headline} Replay restored ${responseOwnerCount} owner-routed entr${responseOwnerCount === 1 ? 'y' : 'ies'} and ${recurringIncidentCount} recurring incident signature${recurringIncidentCount === 1 ? '' : 's'}.`;
+  portfolioPackCountValue.textContent = `${report.summary.runnablePackCount} / ${report.summary.packCount}`;
+  portfolioPriorityValue.replaceChildren(...buildListItems(buildDatasetReplayPackItems(report.portfolio?.packOrder)));
+  portfolioRecurringIncidentsValue.replaceChildren(...buildListItems(buildPortfolioRecurringIncidentItems(report.recurringIncidents ?? [])));
+  portfolioRecurringHotspotsValue.replaceChildren(...buildListItems(buildPortfolioRecurringHotspotItems(report.recurringHotspots ?? [])));
+  portfolioResponseQueueValue.replaceChildren(...buildListItems(buildPortfolioResponseQueueItems(report.responseQueue ?? [])));
+  portfolioRoutingGapsValue.replaceChildren(...buildListItems([
+    'Saved dataset replay does not preserve explicit routing-gap or runbook-gap packets. Re-run Portfolio Radar or Handoff Briefing on the source portfolio to rebuild them.'
+  ]));
+
+  handoffSummaryValue.textContent = `Saved dataset replay preserved ${responseOwnerCount} owner-routed response queue entr${responseOwnerCount === 1 ? 'y' : 'ies'}, but not the copy-ready handoff packet export.`;
+  handoffExportValue.textContent = 'Handoff packet export is not preserved inside saved Casebook Dataset artifacts.';
+
+  forgeSummaryValue.textContent = `Saved dataset replay preserved ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'} and one reusable casebook export.`;
+  forgeExportValue.textContent = report.exportText || 'No reusable casebook export was preserved in this saved dataset.';
+
+  datasetSummaryValue.textContent = `${report.summary.headline} Saved dataset replay is using the portable artifact directly.`;
+  datasetPackCountValue.textContent = `${report.summary.runnablePackCount} / ${report.summary.packCount}`;
+  datasetExportValue.textContent = report.exportText || 'No dataset export available in this saved artifact.';
+
+  mergeSummaryValue.textContent = `Replayed ${mergedCaseCount} saved casebook case${mergedCaseCount === 1 ? '' : 's'} from the portable dataset artifact.`;
+  mergeConflictsValue.replaceChildren(...buildListItems(
+    report.cases?.some((entry) => entry.conflicts?.length)
+      ? report.cases.filter((entry) => entry.conflicts?.length).map((entry) => `${entry.label}: ${entry.conflicts.join('; ')}`)
+      : ['No saved merge conflicts were preserved in this dataset artifact.']
+  ));
+  mergeExportValue.textContent = report.exportText || 'No merged Casebook export was preserved in this saved artifact.';
+}
+
+function renderDatasetReplayError(replay) {
+  resetPortfolioState();
+  resetForgeState();
+  resetDatasetState();
+  resetMergeState();
+  resetCasebookState();
+  resetRegressionState();
+  resetTimelineState();
+
+  const details = describeDatasetReplayError(replay);
+
+  excavationValue.textContent = 'Saved dataset replay blocked';
+  runtimeValue.textContent = 'dataset replay error';
+  headlineValue.textContent = details.headline;
+  culpritValue.textContent = 'Unsupported dataset artifact';
+  confidenceValue.textContent = '-';
+  tagsValue.textContent = 'dataset-replay, error';
+  signatureValue.textContent = 'stack-sleuth-casebook-dataset';
+  summaryValue.textContent = details.summary;
+  blastRadiusValue.textContent = 'No blast radius details are available because Stack Sleuth stopped before replaying the saved dataset artifact.';
+  digestGroupsValue.replaceChildren(...buildListItems([
+    'Re-export the dataset with a supported Stack Sleuth build or reopen the original labeled portfolio input.'
+  ]));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Dataset replay errors happen before Stack Sleuth reaches culprit-level trace analysis.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems([
+    'Recurring hotspots will appear here once Stack Sleuth can replay a supported saved dataset.'
+  ]));
+  checklistValue.replaceChildren(...buildListItems(details.checklist));
+
+  datasetSummaryValue.textContent = details.headline;
+  datasetPackCountValue.textContent = '-';
+  datasetExportValue.textContent = 'Dataset export text will appear here after Casebook Dataset runs.';
+  caption.textContent = details.caption;
 }
 
 function renderIncidentPackWorkflow(input) {
@@ -755,6 +866,16 @@ function loadPortfolioExample(example) {
   renderDiagnosis();
 }
 
+function loadDatasetExample(example) {
+  if (!example) {
+    return;
+  }
+
+  traceInput.value = example.dataset;
+  caption.textContent = example.caption;
+  renderDiagnosis();
+}
+
 function loadMergeExample(example) {
   if (!example) {
     return;
@@ -799,6 +920,23 @@ function loadCasebookExample(example) {
 
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
+  const replay = inspectReplayDatasetInput(traceText);
+
+  if (replay.valid) {
+    try {
+      await navigator.clipboard.writeText(renderDatasetTextSummary(replay.dataset));
+      caption.textContent = 'Casebook Dataset replay copied to clipboard.';
+    } catch {
+      caption.textContent = 'Clipboard copy unavailable here, but the Casebook Dataset replay is ready to copy manually.';
+    }
+    return;
+  }
+
+  if (shouldRenderDatasetReplayError(replay, traceText)) {
+    caption.textContent = describeDatasetReplayError(replay).caption;
+    return;
+  }
+
   const notebook = parseIncidentNotebook(traceText);
 
   if (notebook.kind !== 'unsupported') {
@@ -1055,6 +1193,75 @@ function buildPortfolioBlastRadiusSummary(topPack, primaryIncident) {
   const blastRadius = selectIncidentPackBlastRadius(topPack.report, primaryAnalysis);
   const culprit = formatFrame(primaryIncident?.representative?.culpritFrame ?? null);
   return `Top pack ${topPack.label} centers on ${culprit}. ${formatBlastRadiusSummary(blastRadius)}`;
+}
+
+function shouldRenderDatasetReplayError(replay, input) {
+  if (replay.reason === 'unsupported-version' || replay.reason === 'wrong-kind' || replay.reason === 'invalid-json') {
+    return true;
+  }
+
+  return replay.reason === 'not-dataset'
+    && typeof input === 'string'
+    && input.includes('stack-sleuth-casebook-dataset')
+    && input.trim().startsWith('{');
+}
+
+function describeDatasetReplayError(replay) {
+  if (replay.reason === 'unsupported-version') {
+    const version = replay.parsed?.version ?? 'unknown';
+    const supportedVersion = replay.supportedVersion ?? 'unknown';
+    return {
+      headline: `Casebook Dataset replay uses unsupported version ${version}.`,
+      summary: `Saved dataset replay uses unsupported version ${version}. Supported version: ${supportedVersion}. Re-export the dataset with a supported Stack Sleuth build or reopen the original labeled portfolio input.`,
+      caption: `Casebook Dataset replay uses unsupported version ${version}. Supported version: ${supportedVersion}.`,
+      checklist: [
+        `Rebuild the dataset with Stack Sleuth version ${supportedVersion} support before replaying it here.`,
+        'If you still have the original labeled portfolio, reopen that input to regenerate a fresh dataset artifact.',
+      ],
+    };
+  }
+
+  if (replay.reason === 'wrong-kind') {
+    return {
+      headline: `Casebook Dataset replay uses unsupported kind ${replay.parsed?.kind ?? 'unknown'}.`,
+      summary: 'This browser replay flow only supports saved Stack Sleuth Casebook Dataset artifacts.',
+      caption: `Casebook Dataset replay uses unsupported kind ${replay.parsed?.kind ?? 'unknown'}.`,
+      checklist: [
+        'Paste a saved Stack Sleuth Casebook Dataset JSON artifact instead of another JSON document.',
+        'If the artifact came from another workflow, replay it through the matching Stack Sleuth mode instead.',
+      ],
+    };
+  }
+
+  if (replay.reason === 'invalid-json') {
+    return {
+      headline: 'Casebook Dataset replay could not parse the saved dataset JSON.',
+      summary: 'The pasted artifact looks like a Stack Sleuth dataset, but the JSON is malformed. Paste the saved dataset again or reload it from disk before replaying it here.',
+      caption: 'Casebook Dataset replay could not parse the saved dataset JSON.',
+      checklist: [
+        'Paste the full saved dataset JSON blob, including the opening and closing braces.',
+        'If the artifact was hand-edited, validate the JSON before replaying it here.',
+      ],
+    };
+  }
+
+  return {
+    headline: 'Casebook Dataset replay requires saved Stack Sleuth dataset JSON.',
+    summary: 'Paste a saved Stack Sleuth Casebook Dataset artifact to replay preserved routing and reusable casebook state.',
+    caption: 'Casebook Dataset replay needs a saved Stack Sleuth dataset JSON artifact.',
+    checklist: [
+      'Generate a Casebook Dataset from a labeled portfolio first.',
+      'Paste the saved dataset JSON blob into the shared workspace to replay it here.',
+    ],
+  };
+}
+
+function buildDatasetReplayPackItems(packOrder) {
+  if (!packOrder?.length) {
+    return ['Saved pack order is not available in this dataset artifact.'];
+  }
+
+  return packOrder.map((label, index) => `${index + 1}. saved pack: ${label}`);
 }
 
 function buildPortfolioPriorityItems(priorityQueue) {
@@ -1377,7 +1584,7 @@ loadNotebookButton?.addEventListener('click', () => loadNotebookExample(notebook
 loadPackButton?.addEventListener('click', () => loadIncidentPackExample(incidentPackExample));
 loadPortfolioButton?.addEventListener('click', () => loadPortfolioExample(portfolioExample));
 loadHandoffButton?.addEventListener('click', () => loadPortfolioExample(handoffExample));
-loadDatasetButton?.addEventListener('click', () => loadPortfolioExample(datasetExample));
+loadDatasetButton?.addEventListener('click', () => loadDatasetExample(datasetExample));
 loadMergeButton?.addEventListener('click', () => loadMergeExample(mergeExample));
 loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));
 compareButton?.addEventListener('click', renderRegressionWorkflow);

@@ -1,5 +1,10 @@
 import { analyzeIncidentPortfolio } from './portfolio.js';
 import { analyzeCasebookForge } from './forge.js';
+import {
+  buildCasebookSteward,
+  renderCasebookStewardMarkdown,
+  renderCasebookStewardText,
+} from './steward.js';
 
 const GUIDANCE_KEYS = ['summary', 'fix', 'owner', 'runbook'];
 const EXPORT_METADATA_KEYS = [...GUIDANCE_KEYS, 'seen-count', 'source-packs'];
@@ -38,11 +43,13 @@ export function analyzeCasebookMerge(input) {
     }));
 
   const summary = buildSummary(cases, portfolioReport.summary?.runnablePackCount ?? 0);
+  const steward = buildCasebookSteward({ cases });
 
   return {
     portfolio: portfolioReport.portfolio,
     priorityQueue: portfolioReport.priorityQueue,
     cases,
+    steward,
     summary,
     exportText: renderMergedExport(cases),
   };
@@ -71,6 +78,8 @@ export function renderCasebookMergeTextSummary(report) {
     }
   }
 
+  lines.push('', ...renderCasebookStewardText(report.steward ?? buildCasebookSteward({ cases: report.cases })).split('\n'));
+
   return lines.join('\n').trim();
 }
 
@@ -97,6 +106,8 @@ export function renderCasebookMergeMarkdownSummary(report) {
       lines.push(`- **${escapeMarkdownText(entry.label)}:** ${escapeMarkdownText(entry.conflicts.join('; '))}`);
     }
   }
+
+  lines.push('', renderCasebookStewardMarkdown(report.steward ?? buildCasebookSteward({ cases: report.cases })));
 
   return lines.join('\n').trim();
 }

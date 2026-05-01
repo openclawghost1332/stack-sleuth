@@ -1,5 +1,6 @@
 import { inspectReplayDatasetInput } from './dataset.js';
 import { compareGateSnapshots } from './gate.js';
+import { compareStewardSnapshots, describeCasebookStewardHeadline } from './steward.js';
 
 const LABEL_MARKER = /^===\s*(.+?)\s*===$/gm;
 const TREND_PRIORITY = {
@@ -109,6 +110,8 @@ export function renderCasebookChronicleTextSummary(report) {
     `Headline: ${summary.headline}`,
     `Release gate: ${summary.latestGateVerdict}`,
     `Gate drift: ${summary.gateDrift.summary}`,
+    `Steward drift: ${summary.stewardDrift.summary}`,
+    `Latest steward: ${summary.latestStewardHeadline}`,
     `Owner movement: new ${summary.newOwnerCount}, rising ${summary.risingOwnerCount}, flapping ${summary.flappingOwnerCount}, steady ${summary.steadyOwnerCount}, falling ${summary.fallingOwnerCount}, resolved ${summary.resolvedOwnerCount}`,
     `Hotspot movement: new ${summary.newHotspotCount}, rising ${summary.risingHotspotCount}, flapping ${summary.flappingHotspotCount}, steady ${summary.steadyHotspotCount}, falling ${summary.fallingHotspotCount}, resolved ${summary.resolvedHotspotCount}`,
     `Case movement: new ${summary.newCaseCount}, rising ${summary.risingCaseCount}, flapping ${summary.flappingCaseCount}, steady ${summary.steadyCaseCount}, falling ${summary.fallingCaseCount}, resolved ${summary.resolvedCaseCount}`,
@@ -137,6 +140,8 @@ export function renderCasebookChronicleMarkdownSummary(report) {
     `- **Headline:** ${escapeMarkdownText(summary.headline)}`,
     `- **Release gate:** ${escapeMarkdownText(summary.latestGateVerdict)}`,
     `- **Gate drift:** ${escapeMarkdownText(summary.gateDrift.summary)}`,
+    `- **Steward drift:** ${escapeMarkdownText(summary.stewardDrift.summary)}`,
+    `- **Latest steward:** ${escapeMarkdownText(summary.latestStewardHeadline)}`,
     `- **Owner movement:** new ${summary.newOwnerCount}, rising ${summary.risingOwnerCount}, flapping ${summary.flappingOwnerCount}, steady ${summary.steadyOwnerCount}, falling ${summary.fallingOwnerCount}, resolved ${summary.resolvedOwnerCount}`,
     `- **Hotspot movement:** new ${summary.newHotspotCount}, rising ${summary.risingHotspotCount}, flapping ${summary.flappingHotspotCount}, steady ${summary.steadyHotspotCount}, falling ${summary.fallingHotspotCount}, resolved ${summary.resolvedHotspotCount}`,
     `- **Case movement:** new ${summary.newCaseCount}, rising ${summary.risingCaseCount}, flapping ${summary.flappingCaseCount}, steady ${summary.steadyCaseCount}, falling ${summary.fallingCaseCount}, resolved ${summary.resolvedCaseCount}`,
@@ -236,6 +241,8 @@ function summarizeChronicle(snapshots, ownerTrends, hotspotTrends, caseTrends) {
     latestCaseCount: (latestSnapshot.cases ?? []).length,
     latestGateVerdict: latestGate?.verdict ?? 'needs-input',
     gateDrift: compareGateSnapshots(previousGate, latestGate),
+    stewardDrift: compareStewardSnapshots(previousSnapshot?.steward, latestSnapshot.steward),
+    latestStewardHeadline: describeCasebookStewardHeadline(latestSnapshot.steward),
     newOwnerCount: countTrend(ownerTrends, 'new'),
     risingOwnerCount: countTrend(ownerTrends, 'rising'),
     flappingOwnerCount: countTrend(ownerTrends, 'flapping'),

@@ -6,6 +6,11 @@ import {
   renderReleaseGateMarkdown,
   renderReleaseGateText,
 } from './gate.js';
+import {
+  normalizeCasebookSteward,
+  renderCasebookStewardMarkdown,
+  renderCasebookStewardText,
+} from './steward.js';
 
 export const DATASET_KIND = 'stack-sleuth-casebook-dataset';
 export const DATASET_VERSION = 1;
@@ -36,6 +41,7 @@ export function buildCasebookDataset(input) {
       metadata: entry.metadata,
       conflicts: entry.conflicts,
     })),
+    steward: mergeReport.steward,
     exportText: mergeReport.exportText,
   };
 }
@@ -108,6 +114,8 @@ export function renderDatasetTextSummary(report) {
     'Release gate',
     ...renderReleaseGateText(report.gate).split('\n'),
     '',
+    ...renderCasebookStewardText(report.steward).split('\n'),
+    '',
     'Reusable casebook export',
     report.exportText,
   ].join('\n').trim();
@@ -126,6 +134,8 @@ export function renderDatasetMarkdownSummary(report) {
     '',
     '## Release gate',
     renderReleaseGateMarkdown(report.gate),
+    '',
+    renderCasebookStewardMarkdown(report.steward),
     '',
     '## Reusable casebook export',
     '```text',
@@ -215,6 +225,9 @@ function normalizeDataset(parsed) {
     recurringHotspots: Array.isArray(parsed.recurringHotspots) ? parsed.recurringHotspots : [],
     cases: Array.isArray(parsed.cases) ? parsed.cases : [],
     gate: normalizeReleaseGate(parsed.gate, fallbackSignals),
+    steward: normalizeCasebookSteward(parsed.steward, {
+      cases: Array.isArray(parsed.cases) ? parsed.cases : [],
+    }),
     exportText: typeof parsed.exportText === 'string' ? parsed.exportText : '',
   };
 }

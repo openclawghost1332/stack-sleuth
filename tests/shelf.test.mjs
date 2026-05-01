@@ -39,6 +39,7 @@ test('buildCasebookShelf packages valid and invalid saved dataset snapshots into
   assert.equal(shelf.summary.invalidSnapshotCount, 1);
   assert.equal(shelf.summary.chronicleAvailable, true);
   assert.equal(shelf.summary.latestGateVerdict, 'hold');
+  assert.match(shelf.summary.latestStewardHeadline, /Casebook Steward found/i);
   assert.equal(shelf.chronicle.summary.snapshotCount, 2);
   assert.equal(shelf.snapshots[0].status, 'valid');
   assert.equal(shelf.snapshots[2].status, 'invalid');
@@ -74,6 +75,18 @@ test('inspectReplayShelfInput validates and normalizes saved shelf json', () => 
   assert.equal(replay.shelf.chronicle.summary.latestLabel, 'release-b');
 });
 
+test('shelf latest steward copy discloses reconstructed stewardship', () => {
+  const reconstructedDataset = structuredClone(validDatasetB);
+  delete reconstructedDataset.steward;
+
+  const shelf = buildCasebookShelf([
+    { label: 'release-a', filename: 'release-a.json', source: JSON.stringify(validDatasetA) },
+    { label: 'release-b', filename: 'release-b.json', source: JSON.stringify(reconstructedDataset) },
+  ]);
+
+  assert.match(shelf.summary.latestStewardHeadline, /^Reconstructed Casebook Steward/i);
+});
+
 test('inspectReplayShelfInput rejects unsupported shelf versions with the supported version number', () => {
   const replay = inspectReplayShelfInput(JSON.stringify({
     kind: SHELF_KIND,
@@ -103,12 +116,14 @@ test('shared shelf renderers include chronicle context and invalid snapshot warn
   assert.match(text, /Invalid snapshots: 1/);
   assert.match(text, /Chronicle summary: Chronicle compared 2 saved datasets/i);
   assert.match(text, /Latest release gate: hold/i);
+  assert.match(text, /Latest steward:/i);
   assert.match(text, /broken\.json: invalid-json/);
   assert.match(text, /saved-artifact note/i);
   assert.doesNotMatch(text, /raw trace recovery/i);
 
   assert.match(markdown, /^# Stack Sleuth Casebook Shelf/m);
   assert.match(markdown, /- \*\*Valid snapshots:\*\* 2/);
+  assert.match(markdown, /Latest steward/i);
   assert.match(markdown, /## Snapshot warnings/);
   assert.match(markdown, /broken\.json/);
 });
@@ -119,6 +134,7 @@ function buildDataset({
   owners = [],
   hotspots = [],
   cases = [],
+  stewardActionCount = Math.max(0, 5 - packCount),
 } = {}) {
   return {
     kind: 'stack-sleuth-casebook-dataset',
@@ -170,6 +186,37 @@ function buildDataset({
       metadata: {},
       conflicts: [],
     })),
+    steward: {
+      preserved: true,
+      cases: cases.map((entry) => ({
+        label: entry.label,
+        signature: entry.signature,
+        sourcePacks: [`${label}-pack-1`],
+        metadata: {},
+        conflicts: [],
+      })),
+      actions: Array.from({ length: stewardActionCount }, (_, index) => ({
+        kind: 'missing-runbook',
+        label: cases[index]?.label ?? `${label}-case-${index + 1}`,
+        signature: cases[index]?.signature ?? `${label}-sig-${index + 1}`,
+        seenCount: 1,
+        sourcePacks: [`${label}-pack-1`],
+        priority: 100 - index,
+        headline: `Action ${index + 1}`,
+        ask: `Do action ${index + 1}`,
+      })),
+      summary: {
+        caseCount: cases.length,
+        conflictCount: 0,
+        ownerCoveredCount: 0,
+        fixCoveredCount: 0,
+        runbookCoveredCount: 0,
+        actionCount: stewardActionCount,
+        urgentActionCount: 0,
+        headline: `Casebook Steward found ${stewardActionCount} actions across ${cases.length} cases.`,
+      },
+      nextAction: stewardActionCount ? 'Do action 1' : 'No stewardship gaps detected in the current casebook state.',
+    },
     exportText: `=== ${label}-saved-case ===\nTypeError: replay me`,
   };
 }

@@ -1,6 +1,8 @@
 import { buildCasebookDataset } from './dataset.js';
 import { buildCasebookShelf } from './shelf.js';
 import { buildReleaseGate } from './gate.js';
+import { analyzeIncidentPortfolio } from './portfolio.js';
+import { buildResponseBundle } from './bundle.js';
 
 const javascriptTrace = `TypeError: Cannot read properties of undefined (reading 'name')
     at renderProfile (/app/src/profile.js:88:17)
@@ -129,6 +131,11 @@ const portfolioTrace = [
 ].join('\n');
 
 const datasetReplay = JSON.stringify(buildCasebookDataset(portfolioTrace), null, 2);
+const responseBundleReplay = buildResponseBundle({
+  report: analyzeIncidentPortfolio(portfolioTrace),
+  sourceMode: 'portfolio',
+  sourceLabel: 'saved example portfolio',
+}).files['response-bundle.json'];
 const shelfReplay = JSON.stringify(buildCasebookShelf([
   {
     label: 'release-a',
@@ -249,6 +256,11 @@ export const examples = [
     label: 'Casebook Dataset',
     caption: 'A saved Casebook Dataset JSON artifact replays the preserved release gate verdict, routing, recurring hotspot, and reusable casebook export story without needing the original portfolio input.',
     dataset: datasetReplay,
+  },
+  {
+    label: 'Response Bundle replay',
+    caption: 'A self-contained response-bundle.json artifact replays preserved bundle inventory plus embedded dataset fields for saved incident handoff, while staying honest that replay does not recover raw traces, support frames, or blast radius detail.',
+    bundle: responseBundleReplay,
   },
   {
     label: 'Casebook Chronicle',

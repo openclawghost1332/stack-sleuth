@@ -19,6 +19,7 @@ Use the built-in example buttons to compare the main workflows:
 - Handoff Briefing turning a labeled portfolio into owner-specific handoff packets plus explicit ownership-gap and runbook-gap follow-ups
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
 - Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, while preserving a deterministic release gate verdict for later replay in the CLI or browser
+- Response Bundle replay opening a self-contained `response-bundle.json` artifact or saved bundle directory to restore preserved bundle inventory plus embedded dataset state in the CLI or browser
 - Casebook Chronicle replaying several saved dataset snapshots at once to show release gate drift, owner load, recurring hotspot drift, and casebook movement across release windows
 - Casebook Shelf scanning top-level .json files from a saved dataset directory, preserving invalid snapshots as warning entries, and replaying the latest valid library state plus release gate and chronicle drift without claiming raw trace recovery
 - Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
@@ -121,6 +122,7 @@ Each response bundle contains:
 - `casebook.txt`
 - `casebook-dataset.json`
 - `merge-review.md`
+- `response-bundle.json`
 
 ### Emit a response bundle from a portfolio
 
@@ -128,7 +130,31 @@ Each response bundle contains:
 node ./bin/stack-sleuth.js --portfolio ./sample/portfolio.txt --bundle ./sample/response-bundle
 ```
 
-The committed sample bundle lives at `sample/response-bundle/`. It is generated from `sample/portfolio.txt` and gives a team one ready-to-share folder with the dossier, handoff packet, reusable casebook export, replayable dataset, merge review, and machine-readable manifest.
+The committed sample bundle lives at `sample/response-bundle/`. It is generated from `sample/portfolio.txt` and gives a team one ready-to-share folder with the dossier, handoff packet, reusable casebook export, replayable dataset, merge review, machine-readable manifest, and self-contained `response-bundle.json` replay artifact.
+
+### Replay a saved response bundle JSON artifact
+
+```bash
+node ./bin/stack-sleuth.js --replay-bundle ./sample/response-bundle/response-bundle.json
+```
+
+### Replay a saved response bundle directory
+
+```bash
+node ./bin/stack-sleuth.js --replay-bundle ./sample/response-bundle
+```
+
+Response Bundle replay reuses preserved bundle and dataset fields only. It does not recover raw traces, support frames, or blast radius detail.
+
+Legacy version-1 bundle directory compatibility is still supported when `manifest.json` and `casebook-dataset.json` are present, so older saved bundle directories remain replayable even though new exports also ship `response-bundle.json`.
+
+You can also pipe the saved replay artifact through stdin:
+
+```bash
+cat ./sample/response-bundle/response-bundle.json | node ./bin/stack-sleuth.js --replay-bundle - --markdown
+```
+
+In the browser, paste a saved response-bundle.json blob into the shared workspace and press **Explain trace(s)** or **Copy result** to replay the portable artifact directly.
 
 ## Notebook ingest
 

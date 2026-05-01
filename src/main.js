@@ -22,6 +22,10 @@ import {
   renderDatasetTextSummary,
 } from './dataset.js';
 import {
+  inspectResponseBundleReplayInput,
+  renderResponseBundleTextSummary,
+} from './bundle-replay.js';
+import {
   describeShelfInputError,
   inspectReplayShelfInput,
   renderShelfTextSummary,
@@ -141,6 +145,17 @@ function renderDiagnosis() {
   const traceText = traceInput.value.trim();
   if (!traceText) {
     resetEmptyState();
+    return;
+  }
+
+  const bundleReplay = inspectResponseBundleReplayInput(traceText);
+  if (bundleReplay.valid) {
+    renderResponseBundleWorkflow(bundleReplay.bundle);
+    return;
+  }
+
+  if (shouldRenderResponseBundleError(bundleReplay, traceText)) {
+    renderResponseBundleError(bundleReplay);
     return;
   }
 
@@ -337,6 +352,38 @@ function renderPortfolioWorkflow(input) {
   mergeExportValue.textContent = merge.exportText || 'No merged export available yet.';
 }
 
+function renderResponseBundleWorkflow(bundle) {
+  renderDatasetReplayWorkflow(bundle.dataset);
+
+  const responseOwnerCount = bundle.dataset.responseQueue?.length ?? 0;
+  const mergedCaseCount = bundle.dataset.cases?.length ?? bundle.dataset.summary?.mergedCaseCount ?? 0;
+
+  excavationValue.textContent = `Saved response bundle replay: ${bundle.summary.fileCount} files, ${bundle.dataset.summary.packCount} packs, ${bundle.dataset.summary.runnablePackCount} runnable`;
+  runtimeValue.textContent = 'response bundle replay';
+  headlineValue.textContent = 'Stack Sleuth Response Bundle Replay';
+  culpritValue.textContent = 'Saved response bundle artifact';
+  confidenceValue.textContent = 'replay';
+  tagsValue.textContent = 'response-bundle-replay, saved-artifact';
+  signatureValue.textContent = `${bundle.kind}@${bundle.sourceVersion}`;
+  summaryValue.textContent = 'Response Bundle replay reuses preserved bundle and dataset fields only. It does not recover raw traces, support frames, or blast radius detail.';
+  blastRadiusValue.textContent = 'Saved response bundles preserve bundle inventory plus embedded dataset state. They do not recover raw traces, support frames, or culprit-level blast radius detail.';
+  digestGroupsValue.replaceChildren(...buildListItems(buildResponseBundleInventoryItems(bundle.manifest?.files)));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Response Bundle replay does not preserve support frames. Reopen the original traces or portfolio input if you need nearby frame context.'
+  ]));
+  checklistValue.replaceChildren(...buildListItems([
+    'Saved-artifact note: response bundle replay uses preserved bundle and dataset fields only.',
+    'Route the preserved response queue first so recalled owners see the replayed incident memory quickly.',
+    'Reopen the original portfolio or traces if you need culprit-level evidence beyond the saved artifact.',
+  ]));
+
+  portfolioSummaryValue.textContent = `Response bundle replay restored ${responseOwnerCount} owner-routed entr${responseOwnerCount === 1 ? 'y' : 'ies'} and ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'} from the portable saved bundle.`;
+  portfolioPackCountValue.textContent = `${bundle.dataset.summary.runnablePackCount} / ${bundle.dataset.summary.packCount}`;
+  portfolioPriorityValue.replaceChildren(...buildListItems(buildResponseBundleInventoryItems(bundle.manifest?.files)));
+  datasetSummaryValue.textContent = 'Saved bundle replay is using the portable response bundle artifact directly, with the embedded Casebook Dataset preserved for replay.';
+  caption.textContent = `Response bundle replay restored ${bundle.summary.fileCount} saved bundle file${bundle.summary.fileCount === 1 ? '' : 's'}.`;
+}
+
 function renderDatasetReplayWorkflow(report) {
   resetCasebookState();
   resetRegressionState();
@@ -395,6 +442,39 @@ function renderDatasetReplayWorkflow(report) {
       : ['No saved merge conflicts were preserved in this dataset artifact.']
   ));
   mergeExportValue.textContent = report.exportText || 'No merged Casebook export was preserved in this saved artifact.';
+}
+
+function renderResponseBundleError(replay) {
+  resetPortfolioState();
+  resetForgeState();
+  resetDatasetState();
+  resetMergeState();
+  resetCasebookState();
+  resetRegressionState();
+  resetTimelineState();
+
+  const details = describeResponseBundleReplayError(replay);
+
+  excavationValue.textContent = 'Saved response bundle replay blocked';
+  runtimeValue.textContent = 'response bundle replay error';
+  headlineValue.textContent = details.headline;
+  culpritValue.textContent = 'Unsupported response bundle artifact';
+  confidenceValue.textContent = '-';
+  tagsValue.textContent = 'response-bundle-replay, error';
+  signatureValue.textContent = 'stack-sleuth-response-bundle';
+  summaryValue.textContent = details.summary;
+  blastRadiusValue.textContent = 'No blast radius details are available because Stack Sleuth stopped before replaying the saved response bundle.';
+  digestGroupsValue.replaceChildren(...buildListItems([
+    'Paste a saved Stack Sleuth response-bundle.json artifact or a saved response bundle directory.'
+  ]));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Response bundle replay errors happen before Stack Sleuth reaches any trace-level call stack.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems([
+    'Recurring hotspots will appear here once Stack Sleuth can replay a supported saved response bundle.'
+  ]));
+  checklistValue.replaceChildren(...buildListItems(details.checklist));
+  caption.textContent = details.caption;
 }
 
 function renderShelfWorkflow(report) {
@@ -1143,6 +1223,23 @@ function loadCasebookExample(example) {
 
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
+  const bundleReplay = inspectResponseBundleReplayInput(traceText);
+
+  if (bundleReplay.valid) {
+    try {
+      await navigator.clipboard.writeText(renderResponseBundleTextSummary(bundleReplay.bundle));
+      caption.textContent = 'Response Bundle replay copied to clipboard.';
+    } catch {
+      caption.textContent = 'Clipboard copy unavailable here, but the Response Bundle replay is ready to copy manually.';
+    }
+    return;
+  }
+
+  if (shouldRenderResponseBundleError(bundleReplay, traceText)) {
+    caption.textContent = describeResponseBundleReplayError(bundleReplay).caption;
+    return;
+  }
+
   const shelfReplay = inspectReplayShelfInput(traceText);
 
   if (shelfReplay.valid) {
@@ -1461,6 +1558,21 @@ function buildPortfolioBlastRadiusSummary(topPack, primaryIncident) {
   return `Top pack ${topPack.label} centers on ${culprit}. ${formatBlastRadiusSummary(blastRadius)}`;
 }
 
+function shouldRenderResponseBundleError(replay, input) {
+  if (!replay || replay.valid) {
+    return false;
+  }
+
+  if (replay.reason === 'unsupported-version' || replay.reason === 'invalid-json' || replay.reason === 'missing-dataset') {
+    return true;
+  }
+
+  return replay.reason === 'not-bundle'
+    && typeof input === 'string'
+    && input.includes('stack-sleuth-response-bundle')
+    && input.trim().startsWith('{');
+}
+
 function shouldRenderShelfError(replay, input) {
   if (replay.reason === 'unsupported-version' || replay.reason === 'invalid-json') {
     return true;
@@ -1493,6 +1605,68 @@ function shouldRenderDatasetReplayError(replay, input) {
     && typeof input === 'string'
     && input.includes('stack-sleuth-casebook-dataset')
     && input.trim().startsWith('{');
+}
+
+function describeResponseBundleReplayError(replay) {
+  if (replay.reason === 'unsupported-version') {
+    const version = replay.parsed?.version ?? 'unknown';
+    const supportedVersions = Array.isArray(replay.supportedVersions) ? replay.supportedVersions.join(', ') : 'unknown';
+    return {
+      headline: `Response Bundle replay uses unsupported version ${version}.`,
+      summary: `Saved response bundle replay uses unsupported version ${version}. Supported versions: ${supportedVersions}. Rebuild the bundle with a compatible Stack Sleuth release or reopen the original portfolio input.`,
+      caption: `Response Bundle replay uses unsupported version ${version}. Supported versions: ${supportedVersions}.`,
+      checklist: [
+        `Rebuild the saved response bundle with a Stack Sleuth version that supports bundle versions ${supportedVersions}.`,
+        'If you still have the original portfolio input, reopen it to regenerate a fresh response bundle artifact.',
+      ],
+    };
+  }
+
+  if (replay.reason === 'wrong-kind') {
+    return {
+      headline: `Response Bundle replay uses unsupported kind ${replay.parsed?.kind ?? 'unknown'}.`,
+      summary: 'This browser replay flow only supports saved Stack Sleuth response bundle artifacts.',
+      caption: `Response Bundle replay uses unsupported kind ${replay.parsed?.kind ?? 'unknown'}.`,
+      checklist: [
+        'Paste a saved Stack Sleuth response-bundle.json artifact instead of another JSON document.',
+        'If the artifact came from another workflow, replay it through the matching Stack Sleuth mode instead.',
+      ],
+    };
+  }
+
+  if (replay.reason === 'invalid-json') {
+    return {
+      headline: 'Response Bundle replay could not parse the saved bundle JSON.',
+      summary: 'The pasted artifact looks like a Stack Sleuth response bundle, but the JSON is malformed. Paste the saved bundle again or reload it from disk before replaying it here.',
+      caption: 'Response Bundle replay could not parse the saved bundle JSON.',
+      checklist: [
+        'Paste the full saved response bundle JSON blob, including the opening and closing braces.',
+        'If the artifact was hand-edited, validate the JSON before replaying it here.',
+      ],
+    };
+  }
+
+  if (replay.reason === 'missing-dataset') {
+    return {
+      headline: 'Response Bundle replay is missing casebook-dataset.json.',
+      summary: 'Saved response bundles must preserve the embedded Casebook Dataset artifact so Stack Sleuth can replay preserved routing and casebook state honestly.',
+      caption: 'Response Bundle replay requires casebook-dataset.json in the saved bundle.',
+      checklist: [
+        'Regenerate the saved bundle so it includes casebook-dataset.json.',
+        'If you only need the saved dataset, replay that artifact directly through Casebook Dataset replay.',
+      ],
+    };
+  }
+
+  return {
+    headline: 'Response Bundle replay requires a saved Stack Sleuth response bundle.',
+    summary: 'Paste a saved Stack Sleuth response-bundle.json artifact to replay preserved bundle inventory and embedded dataset state.',
+    caption: 'Response Bundle replay needs a saved Stack Sleuth response bundle JSON artifact.',
+    checklist: [
+      'Generate a response bundle from a portfolio-shaped workflow first.',
+      'Paste the saved response-bundle.json blob into the shared workspace to replay it here.',
+    ],
+  };
 }
 
 function describeDatasetReplayError(replay) {
@@ -1553,6 +1727,14 @@ function buildShelfInventoryItems(snapshots) {
   return snapshots.map((snapshot) => snapshot.status === 'valid'
     ? `${snapshot.filename}: valid saved snapshot ${snapshot.label}`
     : `${snapshot.filename}: ${snapshot.reason}`);
+}
+
+function buildResponseBundleInventoryItems(fileNames) {
+  if (!fileNames?.length) {
+    return ['Saved bundle inventory is not available in this response bundle artifact.'];
+  }
+
+  return fileNames.map((name) => `saved bundle file: ${name}`);
 }
 
 function buildDatasetReplayPackItems(packOrder) {

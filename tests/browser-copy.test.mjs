@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { buildCasebookDataset } from '../src/dataset.js';
+import { analyzeIncidentPortfolio } from '../src/portfolio.js';
+import { buildResponseBundle } from '../src/bundle.js';
 
 const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const stylesCss = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
@@ -144,6 +146,27 @@ const datasetReplayInput = JSON.stringify(buildCasebookDataset(portfolioInput), 
 const unsupportedDatasetReplayInput = JSON.stringify({
   ...buildCasebookDataset(portfolioInput),
   version: 99,
+}, null, 2);
+const responseBundleReplayInput = buildResponseBundle({
+  report: analyzeIncidentPortfolio(portfolioInput),
+  sourceMode: 'portfolio',
+  sourceLabel: 'browser replay fixture',
+}).files['response-bundle.json'];
+const unsupportedResponseBundleReplayInput = JSON.stringify({
+  kind: 'stack-sleuth-response-bundle',
+  version: 99,
+  manifest: {
+    kind: 'stack-sleuth-response-bundle',
+    version: 99,
+    generatedAt: '2026-05-01T00:00:00.000Z',
+    source: { mode: 'portfolio', label: 'browser replay fixture' },
+    summary: { headline: 'unsupported bundle' },
+    files: ['manifest.json', 'casebook-dataset.json'],
+  },
+  artifacts: {
+    'manifest.json': '{"kind":"stack-sleuth-response-bundle"}',
+    'casebook-dataset.json': datasetReplayInput,
+  },
 }, null, 2);
 const chronicleInput = [
   '=== release-a ===',
@@ -623,6 +646,42 @@ test('browser dataset replay copy support writes the saved dataset summary to th
   }
 });
 
+test('browser response bundle replay detection runs before dataset replay and renders a saved bundle surface', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', responseBundleReplayInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'response bundle replay');
+    assert.match(harness.get('headline-value').textContent, /Stack Sleuth Response Bundle Replay/i);
+    assert.match(harness.get('summary-value').textContent, /preserved bundle and dataset fields only/i);
+    assert.match(harness.get('portfolio-summary-value').textContent, /Response bundle replay restored 1 owner-routed entr/i);
+    assert.match(harness.get('dataset-summary-value').textContent, /Saved bundle replay is using the portable response bundle artifact directly/i);
+    assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
+    assert.match(harness.get('portfolio-priority-value').children[0].textContent, /saved bundle file: manifest\.json/i);
+    assert.match(harness.get('example-caption').textContent, /response bundle/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser response bundle replay copy support writes the saved bundle summary to the clipboard', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', responseBundleReplayInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Stack Sleuth Response Bundle Replay/);
+    assert.match(harness.clipboard.text, /Source workflow: portfolio \(browser replay fixture\)/i);
+    assert.match(harness.clipboard.text, /Saved-artifact note:/i);
+    assert.equal(harness.get('example-caption').textContent, 'Response Bundle replay copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
+});
+
 test('browser Casebook Chronicle example button loads labeled saved datasets and reuses the trend cards', async () => {
   const harness = await loadBrowserHarness();
 
@@ -669,6 +728,22 @@ test('browser dataset replay reports unsupported dataset versions clearly', asyn
     assert.equal(harness.get('runtime-value').textContent, 'dataset replay error');
     assert.match(harness.get('headline-value').textContent, /unsupported version 99/i);
     assert.match(harness.get('summary-value').textContent, /supported version: 1/i);
+    assert.match(harness.get('example-caption').textContent, /unsupported version 99/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser response bundle replay reports unsupported bundle versions clearly', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', unsupportedResponseBundleReplayInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'response bundle replay error');
+    assert.match(harness.get('headline-value').textContent, /unsupported version 99/i);
+    assert.match(harness.get('summary-value').textContent, /Supported versions: 1, 2/i);
     assert.match(harness.get('example-caption').textContent, /unsupported version 99/i);
   } finally {
     harness.restore();

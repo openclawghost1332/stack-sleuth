@@ -204,14 +204,19 @@ test('README documents standalone HTML dossier export and the committed sample a
   assert.match(readme, /phone-friendly|shareable|standalone/i);
 });
 
-test('README documents response bundle export and the committed sample bundle', () => {
+test('README documents response bundle export and replay workflows, plus the committed sample bundle', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.match(readme, /response bundle/i);
   assert.match(readme, /--bundle/);
+  assert.match(readme, /--replay-bundle/);
   assert.match(readme, /sample\/response-bundle/i);
+  assert.match(readme, /response-bundle\.json/i);
   assert.match(readme, /manifest\.json/i);
   assert.match(readme, /incident-dossier\.html/i);
   assert.match(readme, /casebook-dataset\.json/i);
+  assert.match(readme, /paste a saved response-bundle\.json|browser replay via pasted JSON/i);
+  assert.match(readme, /legacy bundle directory compatibility|legacy version-1 bundle directory/i);
+  assert.match(readme, /does not recover raw traces/i);
 });
 
 test('sample portfolio dossier artifact is committed as standalone HTML', () => {
@@ -222,14 +227,21 @@ test('sample portfolio dossier artifact is committed as standalone HTML', () => 
   assert.match(sample, /Handoff Briefing export/i);
 });
 
-test('sample response bundle artifact is committed with manifest and dossier files', () => {
+test('sample response bundle artifact is committed with manifest, replay json, and dossier files', () => {
   const manifest = JSON.parse(fs.readFileSync(new URL('../sample/response-bundle/manifest.json', import.meta.url), 'utf8'));
   const dossier = fs.readFileSync(new URL('../sample/response-bundle/incident-dossier.html', import.meta.url), 'utf8');
   const handoff = fs.readFileSync(new URL('../sample/response-bundle/handoff.md', import.meta.url), 'utf8');
+  const replay = JSON.parse(fs.readFileSync(new URL('../sample/response-bundle/response-bundle.json', import.meta.url), 'utf8'));
 
   assert.equal(manifest.kind, 'stack-sleuth-response-bundle');
-  assert.equal(manifest.version, 1);
+  assert.equal(manifest.version, 2);
   assert.match(dossier, /<!doctype html>/i);
   assert.match(handoff, /Stack Sleuth Handoff Briefing/i);
   assert.match(manifest.files.join('\n'), /casebook-dataset\.json/);
+  assert.match(manifest.files.join('\n'), /response-bundle\.json/);
+  assert.equal(replay.kind, 'stack-sleuth-response-bundle');
+  assert.equal(replay.version, 2);
+  assert.equal(replay.manifest.version, 2);
+  assert.equal(typeof replay.artifacts['casebook-dataset.json'], 'string');
+  assert.equal(replay.artifacts['response-bundle.json'], undefined);
 });

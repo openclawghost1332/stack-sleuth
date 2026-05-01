@@ -6,6 +6,7 @@ import { analyzeCasebookChronicle, inspectCasebookChronicleInput } from '../src/
 import { analyzeIncidentPack } from '../src/briefing.js';
 import { inspectReplayDatasetInput } from '../src/dataset.js';
 import { inspectReplayShelfInput } from '../src/shelf.js';
+import { inspectResponseBundleReplayInput } from '../src/bundle-replay.js';
 import { analyzeCasebookForge } from '../src/forge.js';
 import { analyzeIncidentPortfolio } from '../src/portfolio.js';
 import { examples } from '../src/examples.js';
@@ -32,6 +33,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.ok(labels.includes('Portfolio radar'));
   assert.ok(labels.includes('Casebook Forge'));
   assert.ok(labels.includes('Casebook Dataset'));
+  assert.ok(labels.includes('Response Bundle replay'));
   assert.ok(labels.includes('Casebook Chronicle'));
   assert.ok(labels.includes('Casebook Shelf'));
 
@@ -146,6 +148,19 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(replay.dataset.summary.ownerCount, 1);
   assert.equal(replay.dataset.gate.verdict, 'hold');
   assert.match(replay.dataset.exportText, /=== profile-js-generic-runtime-error ===/);
+
+  const responseBundleExample = examples.find((item) => item.label === 'Response Bundle replay');
+  assert.match(responseBundleExample.caption, /response bundle|replay|preserved bundle and dataset fields/i);
+  assert.equal(typeof responseBundleExample.bundle, 'string');
+  assert.match(responseBundleExample.bundle, /"kind": "stack-sleuth-response-bundle"/i);
+
+  const bundleReplay = inspectResponseBundleReplayInput(responseBundleExample.bundle);
+  assert.equal(bundleReplay.valid, true);
+  assert.equal(bundleReplay.bundle.version, 2);
+  assert.equal(bundleReplay.bundle.sourceVersion, 2);
+  assert.equal(bundleReplay.bundle.manifest.version, 2);
+  assert.match(bundleReplay.bundle.manifest.files.join('\n'), /response-bundle\.json/);
+  assert.equal(bundleReplay.bundle.dataset.gate.verdict, 'hold');
 
   const chronicleExample = examples.find((item) => item.label === 'Casebook Chronicle');
   assert.match(chronicleExample.caption, /saved datasets|release windows|drift|chronicle/i);

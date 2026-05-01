@@ -66,6 +66,11 @@ import {
   renderDatasetTextSummary,
 } from '../src/dataset.js';
 import {
+  inspectResponseBundleReplayInput,
+  renderResponseBundleMarkdownSummary,
+  renderResponseBundleTextSummary,
+} from '../src/bundle-replay.js';
+import {
   buildCasebookShelf,
   describeShelfInputError,
   inspectReplayShelfInput,
@@ -107,6 +112,7 @@ const timelineArgumentError = validateOptionValue(args, '--timeline');
 const chronicleArgumentError = validateOptionValue(args, '--chronicle');
 const datasetArgumentError = validateOptionValue(args, '--dataset');
 const replayDatasetArgumentError = validateOptionValue(args, '--replay-dataset');
+const replayBundleArgumentError = validateOptionValue(args, '--replay-bundle');
 const shelfArgumentError = validateOptionValue(args, '--shelf');
 const replayShelfArgumentError = validateOptionValue(args, '--replay-shelf');
 const historyArgumentError = validateOptionValue(args, '--history');
@@ -126,6 +132,7 @@ const timelinePath = readOptionValue(args, '--timeline');
 const chroniclePath = readOptionValue(args, '--chronicle');
 const datasetPath = readOptionValue(args, '--dataset');
 const replayDatasetPath = readOptionValue(args, '--replay-dataset');
+const replayBundlePath = readOptionValue(args, '--replay-bundle');
 const shelfPath = readOptionValue(args, '--shelf');
 const replayShelfPath = readOptionValue(args, '--replay-shelf');
 const historyPath = readOptionValue(args, '--history');
@@ -146,6 +153,7 @@ const workflowArgumentError = validateWorkflowArguments({
   chroniclePath,
   datasetPath,
   replayDatasetPath,
+  replayBundlePath,
   shelfPath,
   replayShelfPath,
   historyPath,
@@ -188,6 +196,7 @@ const filePath = args.find((arg, index) => {
     '--chronicle',
     '--dataset',
     '--replay-dataset',
+    '--replay-bundle',
     '--shelf',
     '--replay-shelf',
     '--history',
@@ -244,6 +253,10 @@ if (datasetArgumentError) {
 
 if (replayDatasetArgumentError) {
   fail(replayDatasetArgumentError);
+}
+
+if (replayBundleArgumentError) {
+  fail(replayBundleArgumentError);
 }
 
 if (shelfArgumentError) {
@@ -485,6 +498,34 @@ try {
     process.exit(0);
   }
 
+  if (replayBundlePath) {
+    const replayInput = readReplayBundleInput(replayBundlePath);
+    const replay = inspectResponseBundleReplayInput(replayInput);
+
+    if (!replay.valid && replay.reason === 'wrong-kind') {
+      fail(`Response Bundle replay uses unsupported kind: ${replay.parsed?.kind ?? 'unknown'}.`);
+    }
+
+    if (!replay.valid && replay.reason === 'unsupported-version') {
+      fail(`Response Bundle replay uses unsupported version ${replay.parsed?.version ?? 'unknown'}. Supported versions: ${(replay.supportedVersions ?? []).join(', ')}.`);
+    }
+
+    if (!replay.valid && replay.reason === 'invalid-json') {
+      fail('Response Bundle replay could not parse the saved bundle JSON.');
+    }
+
+    if (!replay.valid && replay.reason === 'missing-dataset') {
+      fail('Response Bundle replay requires casebook-dataset.json in saved bundle directories.');
+    }
+
+    if (!replay.valid) {
+      fail('Response Bundle replay requires a saved Stack Sleuth response bundle JSON or directory.');
+    }
+
+    writeOutput(replay.bundle, mode, renderResponseBundleTextSummary, renderResponseBundleMarkdownSummary);
+    process.exit(0);
+  }
+
   if (shelfPath) {
     const report = buildCasebookShelf(readShelfDirectoryEntries(shelfPath));
     if (!report.summary.validSnapshotCount) {
@@ -704,6 +745,10 @@ try {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read dataset replay input: ${error.message}`);
   }
 
+  if (replayBundlePath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read response bundle replay input: ${error.message}`);
+  }
+
   if (shelfPath) {
     fail(error.message.startsWith('Could not read') ? error.message : error.message);
   }
@@ -779,7 +824,7 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, datasetPath, replayDatasetPath, shelfPath, replayShelfPath, historyPath, workspacePath, capsulePath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, datasetPath, replayDatasetPath, replayBundlePath, shelfPath, replayShelfPath, historyPath, workspacePath, capsulePath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     capsulePath ? 'capsule' : null,
@@ -794,13 +839,14 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
     chroniclePath ? 'chronicle' : null,
     datasetPath ? 'dataset' : null,
     replayDatasetPath ? 'replay-dataset' : null,
+    replayBundlePath ? 'replay-bundle' : null,
     shelfPath ? 'shelf' : null,
     replayShelfPath ? 'replay-shelf' : null,
     baselinePath || candidatePath ? 'compare' : null,
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: capsule, forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, shelf, replay-shelf, or compare.';
+    return 'Choose one workflow mode at a time: capsule, forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, replay-bundle, shelf, replay-shelf, or compare.';
   }
 
   return null;
@@ -830,6 +876,70 @@ function readNotebookInput(targetPath) {
   } catch (error) {
     throw new Error(`Could not read notebook input file: ${error.message}`);
   }
+}
+
+function readReplayBundleInput(targetPath) {
+  if (targetPath === '-') {
+    return fs.readFileSync(0, 'utf8');
+  }
+
+  let stats;
+  try {
+    stats = fs.statSync(targetPath);
+  } catch (error) {
+    throw new Error(`Could not read response bundle replay input: ${error.message}`);
+  }
+
+  if (stats.isDirectory()) {
+    return readReplayBundleDirectory(targetPath);
+  }
+
+  try {
+    return fs.readFileSync(targetPath, 'utf8');
+  } catch (error) {
+    throw new Error(`Could not read response bundle replay input: ${error.message}`);
+  }
+}
+
+function readReplayBundleDirectory(targetPath) {
+  let entries;
+  try {
+    entries = fs.readdirSync(targetPath, { withFileTypes: true });
+  } catch (error) {
+    throw new Error(`Could not read response bundle replay input: ${error.message}`);
+  }
+
+  const files = {};
+  for (const entry of entries) {
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    const filePath = `${targetPath}/${entry.name}`;
+    files[entry.name] = fs.readFileSync(filePath, 'utf8');
+  }
+
+  if (typeof files['response-bundle.json'] === 'string') {
+    return files['response-bundle.json'];
+  }
+
+  if (typeof files['manifest.json'] !== 'string') {
+    throw new Error('Could not read response bundle replay input: saved bundle directory requires manifest.json.');
+  }
+
+  let manifest;
+  try {
+    manifest = JSON.parse(files['manifest.json']);
+  } catch {
+    return files['manifest.json'];
+  }
+
+  return {
+    kind: manifest.kind,
+    version: manifest.version,
+    manifest,
+    files,
+  };
 }
 
 function readShelfDirectoryEntries(targetPath) {

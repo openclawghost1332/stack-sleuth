@@ -219,6 +219,16 @@ test('README documents response bundle export and replay workflows, plus the com
   assert.match(readme, /does not recover raw traces/i);
 });
 
+test('README documents response bundle chronicle workflows for CLI and browser', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Response Bundle Chronicle/i);
+  assert.match(readme, /--bundle-chronicle/);
+  assert.match(readme, /saved response bundle|response-bundle\.json/i);
+  assert.match(readme, /=== release-a ===/i);
+  assert.match(readme, /Load Response Bundle Chronicle example|paste the chronicle bundle/i);
+  assert.match(readme, /bundle inventory|source workflow|release gate/i);
+});
+
 test('sample portfolio dossier artifact is committed as standalone HTML', () => {
   const sample = fs.readFileSync(new URL('../sample/portfolio-dossier.html', import.meta.url), 'utf8');
   assert.match(sample, /<!doctype html>/i);

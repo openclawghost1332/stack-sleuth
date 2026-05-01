@@ -205,6 +205,45 @@ const chronicleInput = [
   }), null, 2),
 ].join('\n');
 
+const bundleChronicleInput = [
+  '=== release-a ===',
+  buildChronicleBundle({
+    sourceMode: 'portfolio',
+    sourceLabel: 'release-a-fixture',
+    dataset: buildChronicleDataset({
+      packCount: 2,
+      owners: [{ owner: 'web-platform', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+    }),
+    files: ['manifest.json', 'incident-dossier.html', 'portfolio-summary.md', 'handoff.md', 'casebook.txt', 'casebook-dataset.json', 'merge-review.md'],
+  }),
+  '',
+  '=== release-b ===',
+  buildChronicleBundle({
+    sourceMode: 'portfolio',
+    sourceLabel: 'release-b-fixture',
+    dataset: buildChronicleDataset({
+      packCount: 3,
+      owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    }),
+  }),
+  '',
+  '=== release-c ===',
+  buildChronicleBundle({
+    sourceMode: 'workspace',
+    sourceLabel: 'release-c-fixture',
+    dataset: buildChronicleDataset({
+      packCount: 4,
+      owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
+      hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    }),
+  }),
+].join('\n');
+
 const shelfSnapshotReleaseA = JSON.stringify(buildChronicleDataset({
   packCount: 2,
   owners: [{ owner: 'web-platform', packCount: 1 }],
@@ -675,6 +714,16 @@ test('CLI reads labeled saved datasets with --chronicle and prints a chronicle s
   assert.match(result.stdout, /Owner trends/);
 });
 
+test('CLI reads labeled saved response bundles with --bundle-chronicle and prints a chronicle summary', () => {
+  const result = runCli(['--bundle-chronicle', '-'], { input: bundleChronicleInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Response Bundle Chronicle/);
+  assert.match(result.stdout, /Release gate: hold/i);
+  assert.match(result.stdout, /Latest source workflow: workspace/i);
+  assert.match(result.stdout, /Bundle inventory trends/i);
+});
+
 test('CLI chronicle mode supports --json and --markdown output', () => {
   const jsonResult = runCli(['--chronicle', '-', '--json'], { input: chronicleInput });
   assert.equal(jsonResult.status, 0, jsonResult.stderr);
@@ -689,6 +738,23 @@ test('CLI chronicle mode supports --json and --markdown output', () => {
   assert.equal(markdownResult.status, 0, markdownResult.stderr);
   assert.match(markdownResult.stdout, /^# Stack Sleuth Casebook Chronicle/m);
   assert.match(markdownResult.stdout, /## Owner trends/);
+});
+
+test('CLI bundle chronicle mode supports --json and --markdown output', () => {
+  const jsonResult = runCli(['--bundle-chronicle', '-', '--json'], { input: bundleChronicleInput });
+  assert.equal(jsonResult.status, 0, jsonResult.stderr);
+  const parsed = JSON.parse(jsonResult.stdout);
+  assert.equal(parsed.summary.snapshotCount, 3);
+  assert.equal(parsed.summary.latestLabel, 'release-c');
+  assert.equal(parsed.summary.latestGateVerdict, 'hold');
+  assert.equal(parsed.summary.latestSourceMode, 'workspace');
+  assert.equal(parsed.summary.gateDrift.direction, 'regressed');
+  assert.ok(parsed.inventoryTrends.length >= 1);
+
+  const markdownResult = runCli(['--bundle-chronicle', '-', '--markdown'], { input: bundleChronicleInput });
+  assert.equal(markdownResult.status, 0, markdownResult.stderr);
+  assert.match(markdownResult.stdout, /^# Stack Sleuth Response Bundle Chronicle/m);
+  assert.match(markdownResult.stdout, /## Bundle inventory trends/);
 });
 
 test('CLI shelf mode builds a portable shelf from top-level json files and preserves invalid snapshot warnings', async () => {
@@ -789,6 +855,21 @@ test('CLI chronicle mode reports unsupported dataset versions clearly', () => {
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Casebook Chronicle snapshot release-a uses unsupported dataset version 99\. Supported version: 1\./i);
+});
+
+test('CLI bundle chronicle mode reports unsupported bundle versions clearly', () => {
+  const invalidChronicleInput = [
+    '=== release-a ===',
+    buildChronicleBundle({ version: 99 }),
+    '',
+    '=== release-b ===',
+    buildChronicleBundle(),
+  ].join('\n');
+
+  const result = runCli(['--bundle-chronicle', '-'], { input: invalidChronicleInput });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Response Bundle Chronicle snapshot release-a uses unsupported bundle version 99\. Supported versions: 1, 2\./i);
 });
 
 test('CLI Casebook Radar accepts a saved dataset JSON file through --history', async () => {
@@ -1460,4 +1541,33 @@ function buildChronicleDataset({
     })),
     exportText: '=== saved-case ===\nTypeError: replay me',
   };
+}
+
+function buildChronicleBundle({
+  dataset = buildChronicleDataset({ packCount: 2 }),
+  sourceMode = 'portfolio',
+  sourceLabel = 'bundle chronicle fixture',
+  files = null,
+  version = 2,
+} = {}) {
+  const baseBundle = JSON.parse(buildResponseBundle({
+    report: analyzeIncidentPortfolio(portfolioInput),
+    sourceMode,
+    sourceLabel,
+  }).files['response-bundle.json']);
+
+  baseBundle.version = version;
+  baseBundle.manifest.version = version === 1 ? 1 : 2;
+  baseBundle.manifest.source = { mode: sourceMode, label: sourceLabel };
+  baseBundle.manifest.summary.headline = dataset.summary.headline;
+  baseBundle.manifest.summary.releaseGateVerdict = dataset.gate.verdict;
+  baseBundle.manifest.summary.packCount = dataset.summary.packCount;
+  baseBundle.manifest.summary.runnablePackCount = dataset.summary.runnablePackCount;
+  baseBundle.manifest.summary.ownerCount = dataset.summary.ownerCount;
+  baseBundle.manifest.summary.recurringHotspotCount = dataset.recurringHotspots.length;
+  baseBundle.manifest.summary.recurringIncidentCount = dataset.recurringIncidents.length;
+  baseBundle.manifest.files = files ?? baseBundle.manifest.files;
+  baseBundle.artifacts['casebook-dataset.json'] = JSON.stringify(dataset, null, 2);
+
+  return JSON.stringify(baseBundle, null, 2);
 }

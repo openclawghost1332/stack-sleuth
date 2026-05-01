@@ -20,6 +20,7 @@ Use the built-in example buttons to compare the main workflows:
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
 - Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, while preserving a deterministic release gate verdict for later replay in the CLI or browser
 - Response Bundle replay opening a self-contained `response-bundle.json` artifact or saved bundle directory to restore preserved bundle inventory plus embedded dataset state in the CLI or browser
+- Response Bundle Chronicle replaying several labeled `response-bundle.json` snapshots at once to show release gate drift, source workflow changes, owner load, recurring hotspot drift, casebook movement, and bundle inventory drift across release windows
 - Casebook Chronicle replaying several saved dataset snapshots at once to show release gate drift, owner load, recurring hotspot drift, and casebook movement across release windows
 - Casebook Shelf scanning top-level .json files from a saved dataset directory, preserving invalid snapshots as warning entries, and replaying the latest valid library state plus release gate and chronicle drift without claiming raw trace recovery
 - Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
@@ -155,6 +156,34 @@ cat ./sample/response-bundle/response-bundle.json | node ./bin/stack-sleuth.js -
 ```
 
 In the browser, paste a saved response-bundle.json blob into the shared workspace and press **Explain trace(s)** or **Copy result** to replay the portable artifact directly.
+
+## Response Bundle Chronicle
+
+Response Bundle Chronicle is the saved-artifact longitudinal view for response bundles. Feed Stack Sleuth several labeled `response-bundle.json` snapshots and it will compare the preserved bundle inventory plus embedded dataset state across releases.
+
+### Replay labeled saved response bundles from the CLI
+
+```bash
+node ./bin/stack-sleuth.js --bundle-chronicle ./sample/response-bundle-chronicle.txt
+```
+
+```text
+=== release-a ===
+{ "kind": "stack-sleuth-response-bundle", "version": 2, ... }
+
+=== release-b ===
+{ "kind": "stack-sleuth-response-bundle", "version": 2, ... }
+```
+
+You can also pipe the labeled chronicle through stdin:
+
+```bash
+cat ./sample/response-bundle-chronicle.txt | node ./bin/stack-sleuth.js --bundle-chronicle - --markdown
+```
+
+In the browser, paste the same labeled snapshots and use **Load Response Bundle Chronicle example**, **Explain trace(s)**, or **Copy result**.
+
+Response Bundle Chronicle stays honest about saved-artifact limits. It compares release gate movement, source workflow drift, owner load, recurring hotspots, casebook movement, and bundle inventory changes from preserved bundle fields only. It does not recover raw traces, support frames, or blast radius detail.
 
 ## Notebook ingest
 

@@ -646,6 +646,22 @@ test('CLI replays a saved dataset in json mode', () => {
   assert.equal(parsed.gate.verdict, 'hold');
 });
 
+test('CLI dataset json preserves full coordination state for saved artifact replay', () => {
+  const result = runCli(['--dataset', '-', '--json'], { input: portfolioInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.kind, 'stack-sleuth-casebook-dataset');
+  assert.ok(Array.isArray(parsed.routingGaps));
+  assert.ok(parsed.routingGaps.length >= 1);
+  assert.ok(Array.isArray(parsed.runbookGaps));
+  assert.ok(parsed.runbookGaps.length >= 1);
+  assert.equal(parsed.board?.kind, 'stack-sleuth-action-board');
+  assert.ok(parsed.board?.summary?.totalCards >= 4);
+  assert.ok(Array.isArray(parsed.steward?.actions));
+  assert.ok(parsed.steward?.summary?.actionCount >= 1);
+});
+
 test('CLI builds an Action Board directly from a saved response bundle replay artifact', () => {
   const responseBundle = JSON.parse(buildResponseBundle({
     report: analyzeIncidentPortfolio(portfolioInput),
@@ -661,6 +677,20 @@ test('CLI builds an Action Board directly from a saved response bundle replay ar
   assert.match(result.stdout, /^# Stack Sleuth Action Board/m);
   assert.match(result.stdout, /saved response bundle/i);
   assert.match(result.stdout, /## Steward backlog/m);
+});
+
+test('CLI builds an Action Board directly from a saved response bundle directory path', async () => {
+  const outputDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-board-bundle-dir-'));
+  const writeResult = runCli(['--portfolio', '-', '--bundle', outputDir], { input: portfolioInput });
+  assert.equal(writeResult.status, 0, writeResult.stderr);
+
+  const result = runCli(['--board', outputDir, '--json']);
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.kind, 'stack-sleuth-action-board');
+  assert.equal(parsed.summary.sourceKind, 'bundle');
+  assert.ok(parsed.summary.totalCards >= 4);
 });
 
 test('CLI replays a self-contained response bundle json from stdin', () => {

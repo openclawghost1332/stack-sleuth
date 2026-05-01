@@ -455,7 +455,11 @@ node ./bin/stack-sleuth.js --board ./portfolio.txt
 cat ./sample/response-bundle/response-bundle.json | node ./bin/stack-sleuth.js --board - --markdown
 ```
 
-Saved artifacts preserve Action Board routing gaps and runbook gaps when they were exported from newer schemas. Older datasets still replay, but Stack Sleuth calls out replay limitations explicitly instead of pretending those lanes were preserved.
+```bash
+node ./bin/stack-sleuth.js --board ./sample/response-bundle --json
+```
+
+Saved artifacts preserve Action Board routing gaps, runbook gaps, steward backlog detail, and the rebuilt board structure when they were exported from newer schemas. You can point `--board` at either a saved `response-bundle.json` replay artifact or a saved response bundle directory directly. Older datasets still replay, but Stack Sleuth calls out replay limitations explicitly instead of pretending those lanes were preserved.
 
 ## Handoff Briefing
 

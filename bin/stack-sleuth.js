@@ -490,7 +490,7 @@ try {
   }
 
   if (boardPath) {
-    const boardInput = boardPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(boardPath, 'action board');
+    const boardInput = readBoardInput(boardPath);
     const board = buildActionBoard(boardInput);
 
     if (board.summary.sourceKind === 'unknown') {
@@ -929,6 +929,33 @@ function readNamedInput(targetPath, label) {
   }
 }
 
+function readBoardInput(targetPath) {
+  if (targetPath === '-') {
+    return fs.readFileSync(0, 'utf8');
+  }
+
+  let stats;
+  try {
+    stats = fs.statSync(targetPath);
+  } catch (error) {
+    throw new Error(`Could not read action board input: ${error.message}`);
+  }
+
+  if (stats.isDirectory()) {
+    try {
+      return readReplayBundleDirectory(targetPath);
+    } catch (error) {
+      throw new Error(`Could not read action board input: ${error.message}`);
+    }
+  }
+
+  try {
+    return fs.readFileSync(targetPath, 'utf8');
+  } catch (error) {
+    throw new Error(`Could not read action board input: ${error.message}`);
+  }
+}
+
 function readNotebookInput(targetPath) {
   try {
     return fs.readFileSync(targetPath, 'utf8');
@@ -1114,6 +1141,8 @@ function toSerializablePayload(payload) {
         packOrder: payload.portfolio?.packOrder ?? [],
       },
       responseQueue: payload.responseQueue ?? [],
+      routingGaps: payload.routingGaps ?? [],
+      runbookGaps: payload.runbookGaps ?? [],
       recurringIncidents: payload.recurringIncidents ?? [],
       recurringHotspots: payload.recurringHotspots ?? [],
       cases: (payload.cases ?? []).map((entry) => ({
@@ -1123,6 +1152,8 @@ function toSerializablePayload(payload) {
         metadata: entry.metadata,
         conflicts: entry.conflicts,
       })),
+      steward: payload.steward ?? null,
+      board: payload.board ? toSerializablePayload(payload.board) : null,
       exportText: payload.exportText,
     };
   }

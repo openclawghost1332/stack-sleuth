@@ -153,6 +153,15 @@ test('README documents Casebook Forge workflows for browser and CLI reuse', () =
   assert.match(readme, /reusable casebook|incident memory/i);
 });
 
+test('README documents Action Board workflows across live portfolios and saved response bundle artifacts', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Action Board/i);
+  assert.match(readme, /--board/);
+  assert.match(readme, /response-bundle\.json/i);
+  assert.match(readme, /saved response bundle directory|response bundle directory/i);
+  assert.match(readme, /routing gaps|runbook gaps/i);
+});
+
 test('README documents Casebook Dataset workflows for browser and CLI handoff', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.match(readme, /Casebook Dataset/i);

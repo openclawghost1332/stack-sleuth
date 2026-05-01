@@ -5,7 +5,7 @@ import { buildCasebookDataset } from './dataset.js';
 import { analyzeCasebookMerge, renderCasebookMergeMarkdownSummary } from './merge.js';
 
 export const RESPONSE_BUNDLE_KIND = 'stack-sleuth-response-bundle';
-export const RESPONSE_BUNDLE_VERSION = 1;
+export const RESPONSE_BUNDLE_VERSION = 2;
 
 const RESPONSE_BUNDLE_FILENAMES = [
   'manifest.json',
@@ -15,6 +15,7 @@ const RESPONSE_BUNDLE_FILENAMES = [
   'casebook.txt',
   'casebook-dataset.json',
   'merge-review.md',
+  'response-bundle.json',
 ];
 
 export function buildResponseBundle({ report, sourceMode = 'portfolio', sourceLabel = null } = {}) {
@@ -47,7 +48,7 @@ export function buildResponseBundle({ report, sourceMode = 'portfolio', sourceLa
     files: RESPONSE_BUNDLE_FILENAMES,
   };
 
-  const files = {
+  const artifacts = {
     'manifest.json': `${JSON.stringify(manifest, null, 2)}\n`,
     'incident-dossier.html': renderIncidentDossierHtml({
       mode: 'portfolio',
@@ -59,6 +60,16 @@ export function buildResponseBundle({ report, sourceMode = 'portfolio', sourceLa
     'casebook.txt': dataset.exportText,
     'casebook-dataset.json': `${JSON.stringify(dataset, null, 2)}\n`,
     'merge-review.md': renderCasebookMergeMarkdownSummary(merge),
+  };
+
+  const files = {
+    ...artifacts,
+    'response-bundle.json': `${JSON.stringify({
+      kind: RESPONSE_BUNDLE_KIND,
+      version: RESPONSE_BUNDLE_VERSION,
+      manifest,
+      artifacts,
+    }, null, 2)}\n`,
   };
 
   return {

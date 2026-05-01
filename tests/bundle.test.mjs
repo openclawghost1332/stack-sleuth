@@ -90,11 +90,21 @@ test('buildResponseBundle composes a deterministic portfolio response bundle', (
     'casebook.txt',
     'casebook-dataset.json',
     'merge-review.md',
+    'response-bundle.json',
   ];
 
   assert.deepEqual(Object.keys(bundle.files), expectedFiles);
   assert.deepEqual(bundle.manifest.files, expectedFiles);
   assert.deepEqual(JSON.parse(bundle.files['manifest.json']), bundle.manifest);
+
+  const replayPayload = JSON.parse(bundle.files['response-bundle.json']);
+  assert.equal(replayPayload.kind, RESPONSE_BUNDLE_KIND);
+  assert.equal(replayPayload.version, RESPONSE_BUNDLE_VERSION);
+  assert.deepEqual(replayPayload.manifest, bundle.manifest);
+  assert.deepEqual(Object.keys(replayPayload.artifacts), expectedFiles.filter((name) => name !== 'response-bundle.json'));
+  assert.equal(replayPayload.artifacts['response-bundle.json'], undefined);
+  assert.equal(replayPayload.artifacts['manifest.json'], bundle.files['manifest.json']);
+  assert.equal(replayPayload.artifacts['casebook-dataset.json'], bundle.files['casebook-dataset.json']);
 
   assert.match(bundle.files['incident-dossier.html'], /<!doctype html>/i);
   assert.match(bundle.files['incident-dossier.html'], /Stack Sleuth Incident Dossier/);

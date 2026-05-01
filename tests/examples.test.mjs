@@ -5,6 +5,7 @@ import { analyzeCasebook } from '../src/casebook.js';
 import { analyzeCasebookChronicle, inspectCasebookChronicleInput } from '../src/chronicle.js';
 import { analyzeIncidentPack } from '../src/briefing.js';
 import { inspectReplayDatasetInput } from '../src/dataset.js';
+import { inspectReplayShelfInput } from '../src/shelf.js';
 import { analyzeCasebookForge } from '../src/forge.js';
 import { analyzeIncidentPortfolio } from '../src/portfolio.js';
 import { examples } from '../src/examples.js';
@@ -32,6 +33,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.ok(labels.includes('Casebook Forge'));
   assert.ok(labels.includes('Casebook Dataset'));
   assert.ok(labels.includes('Casebook Chronicle'));
+  assert.ok(labels.includes('Casebook Shelf'));
 
   const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
   assert.match(rawLogExample.caption, /raw log|excavat/i);
@@ -157,6 +159,17 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(chronicle.summary.latestLabel, 'release-c');
   assert.ok(chronicle.ownerTrends.length >= 1);
   assert.ok(chronicle.hotspotTrends.length >= 1);
+
+  const shelfExample = examples.find((item) => item.label === 'Casebook Shelf');
+  assert.match(shelfExample.caption, /shelf|saved datasets|invalid/i);
+  assert.equal(typeof shelfExample.shelf, 'string');
+  assert.match(shelfExample.shelf, /"kind": "stack-sleuth-casebook-shelf"/i);
+
+  const shelfReplay = inspectReplayShelfInput(shelfExample.shelf);
+  assert.equal(shelfReplay.valid, true);
+  assert.equal(shelfReplay.shelf.summary.validSnapshotCount, 2);
+  assert.equal(shelfReplay.shelf.summary.invalidSnapshotCount, 1);
+  assert.equal(shelfReplay.shelf.chronicle.summary.snapshotCount, 2);
 });
 
 test('browser main uses the shared Casebook Radar example instead of a duplicate fixture', () => {

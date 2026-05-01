@@ -63,6 +63,13 @@ import {
   renderDatasetMarkdownSummary,
   renderDatasetTextSummary,
 } from '../src/dataset.js';
+import {
+  buildCasebookShelf,
+  describeShelfInputError,
+  inspectReplayShelfInput,
+  renderShelfMarkdownSummary,
+  renderShelfTextSummary,
+} from '../src/shelf.js';
 import { extractTraceSet, formatExtractionMarkdown, formatExtractionText } from '../src/extract.js';
 import {
   parseIncidentNotebook,
@@ -86,6 +93,8 @@ const timelineArgumentError = validateOptionValue(args, '--timeline');
 const chronicleArgumentError = validateOptionValue(args, '--chronicle');
 const datasetArgumentError = validateOptionValue(args, '--dataset');
 const replayDatasetArgumentError = validateOptionValue(args, '--replay-dataset');
+const shelfArgumentError = validateOptionValue(args, '--shelf');
+const replayShelfArgumentError = validateOptionValue(args, '--replay-shelf');
 const historyArgumentError = validateOptionValue(args, '--history');
 const currentArgumentError = validateOptionValue(args, '--current');
 const workspaceArgumentError = validateOptionValue(args, '--workspace');
@@ -101,6 +110,8 @@ const timelinePath = readOptionValue(args, '--timeline');
 const chroniclePath = readOptionValue(args, '--chronicle');
 const datasetPath = readOptionValue(args, '--dataset');
 const replayDatasetPath = readOptionValue(args, '--replay-dataset');
+const shelfPath = readOptionValue(args, '--shelf');
+const replayShelfPath = readOptionValue(args, '--replay-shelf');
 const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
 const workspacePath = readOptionValue(args, '--workspace');
@@ -117,6 +128,8 @@ const workflowArgumentError = validateWorkflowArguments({
   chroniclePath,
   datasetPath,
   replayDatasetPath,
+  shelfPath,
+  replayShelfPath,
   historyPath,
   workspacePath,
 });
@@ -139,6 +152,8 @@ const filePath = args.find((arg, index) => {
     '--chronicle',
     '--dataset',
     '--replay-dataset',
+    '--shelf',
+    '--replay-shelf',
     '--history',
     '--current',
     '--workspace',
@@ -187,6 +202,14 @@ if (datasetArgumentError) {
 
 if (replayDatasetArgumentError) {
   fail(replayDatasetArgumentError);
+}
+
+if (shelfArgumentError) {
+  fail(shelfArgumentError);
+}
+
+if (replayShelfArgumentError) {
+  fail(replayShelfArgumentError);
 }
 
 if (historyArgumentError) {
@@ -355,6 +378,36 @@ try {
     }
 
     writeOutput(replay.dataset, mode, renderDatasetTextSummary, renderDatasetMarkdownSummary);
+    process.exit(0);
+  }
+
+  if (shelfPath) {
+    const report = buildCasebookShelf(readShelfDirectoryEntries(shelfPath));
+    if (!report.summary.validSnapshotCount) {
+      fail('Casebook Shelf requires at least one valid saved Casebook Dataset snapshot.');
+    }
+
+    writeOutput(report, mode, renderShelfTextSummary, renderShelfMarkdownSummary);
+    process.exit(0);
+  }
+
+  if (replayShelfPath) {
+    const replayInput = replayShelfPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(replayShelfPath, 'shelf replay');
+    const replay = inspectReplayShelfInput(replayInput);
+
+    if (!replay.valid && replay.reason === 'wrong-kind') {
+      fail(`Casebook Shelf replay uses unsupported kind: ${replay.parsed?.kind ?? 'unknown'}.`);
+    }
+
+    if (!replay.valid && replay.reason === 'unsupported-version') {
+      fail(`Casebook Shelf replay uses unsupported version ${replay.parsed?.version ?? 'unknown'}. Supported version: ${replay.supportedVersion}.`);
+    }
+
+    if (!replay.valid) {
+      fail('Casebook Shelf replay requires saved Stack Sleuth Casebook Shelf JSON.');
+    }
+
+    writeOutput(replay.shelf, mode, renderShelfTextSummary, renderShelfMarkdownSummary);
     process.exit(0);
   }
 
@@ -539,6 +592,14 @@ try {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read dataset replay input: ${error.message}`);
   }
 
+  if (shelfPath) {
+    fail(error.message.startsWith('Could not read') ? error.message : error.message);
+  }
+
+  if (replayShelfPath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read shelf replay input: ${error.message}`);
+  }
+
   if (baselinePath || candidatePath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read compare input: ${error.message}`);
   }
@@ -585,7 +646,7 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, datasetPath, replayDatasetPath, historyPath, workspacePath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, datasetPath, replayDatasetPath, shelfPath, replayShelfPath, historyPath, workspacePath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     portfolioPath ? 'portfolio' : null,
@@ -599,11 +660,13 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
     chroniclePath ? 'chronicle' : null,
     datasetPath ? 'dataset' : null,
     replayDatasetPath ? 'replay-dataset' : null,
+    shelfPath ? 'shelf' : null,
+    replayShelfPath ? 'replay-shelf' : null,
     baselinePath || candidatePath ? 'compare' : null,
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, or compare.';
+    return 'Choose one workflow mode at a time: forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, shelf, replay-shelf, or compare.';
   }
 
   return null;
@@ -623,6 +686,35 @@ function readNotebookInput(targetPath) {
   } catch (error) {
     throw new Error(`Could not read notebook input file: ${error.message}`);
   }
+}
+
+function readShelfDirectoryEntries(targetPath) {
+  let stats;
+  try {
+    stats = fs.statSync(targetPath);
+  } catch (error) {
+    throw new Error(`Could not read shelf input directory: ${error.message}`);
+  }
+
+  if (!stats.isDirectory()) {
+    throw new Error('Casebook Shelf requires a directory of top-level .json files.');
+  }
+
+  let entries;
+  try {
+    entries = fs.readdirSync(targetPath, { withFileTypes: true });
+  } catch (error) {
+    throw new Error(`Could not read shelf input directory: ${error.message}`);
+  }
+
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.json'))
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((entry) => ({
+      label: entry.name.replace(/\.json$/i, ''),
+      sourceName: entry.name,
+      source: fs.readFileSync(`${targetPath}/${entry.name}`, 'utf8'),
+    }));
 }
 
 function writeOutput(payload, outputMode, textRenderer, markdownRenderer) {
@@ -692,6 +784,29 @@ function toSerializablePayload(payload) {
         conflicts: entry.conflicts,
       })),
       exportText: payload.exportText,
+    };
+  }
+
+  if (payload?.kind === 'stack-sleuth-casebook-shelf' && typeof payload?.version === 'number') {
+    return {
+      kind: payload.kind,
+      version: payload.version,
+      summary: payload.summary,
+      snapshots: (payload.snapshots ?? []).map((snapshot) => snapshot.status === 'valid'
+        ? {
+          label: snapshot.label,
+          sourceName: snapshot.sourceName,
+          status: snapshot.status,
+          dataset: toSerializablePayload(snapshot.dataset),
+        }
+        : {
+          label: snapshot.label,
+          sourceName: snapshot.sourceName,
+          status: snapshot.status,
+          reason: snapshot.reason,
+        }),
+      invalidSnapshots: payload.invalidSnapshots ?? [],
+      chronicle: payload.chronicle ? toSerializablePayload(payload.chronicle) : null,
     };
   }
 

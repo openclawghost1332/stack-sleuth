@@ -180,6 +180,19 @@ const chronicleInput = [
   }), null, 2),
 ].join('\n');
 
+const shelfSnapshotReleaseA = JSON.stringify(buildChronicleDataset({
+  packCount: 2,
+  owners: [{ owner: 'web-platform', packCount: 1 }],
+  hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+  cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+}), null, 2);
+const shelfSnapshotReleaseB = JSON.stringify(buildChronicleDataset({
+  packCount: 3,
+  owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+  hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+  cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+}), null, 2);
+
 function runCli(args = [], options = {}) {
   return spawnSync(process.execPath, [cliPath.pathname, ...args], {
     encoding: 'utf8',
@@ -543,6 +556,88 @@ test('CLI chronicle mode supports --json and --markdown output', () => {
   assert.equal(markdownResult.status, 0, markdownResult.stderr);
   assert.match(markdownResult.stdout, /^# Stack Sleuth Casebook Chronicle/m);
   assert.match(markdownResult.stdout, /## Owner trends/);
+});
+
+test('CLI shelf mode builds a portable shelf from top-level json files and preserves invalid snapshot warnings', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-shelf-'));
+  await fs.promises.writeFile(path.join(tempDir, '2026-04-30-release-a.json'), shelfSnapshotReleaseA, 'utf8');
+  await fs.promises.writeFile(path.join(tempDir, '2026-05-01-release-b.json'), shelfSnapshotReleaseB, 'utf8');
+  await fs.promises.writeFile(path.join(tempDir, 'broken.json'), '{"kind":"stack-sleuth-casebook-dataset","version":1', 'utf8');
+  await fs.promises.mkdir(path.join(tempDir, 'nested'));
+  await fs.promises.writeFile(path.join(tempDir, 'nested', 'ignored.json'), shelfSnapshotReleaseA, 'utf8');
+
+  const result = runCli(['--shelf', tempDir]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Casebook Shelf/);
+  assert.match(result.stdout, /Valid snapshots: 2/);
+  assert.match(result.stdout, /Invalid snapshots: 1/);
+  assert.match(result.stdout, /Chronicle summary: Chronicle compared 2 saved datasets/i);
+  assert.match(result.stdout, /broken\.json: invalid-json/);
+});
+
+test('CLI shelf mode supports --json and --markdown output', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-shelf-'));
+  await fs.promises.writeFile(path.join(tempDir, 'release-a.json'), shelfSnapshotReleaseA, 'utf8');
+  await fs.promises.writeFile(path.join(tempDir, 'release-b.json'), shelfSnapshotReleaseB, 'utf8');
+
+  const jsonResult = runCli(['--shelf', tempDir, '--json']);
+  assert.equal(jsonResult.status, 0, jsonResult.stderr);
+  const parsed = JSON.parse(jsonResult.stdout);
+  assert.equal(parsed.kind, 'stack-sleuth-casebook-shelf');
+  assert.equal(parsed.version, 1);
+  assert.equal(parsed.summary.validSnapshotCount, 2);
+  assert.equal(parsed.summary.invalidSnapshotCount, 0);
+  assert.equal(parsed.chronicle.summary.snapshotCount, 2);
+
+  const markdownResult = runCli(['--shelf', tempDir, '--markdown']);
+  assert.equal(markdownResult.status, 0, markdownResult.stderr);
+  assert.match(markdownResult.stdout, /^# Stack Sleuth Casebook Shelf/m);
+  assert.match(markdownResult.stdout, /## Chronicle summary/);
+});
+
+test('CLI replay-shelf mode replays saved shelf json from stdin', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-shelf-'));
+  await fs.promises.writeFile(path.join(tempDir, 'release-a.json'), shelfSnapshotReleaseA, 'utf8');
+  await fs.promises.writeFile(path.join(tempDir, 'release-b.json'), shelfSnapshotReleaseB, 'utf8');
+
+  const shelfResult = runCli(['--shelf', tempDir, '--json']);
+  assert.equal(shelfResult.status, 0, shelfResult.stderr);
+
+  const replayResult = runCli(['--replay-shelf', '-'], { input: shelfResult.stdout });
+  assert.equal(replayResult.status, 0, replayResult.stderr);
+  assert.match(replayResult.stdout, /Stack Sleuth Casebook Shelf/);
+  assert.match(replayResult.stdout, /Chronicle summary: Chronicle compared 2 saved datasets/i);
+});
+
+test('CLI shelf mode exits non-zero for non-directory input and when zero valid snapshots remain', async () => {
+  const tempFile = path.join(await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-shelf-')), 'not-a-dir.json');
+  await fs.promises.writeFile(tempFile, shelfSnapshotReleaseA, 'utf8');
+
+  const wrongType = runCli(['--shelf', tempFile]);
+  assert.notEqual(wrongType.status, 0);
+  assert.match(wrongType.stderr, /Casebook Shelf requires a directory of top-level \.json files/i);
+
+  const emptyDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-shelf-empty-'));
+  await fs.promises.writeFile(path.join(emptyDir, 'broken.json'), '{"kind":"stack-sleuth-casebook-dataset","version":1', 'utf8');
+  const noValid = runCli(['--shelf', emptyDir]);
+  assert.notEqual(noValid.status, 0);
+  assert.match(noValid.stderr, /Casebook Shelf requires at least one valid saved Casebook Dataset snapshot/i);
+});
+
+test('CLI replay-shelf mode reports unsupported shelf versions clearly', () => {
+  const result = runCli(['--replay-shelf', '-'], {
+    input: JSON.stringify({
+      kind: 'stack-sleuth-casebook-shelf',
+      version: 99,
+      summary: {},
+      snapshots: [],
+      chronicle: null,
+    }),
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Casebook Shelf replay uses unsupported version 99\. Supported version: 1\./i);
 });
 
 test('CLI chronicle mode reports unsupported dataset versions clearly', () => {

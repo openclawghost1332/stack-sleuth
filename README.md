@@ -20,6 +20,7 @@ Use the built-in example buttons to compare the main workflows:
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
 - Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, then replaying that artifact later in the CLI or browser
 - Casebook Chronicle replaying several saved dataset snapshots at once to show owner load, recurring hotspot drift, and casebook movement across release windows
+- Casebook Shelf scanning top-level .json files from a saved dataset directory, preserving invalid snapshots as warning entries, and replaying the latest valid library state plus chronicle drift without claiming raw trace recovery
 - Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
 - browser copy that includes excavation-aware summaries plus notebook normalization when the input started as a markdown handoff
 
@@ -403,6 +404,28 @@ cat casebook-dataset.json | node ./bin/stack-sleuth.js --replay-dataset - --mark
 Replay mode renders the saved dataset itself, so you can reopen the preserved response queue, recurring signals, merged case count, and reusable `exportText` without rebuilding the original labeled portfolio first. If the saved artifact has an unsupported version, Stack Sleuth fails clearly and tells you which supported version the current build understands.
 
 In the browser, paste a saved dataset JSON blob into the shared workspace and press **Explain trace(s)** to replay the portable artifact directly. The browser will reuse the saved dataset summary, response queue, recurring hotspots, and reusable export text instead of asking for the original portfolio input again. You can also press **Load Casebook Dataset example** to open a saved dataset replay example, and unsupported version or malformed saved dataset JSON will raise a dataset-specific replay error instead of silently falling through.
+
+## Casebook Shelf
+
+Casebook Shelf is the directory-oriented saved-artifact companion to Casebook Dataset and Casebook Chronicle. Point `--shelf` at a folder of top-level `.json` files and Stack Sleuth will scan them in deterministic filename order, preserve both valid snapshots and invalid snapshots as visible warning entries, and then replay the latest valid saved library state. When at least two valid saved datasets remain, the shelf also reuses the chronicle engine to show owner and hotspot drift across the saved snapshots.
+
+### Build a shelf from a directory of saved datasets
+
+```bash
+node ./bin/stack-sleuth.js --shelf ./saved-datasets
+```
+
+### Replay a previously saved shelf artifact
+
+```bash
+cat casebook-shelf.json | node ./bin/stack-sleuth.js --replay-shelf -
+```
+
+A Casebook Shelf directory only scans top-level `.json` files. Nested folders are ignored, invalid snapshots stay visible as warning entries, and a shelf with zero valid datasets exits with an error instead of pretending the artifact is usable.
+
+Saved-artifact note: Casebook Shelf preserves dataset-level routing, hotspot, and casebook inventory only. It does not recover raw traces, support frames, or culprit-level blast radius detail.
+
+In the browser, paste a saved shelf JSON artifact into the shared workspace and press **Explain trace(s)** to replay it directly, or press **Load Casebook Shelf example** to inspect a shelf that includes both valid snapshots and a broken warning entry.
 
 ## Casebook Chronicle
 

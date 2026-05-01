@@ -21,6 +21,11 @@ import {
   inspectReplayDatasetInput,
   renderDatasetTextSummary,
 } from './dataset.js';
+import {
+  describeShelfInputError,
+  inspectReplayShelfInput,
+  renderShelfTextSummary,
+} from './shelf.js';
 import { analyzeTraceDigest, renderDigestTextSummary } from './digest.js';
 import { parseIncidentPack } from './pack.js';
 import { analyzeRegression } from './regression.js';
@@ -51,6 +56,7 @@ const loadPortfolioButton = document.querySelector('#load-portfolio-button');
 const loadHandoffButton = document.querySelector('#load-handoff-button');
 const loadDatasetButton = document.querySelector('#load-dataset-button');
 const loadChronicleButton = document.querySelector('#load-chronicle-button');
+const loadShelfButton = document.querySelector('#load-shelf-button');
 const loadMergeButton = document.querySelector('#load-merge-button');
 const copyButton = document.querySelector('#copy-button');
 const caption = document.querySelector('#example-caption');
@@ -125,6 +131,7 @@ const portfolioExample = examples.find((item) => item.label === 'Portfolio radar
 const handoffExample = examples.find((item) => item.label === 'Handoff Briefing');
 const datasetExample = examples.find((item) => item.label === 'Casebook Dataset');
 const chronicleExample = examples.find((item) => item.label === 'Casebook Chronicle');
+const shelfExample = examples.find((item) => item.label === 'Casebook Shelf');
 const mergeExample = examples.find((item) => item.label === 'Casebook Merge');
 const casebookExample = examples.find((item) => item.label === 'Casebook Radar');
 const regressionExample = examples.find((item) => item.label === 'Regression radar');
@@ -134,6 +141,17 @@ function renderDiagnosis() {
   const traceText = traceInput.value.trim();
   if (!traceText) {
     resetEmptyState();
+    return;
+  }
+
+  const shelfReplay = inspectReplayShelfInput(traceText);
+  if (shelfReplay.valid) {
+    renderShelfWorkflow(shelfReplay.shelf);
+    return;
+  }
+
+  if (shouldRenderShelfError(shelfReplay, traceText)) {
+    renderShelfError(shelfReplay);
     return;
   }
 
@@ -376,6 +394,95 @@ function renderDatasetReplayWorkflow(report) {
       : ['No saved merge conflicts were preserved in this dataset artifact.']
   ));
   mergeExportValue.textContent = report.exportText || 'No merged Casebook export was preserved in this saved artifact.';
+}
+
+function renderShelfWorkflow(report) {
+  resetPortfolioState();
+  resetForgeState();
+  resetDatasetState();
+  resetMergeState();
+  resetCasebookState();
+  resetRegressionState();
+
+  const warningCount = report.summary.invalidSnapshotCount;
+  const latestLabel = report.summary.latestLabel;
+
+  excavationValue.textContent = `Saved dataset shelf: ${report.summary.validSnapshotCount} valid, ${warningCount} warnings`;
+  runtimeValue.textContent = 'casebook shelf';
+  headlineValue.textContent = report.summary.headline;
+  culpritValue.textContent = latestLabel === '-' ? 'Saved shelf artifact' : `Latest snapshot: ${latestLabel}`;
+  confidenceValue.textContent = 'saved artifact';
+  tagsValue.textContent = 'casebook-shelf, saved-artifact';
+  signatureValue.textContent = `${report.kind}@${report.version}`;
+  summaryValue.textContent = report.chronicle
+    ? `This saved dataset shelf replays ${report.summary.validSnapshotCount} valid snapshots, keeps ${warningCount} warning entr${warningCount === 1 ? 'y' : 'ies'} visible, and layers chronicle drift on top of the latest saved library state.`
+    : `This saved dataset shelf replays ${report.summary.validSnapshotCount} valid snapshot${report.summary.validSnapshotCount === 1 ? '' : 's'} and keeps ${warningCount} warning entr${warningCount === 1 ? 'y' : 'ies'} visible. Add one more valid saved dataset to unlock chronicle drift.`;
+  blastRadiusValue.textContent = 'Saved shelf artifacts preserve dataset-level routing, hotspot, and casebook inventory. They do not recover raw trace blast radius, support frames, or culprit-level call stacks.';
+  digestGroupsValue.replaceChildren(...buildListItems(buildShelfInventoryItems(report.snapshots)));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Casebook Shelf is a saved artifact view. Reopen the source traces or portfolio input if you need nearby frames.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems(
+    report.chronicle
+      ? buildChronicleHotspotItems(report.chronicle.hotspotTrends, report.snapshots.filter((snapshot) => snapshot.status === 'valid').at(-1)?.dataset ?? null)
+      : ['Chronicle hotspot movement appears here once the shelf contains at least two valid saved snapshots.']
+  ));
+  checklistValue.replaceChildren(...buildListItems([
+    'Saved artifact note: Casebook Shelf replays preserved dataset signals only, not raw traces or support frames.',
+    'Review invalid snapshot warnings before treating the shelf as a complete release library.',
+    report.chronicle
+      ? 'Use the chronicle summary to spot owner load and hotspot drift across the saved snapshots.'
+      : 'Add one more valid saved dataset snapshot to unlock chronicle drift across the shelf.',
+  ]));
+
+  timelineSummaryValue.textContent = report.chronicle
+    ? `Casebook Shelf latest snapshot ${latestLabel} replays chronicle drift across ${report.chronicle.summary.snapshotCount} valid saved datasets.`
+    : `Casebook Shelf latest snapshot ${latestLabel} is replayable, but chronicle drift needs at least two valid saved datasets.`;
+  timelineIncidentsValue.replaceChildren(...buildListItems(
+    report.chronicle
+      ? ['Owner trends across saved snapshots:', ...buildChronicleOwnerItems(report.chronicle.ownerTrends)]
+      : ['Owner trend calls will appear here after the shelf contains at least two valid saved dataset snapshots.']
+  ));
+  timelineHotspotsValue.replaceChildren(...buildListItems(
+    report.chronicle
+      ? buildChronicleHotspotItems(report.chronicle.hotspotTrends, report.snapshots.filter((snapshot) => snapshot.status === 'valid').at(-1)?.dataset ?? null)
+      : ['Hotspot drift will appear here after the shelf contains at least two valid saved dataset snapshots.']
+  ));
+  caption.textContent = `Casebook Shelf replayed ${report.summary.validSnapshotCount} valid saved snapshots and ${warningCount} warning entr${warningCount === 1 ? 'y' : 'ies'}.`;
+}
+
+function renderShelfError(replay) {
+  resetPortfolioState();
+  resetForgeState();
+  resetDatasetState();
+  resetMergeState();
+  resetCasebookState();
+  resetRegressionState();
+  resetTimelineState();
+
+  excavationValue.textContent = 'Saved shelf replay blocked';
+  runtimeValue.textContent = 'casebook shelf error';
+  headlineValue.textContent = 'Casebook Shelf could not replay this saved shelf artifact.';
+  culpritValue.textContent = 'Unsupported shelf artifact';
+  confidenceValue.textContent = '-';
+  tagsValue.textContent = 'casebook-shelf, error';
+  signatureValue.textContent = 'stack-sleuth-casebook-shelf';
+  summaryValue.textContent = describeShelfInputError(replay);
+  blastRadiusValue.textContent = 'No blast radius details are available because Stack Sleuth stopped before replaying the saved shelf artifact.';
+  digestGroupsValue.replaceChildren(...buildListItems([
+    'Paste a saved Stack Sleuth Casebook Shelf JSON artifact or rebuild the shelf with a supported Stack Sleuth version.'
+  ]));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Shelf replay errors happen before Stack Sleuth reaches any trace-level call stack.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems([
+    'Shelf hotspot drift will appear here once Stack Sleuth can replay a supported saved shelf artifact.'
+  ]));
+  checklistValue.replaceChildren(...buildListItems([
+    'Replay a saved Stack Sleuth Casebook Shelf JSON artifact, not a different JSON document.',
+    'If the shelf version is unsupported, rebuild it with a compatible Stack Sleuth release.',
+  ]));
+  caption.textContent = describeShelfInputError(replay);
 }
 
 function renderDatasetReplayError(replay) {
@@ -981,6 +1088,16 @@ function loadChronicleExample(example) {
   renderDiagnosis();
 }
 
+function loadShelfExample(example) {
+  if (!example) {
+    return;
+  }
+
+  traceInput.value = example.shelf;
+  caption.textContent = example.caption;
+  renderDiagnosis();
+}
+
 function loadMergeExample(example) {
   if (!example) {
     return;
@@ -1025,6 +1142,23 @@ function loadCasebookExample(example) {
 
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
+  const shelfReplay = inspectReplayShelfInput(traceText);
+
+  if (shelfReplay.valid) {
+    try {
+      await navigator.clipboard.writeText(renderShelfTextSummary(shelfReplay.shelf));
+      caption.textContent = 'Casebook Shelf summary copied to clipboard.';
+    } catch {
+      caption.textContent = 'Clipboard copy unavailable here, but the Casebook Shelf summary is ready to copy manually.';
+    }
+    return;
+  }
+
+  if (shouldRenderShelfError(shelfReplay, traceText)) {
+    caption.textContent = describeShelfInputError(shelfReplay);
+    return;
+  }
+
   const chronicle = inspectCasebookChronicleInput(traceText);
 
   if (chronicle.valid) {
@@ -1317,6 +1451,17 @@ function buildPortfolioBlastRadiusSummary(topPack, primaryIncident) {
   return `Top pack ${topPack.label} centers on ${culprit}. ${formatBlastRadiusSummary(blastRadius)}`;
 }
 
+function shouldRenderShelfError(replay, input) {
+  if (replay.reason === 'unsupported-version' || replay.reason === 'invalid-json') {
+    return true;
+  }
+
+  return replay.reason === 'not-shelf'
+    && typeof input === 'string'
+    && input.includes('stack-sleuth-casebook-shelf')
+    && input.trim().startsWith('{');
+}
+
 function shouldRenderChronicleError(chronicle) {
   if (!chronicle || chronicle.valid) {
     return false;
@@ -1388,6 +1533,16 @@ function describeDatasetReplayError(replay) {
       'Paste the saved dataset JSON blob into the shared workspace to replay it here.',
     ],
   };
+}
+
+function buildShelfInventoryItems(snapshots) {
+  if (!snapshots?.length) {
+    return ['Shelf snapshot inventory will appear here once a saved shelf artifact is replayed.'];
+  }
+
+  return snapshots.map((snapshot) => snapshot.status === 'valid'
+    ? `${snapshot.filename}: valid saved snapshot ${snapshot.label}`
+    : `${snapshot.filename}: ${snapshot.reason}`);
 }
 
 function buildDatasetReplayPackItems(packOrder) {
@@ -1754,6 +1909,7 @@ loadPortfolioButton?.addEventListener('click', () => loadPortfolioExample(portfo
 loadHandoffButton?.addEventListener('click', () => loadPortfolioExample(handoffExample));
 loadDatasetButton?.addEventListener('click', () => loadDatasetExample(datasetExample));
 loadChronicleButton?.addEventListener('click', () => loadChronicleExample(chronicleExample));
+loadShelfButton?.addEventListener('click', () => loadShelfExample(shelfExample));
 loadMergeButton?.addEventListener('click', () => loadMergeExample(mergeExample));
 loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));
 compareButton?.addEventListener('click', renderRegressionWorkflow);

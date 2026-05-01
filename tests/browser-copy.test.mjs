@@ -170,6 +170,83 @@ const chronicleInput = [
     cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
   }), null, 2),
 ].join('\n');
+const shelfReplayInput = JSON.stringify({
+  kind: 'stack-sleuth-casebook-shelf',
+  version: 1,
+  summary: {
+    headline: 'Casebook Shelf replayed 2 valid snapshots and 1 warning entry.',
+    snapshotCount: 3,
+    validSnapshotCount: 2,
+    invalidSnapshotCount: 1,
+    chronicleAvailable: true,
+    latestLabel: 'release-b',
+  },
+  snapshots: [
+    {
+      label: 'release-a',
+      filename: 'release-a.json',
+      status: 'valid',
+      dataset: buildChronicleDataset({
+        packCount: 2,
+        owners: [{ owner: 'web-platform', packCount: 1 }],
+        hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+        cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+      }),
+    },
+    {
+      label: 'release-b',
+      filename: 'release-b.json',
+      status: 'valid',
+      dataset: buildChronicleDataset({
+        packCount: 3,
+        owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+        hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+        cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+      }),
+    },
+    {
+      label: 'broken',
+      filename: 'broken.json',
+      status: 'invalid',
+      reason: 'invalid-json',
+      message: 'Could not parse saved dataset JSON.',
+    },
+  ],
+  chronicle: {
+    snapshots: [],
+    labels: ['release-a', 'release-b'],
+    ownerTrends: [{ owner: 'web-platform', series: [1, 2], trend: 'rising', latestCount: 2, peakCount: 2, labels: ['release-a', 'release-b'], latestLabels: ['web-platform-pack-1'], guidance: [] }],
+    hotspotTrends: [{ label: 'profile.js', series: [1, 2], trend: 'rising', latestCount: 2, peakCount: 2, maxScore: 3, labels: ['release-a', 'release-b'] }],
+    caseTrends: [{ signature: 'sig-profile-js', label: 'profile-js', series: [1, 1], trend: 'steady', latestCount: 1, peakCount: 1, labels: ['release-a', 'release-b'] }],
+    summary: {
+      snapshotCount: 2,
+      latestLabel: 'release-b',
+      latestPackCount: 3,
+      latestOwnerCount: 2,
+      latestHotspotCount: 2,
+      latestCaseCount: 2,
+      newOwnerCount: 1,
+      risingOwnerCount: 1,
+      flappingOwnerCount: 0,
+      steadyOwnerCount: 0,
+      fallingOwnerCount: 0,
+      resolvedOwnerCount: 0,
+      newHotspotCount: 1,
+      risingHotspotCount: 1,
+      flappingHotspotCount: 0,
+      steadyHotspotCount: 0,
+      fallingHotspotCount: 0,
+      resolvedHotspotCount: 0,
+      newCaseCount: 1,
+      risingCaseCount: 0,
+      flappingCaseCount: 0,
+      steadyCaseCount: 1,
+      fallingCaseCount: 0,
+      resolvedCaseCount: 0,
+      headline: 'Chronicle compared 2 saved datasets and the latest snapshot release-b shows 1 new owner, 1 rising owner, 1 new hotspot, and 1 new case.',
+    },
+  },
+}, null, 2);
 
 const notebookPackInput = [
   '# Checkout incident notebook',
@@ -248,6 +325,7 @@ const requiredIds = [
   'load-handoff-button',
   'load-dataset-button',
   'load-chronicle-button',
+  'load-shelf-button',
   'load-merge-button',
   'copy-button',
   'example-caption',
@@ -452,6 +530,7 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, /Handoff Briefing/i);
   assert.match(indexHtml, />Load Casebook Dataset example</i);
   assert.match(indexHtml, />Load Casebook Chronicle example</i);
+  assert.match(indexHtml, />Load Casebook Shelf example</i);
   assert.match(indexHtml, />Load Casebook Merge example</i);
   assert.match(indexHtml, />Copy result</i);
 });
@@ -485,6 +564,41 @@ test('browser Casebook Dataset example button loads saved dataset JSON and repla
     assert.match(harness.get('portfolio-response-queue-value').children[0].textContent, /web-platform/);
     assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
     assert.match(harness.get('example-caption').textContent, /saved dataset|replay/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser Casebook Shelf example button loads saved shelf JSON before dataset replay detection and reuses the trend cards', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.click('load-shelf-button');
+
+    assert.match(harness.get('trace-input').value, /"kind": "stack-sleuth-casebook-shelf"/);
+    assert.equal(harness.get('runtime-value').textContent, 'casebook shelf');
+    assert.match(harness.get('headline-value').textContent, /2 valid snapshots, 1 invalid snapshot/i);
+    assert.match(harness.get('summary-value').textContent, /warning entry|saved dataset shelf/i);
+    assert.match(harness.get('timeline-summary-value').textContent, /release-b/i);
+    assert.match(harness.get('timeline-incidents-value').children[0].textContent, /web-platform|owner/i);
+    assert.match(harness.get('checklist-value').children[0].textContent, /saved artifact/i);
+    assert.match(harness.get('example-caption').textContent, /shelf|warning/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser Casebook Shelf copy support writes the saved shelf summary to the clipboard', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', shelfReplayInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Stack Sleuth Casebook Shelf/);
+    assert.match(harness.clipboard.text, /Valid snapshots: 2/);
+    assert.match(harness.clipboard.text, /broken\.json: invalid-json/);
+    assert.equal(harness.get('example-caption').textContent, 'Casebook Shelf summary copied to clipboard.');
   } finally {
     harness.restore();
   }

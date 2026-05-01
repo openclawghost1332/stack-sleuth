@@ -1,4 +1,5 @@
 import { buildCasebookDataset } from './dataset.js';
+import { buildCasebookShelf } from './shelf.js';
 
 const javascriptTrace = `TypeError: Cannot read properties of undefined (reading 'name')
     at renderProfile (/app/src/profile.js:88:17)
@@ -127,6 +128,33 @@ const portfolioTrace = [
 ].join('\n');
 
 const datasetReplay = JSON.stringify(buildCasebookDataset(portfolioTrace), null, 2);
+const shelfReplay = JSON.stringify(buildCasebookShelf([
+  {
+    label: 'release-a',
+    filename: 'release-a.json',
+    source: JSON.stringify(buildChronicleReplayDataset({
+      packCount: 2,
+      owners: [{ owner: 'web-platform', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+    }), null, 2),
+  },
+  {
+    label: 'release-b',
+    filename: 'release-b.json',
+    source: JSON.stringify(buildChronicleReplayDataset({
+      packCount: 3,
+      owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    }), null, 2),
+  },
+  {
+    label: 'broken',
+    filename: 'broken.json',
+    source: '{"kind":"stack-sleuth-casebook-dataset","version":1',
+  },
+]), null, 2);
 const chronicleReplay = [
   '=== release-a ===',
   JSON.stringify(buildChronicleReplayDataset({
@@ -225,6 +253,11 @@ export const examples = [
     label: 'Casebook Chronicle',
     caption: 'Several saved Casebook Dataset snapshots stitched into one chronicle reveal owner load, recurring hotspot drift, and casebook movement across release windows without pretending to recover raw trace detail.',
     chronicle: chronicleReplay,
+  },
+  {
+    label: 'Casebook Shelf',
+    caption: 'A saved dataset shelf catalogs several saved snapshots, keeps invalid warning entries visible, and replays the latest saved library state plus chronicle drift without pretending to recover raw traces.',
+    shelf: shelfReplay,
   },
   {
     label: 'Casebook Merge',

@@ -165,6 +165,16 @@ test('README documents Casebook Chronicle workflows for browser and CLI longitud
   assert.match(readme, /owner load|recurring hotspots|drift/i);
 });
 
+test('README documents Casebook Shelf workflows for browser and CLI snapshot shelves', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Casebook Shelf/i);
+  assert.match(readme, /--shelf/);
+  assert.match(readme, /--replay-shelf/);
+  assert.match(readme, /top-level \.json files/i);
+  assert.match(readme, /invalid snapshots|warning entries/i);
+  assert.match(readme, /saved-artifact note|does not recover raw traces/i);
+});
+
 test('README documents Casebook Merge workflows for browser and CLI living-casebook updates', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.match(readme, /Casebook Merge/i);

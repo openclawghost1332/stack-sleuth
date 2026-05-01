@@ -204,10 +204,32 @@ test('README documents standalone HTML dossier export and the committed sample a
   assert.match(readme, /phone-friendly|shareable|standalone/i);
 });
 
+test('README documents response bundle export and the committed sample bundle', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /response bundle/i);
+  assert.match(readme, /--bundle/);
+  assert.match(readme, /sample\/response-bundle/i);
+  assert.match(readme, /manifest\.json/i);
+  assert.match(readme, /incident-dossier\.html/i);
+  assert.match(readme, /casebook-dataset\.json/i);
+});
+
 test('sample portfolio dossier artifact is committed as standalone HTML', () => {
   const sample = fs.readFileSync(new URL('../sample/portfolio-dossier.html', import.meta.url), 'utf8');
   assert.match(sample, /<!doctype html>/i);
   assert.match(sample, /Stack Sleuth Incident Dossier/i);
   assert.match(sample, /Portfolio Radar/i);
   assert.match(sample, /Handoff Briefing export/i);
+});
+
+test('sample response bundle artifact is committed with manifest and dossier files', () => {
+  const manifest = JSON.parse(fs.readFileSync(new URL('../sample/response-bundle/manifest.json', import.meta.url), 'utf8'));
+  const dossier = fs.readFileSync(new URL('../sample/response-bundle/incident-dossier.html', import.meta.url), 'utf8');
+  const handoff = fs.readFileSync(new URL('../sample/response-bundle/handoff.md', import.meta.url), 'utf8');
+
+  assert.equal(manifest.kind, 'stack-sleuth-response-bundle');
+  assert.equal(manifest.version, 1);
+  assert.match(dossier, /<!doctype html>/i);
+  assert.match(handoff, /Stack Sleuth Handoff Briefing/i);
+  assert.match(manifest.files.join('\n'), /casebook-dataset\.json/);
 });

@@ -103,6 +103,33 @@ cat incident-note.md | node ./bin/stack-sleuth.js --notebook - --html > ./incide
 
 The committed sample artifact lives at `sample/portfolio-dossier.html`, generated from `sample/portfolio.txt`. It is a shareable, phone-friendly command-deck view that includes the release gate, priority queue, response queue, routing gaps, recurring signals, and reusable exports.
 
+## Response bundle export
+
+Stack Sleuth can also export a deterministic response bundle for portfolio-shaped workflows. Instead of printing one summary to stdout, `--bundle <directory>` writes a reusable incident package with one human-facing dossier, one handoff packet, one replay-ready dataset, and a manifest for downstream tooling.
+
+Bundle export is currently supported for:
+- `--portfolio`
+- `--notebook` when routing normalizes into a portfolio
+- `--workspace` when routing normalizes into a portfolio
+- `--capsule` when routing normalizes into a portfolio
+
+Each response bundle contains:
+- `manifest.json`
+- `incident-dossier.html`
+- `portfolio-summary.md`
+- `handoff.md`
+- `casebook.txt`
+- `casebook-dataset.json`
+- `merge-review.md`
+
+### Emit a response bundle from a portfolio
+
+```bash
+node ./bin/stack-sleuth.js --portfolio ./sample/portfolio.txt --bundle ./sample/response-bundle
+```
+
+The committed sample bundle lives at `sample/response-bundle/`. It is generated from `sample/portfolio.txt` and gives a team one ready-to-share folder with the dossier, handoff packet, reusable casebook export, replayable dataset, merge review, and machine-readable manifest.
+
 ## Notebook ingest
 
 Notebook ingest is the fastest way to reuse the richer Incident Pack Briefing and Portfolio Radar workflows when the source artifact is already a markdown handoff note instead of an `@@` or `@@@` bundle.

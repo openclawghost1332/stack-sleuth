@@ -1,0 +1,194 @@
+{
+  "kind": "stack-sleuth-casebook-dataset",
+  "version": 1,
+  "summary": {
+    "headline": "Casebook Dataset captured 3 merged cases from 3 packs.",
+    "packCount": 3,
+    "runnablePackCount": 3,
+    "mergedCaseCount": 3,
+    "conflictCount": 1,
+    "portfolioHeadline": "Prioritize profile-rollout first because it contains 1 novel casebook incident.",
+    "mergeHeadline": "Merged 3 casebook entries from 3 runnable packs, including 1 new case and 2 refreshed known cases.",
+    "ownerCount": 1
+  },
+  "gate": {
+    "verdict": "hold",
+    "blockers": [
+      {
+        "key": "totalNovelIncidents",
+        "label": "novel incidents",
+        "count": 1
+      },
+      {
+        "key": "totalRegressionNew",
+        "label": "regression-new incidents",
+        "count": 1
+      },
+      {
+        "key": "unownedPackCount",
+        "label": "unowned runnable packs",
+        "count": 2
+      }
+    ],
+    "warnings": [
+      {
+        "key": "runbookGapCount",
+        "label": "runbook gaps",
+        "count": 2
+      },
+      {
+        "key": "totalRegressionVolumeUp",
+        "label": "regression-volume-up incidents",
+        "count": 1
+      },
+      {
+        "key": "recurringHotspotCount",
+        "label": "recurring hotspots",
+        "count": 2
+      },
+      {
+        "key": "recurringIncidentCount",
+        "label": "recurring incidents",
+        "count": 1
+      }
+    ],
+    "summary": "Release gate is hold with 3 blockers, 4 warnings.",
+    "nextAction": "Stop the release and inspect the blocking packs first.",
+    "sources": {
+      "totalNovelIncidents": 1,
+      "totalRegressionNew": 1,
+      "totalRegressionVolumeUp": 1,
+      "unownedPackCount": 2,
+      "runbookGapCount": 2,
+      "totalTimelineNew": 0,
+      "totalTimelineRising": 0,
+      "recurringHotspotCount": 2,
+      "recurringIncidentCount": 1,
+      "runnablePackCount": 3,
+      "unrunnablePackCount": 0
+    },
+    "preserved": true,
+    "blockerCount": 3,
+    "warningCount": 4,
+    "headline": "Release Gate: HOLD because 1 novel incidents, 1 regression-new incidents, 2 unowned runnable packs block the release.",
+    "checklist": [
+      "Stop the release and inspect the blocking packs first.",
+      "Confirm the novel incidents before assuming the release is only repeating known failures.",
+      "Inspect candidate-only regression incidents before widening the rollout or release exposure.",
+      "Patch missing runbooks so recalled owners are not operating without playbooks.",
+      "Inspect recurring hotspot files because one code path may explain several packs at once."
+    ]
+  },
+  "portfolio": {
+    "packOrder": [
+      "checkout-prod",
+      "profile-rollout",
+      "billing-canary"
+    ]
+  },
+  "responseQueue": [
+    {
+      "owner": "web-platform",
+      "labels": [
+        "profile-rollout"
+      ],
+      "guidance": [
+        {
+          "label": "release-2026-04-15",
+          "summary": "Checkout profile payload dropped account metadata before render",
+          "fix": "Guard renderProfile before reading account.name",
+          "owner": "web-platform",
+          "runbook": "https://example.com/runbooks/profile-null"
+        }
+      ],
+      "highestPriorityScore": 1072,
+      "novelIncidentCount": 1,
+      "bestQueueIndex": 0,
+      "packCount": 1
+    }
+  ],
+  "recurringIncidents": [
+    {
+      "signature": "javascript|TypeError|app/src/profile.js:88|nullish-data,undefined-property-access",
+      "labels": [
+        "checkout-prod",
+        "profile-rollout"
+      ],
+      "packCount": 2
+    }
+  ],
+  "recurringHotspots": [
+    {
+      "label": "profile.js",
+      "labels": [
+        "checkout-prod",
+        "profile-rollout",
+        "billing-canary"
+      ],
+      "packCount": 3,
+      "maxScore": 6
+    },
+    {
+      "label": "view.js",
+      "labels": [
+        "checkout-prod",
+        "profile-rollout",
+        "billing-canary"
+      ],
+      "packCount": 3,
+      "maxScore": 2
+    }
+  ],
+  "cases": [
+    {
+      "label": "release-2026-04-15",
+      "signature": "javascript|TypeError|app/src/profile.js:88|nullish-data,undefined-property-access",
+      "sourcePacks": [
+        "checkout-prod",
+        "profile-rollout",
+        "billing-canary"
+      ],
+      "metadata": {
+        "summary": "Checkout profile payload dropped account metadata before render",
+        "fix": "Guard renderProfile before reading account.name",
+        "owner": "web-platform",
+        "runbook": "https://example.com/runbooks/profile-null",
+        "seen-count": "3",
+        "source-packs": "checkout-prod, profile-rollout, billing-canary"
+      },
+      "conflicts": [
+        "label conflict: release-2026-04-15, profile-rewrite"
+      ]
+    },
+    {
+      "label": "release-2026-04-15-2",
+      "signature": "javascript|TypeError|app/src/invoice.js:19|nullish-data,undefined-property-access",
+      "sourcePacks": [
+        "billing-canary"
+      ],
+      "metadata": {
+        "summary": "Checkout profile payload dropped account metadata before render",
+        "fix": "Guard renderProfile before reading account.name",
+        "owner": "web-platform",
+        "runbook": "https://example.com/runbooks/profile-null",
+        "seen-count": "1",
+        "source-packs": "billing-canary"
+      },
+      "conflicts": []
+    },
+    {
+      "label": "profile-js-generic-runtime-error",
+      "signature": "javascript|ProfileHydrationError|app/src/profile.js:102|generic-runtime-error",
+      "sourcePacks": [
+        "profile-rollout"
+      ],
+      "metadata": {
+        "summary": "No specific pattern matched, so focus on the failing inputs and recent changes around renderProfileState (/app/src/profile.js:102).",
+        "seen-count": "1",
+        "source-packs": "profile-rollout"
+      },
+      "conflicts": []
+    }
+  ],
+  "exportText": "=== release-2026-04-15 ===\n>>> summary: Checkout profile payload dropped account metadata before render\n>>> fix: Guard renderProfile before reading account.name\n>>> owner: web-platform\n>>> runbook: https://example.com/runbooks/profile-null\n>>> seen-count: 3\n>>> source-packs: checkout-prod, profile-rollout, billing-canary\nTypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n\n=== release-2026-04-15-2 ===\n>>> summary: Checkout profile payload dropped account metadata before render\n>>> fix: Guard renderProfile before reading account.name\n>>> owner: web-platform\n>>> runbook: https://example.com/runbooks/profile-null\n>>> seen-count: 1\n>>> source-packs: billing-canary\nTypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n\n=== profile-js-generic-runtime-error ===\n>>> summary: No specific pattern matched, so focus on the failing inputs and recent changes around renderProfileState (/app/src/profile.js:102).\n>>> seen-count: 1\n>>> source-packs: profile-rollout\nProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)"
+}

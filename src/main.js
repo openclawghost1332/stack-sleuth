@@ -22,6 +22,10 @@ import {
   renderDatasetTextSummary,
 } from './dataset.js';
 import {
+  inspectResponseBundleReplayInput,
+  renderResponseBundleTextSummary,
+} from './bundle-replay.js';
+import {
   describeShelfInputError,
   inspectReplayShelfInput,
   renderShelfTextSummary,
@@ -36,12 +40,19 @@ import {
   inspectCasebookChronicleInput,
   renderCasebookChronicleTextSummary,
 } from './chronicle.js';
+import {
+  analyzeResponseBundleChronicle,
+  describeResponseBundleChronicleInputError,
+  inspectResponseBundleChronicleInput,
+  renderResponseBundleChronicleTextSummary,
+} from './bundle-chronicle.js';
 import { extractTraceSet } from './extract.js';
 import {
   parseIncidentNotebook,
   renderNormalizedNotebookText,
   routeIncidentNotebook,
 } from './notebook.js';
+import { describeCasebookStewardHeadline } from './steward.js';
 import { examples } from './examples.js';
 
 const traceInput = document.querySelector('#trace-input');
@@ -55,6 +66,7 @@ const loadPackButton = document.querySelector('#load-pack-button');
 const loadPortfolioButton = document.querySelector('#load-portfolio-button');
 const loadHandoffButton = document.querySelector('#load-handoff-button');
 const loadDatasetButton = document.querySelector('#load-dataset-button');
+const loadBundleChronicleButton = document.querySelector('#load-bundle-chronicle-button');
 const loadChronicleButton = document.querySelector('#load-chronicle-button');
 const loadShelfButton = document.querySelector('#load-shelf-button');
 const loadMergeButton = document.querySelector('#load-merge-button');
@@ -130,12 +142,57 @@ const incidentPackExample = examples.find((item) => item.label === 'Incident pac
 const portfolioExample = examples.find((item) => item.label === 'Portfolio radar');
 const handoffExample = examples.find((item) => item.label === 'Handoff Briefing');
 const datasetExample = examples.find((item) => item.label === 'Casebook Dataset');
+const bundleChronicleExample = examples.find((item) => item.label === 'Response Bundle Chronicle');
 const chronicleExample = examples.find((item) => item.label === 'Casebook Chronicle');
 const shelfExample = examples.find((item) => item.label === 'Casebook Shelf');
 const mergeExample = examples.find((item) => item.label === 'Casebook Merge');
 const casebookExample = examples.find((item) => item.label === 'Casebook Radar');
 const regressionExample = examples.find((item) => item.label === 'Regression radar');
 const timelineExample = examples.find((item) => item.label === 'Timeline radar');
+
+function inspectSavedArtifactWorkflow(traceText) {
+  const bundleChronicle = inspectResponseBundleChronicleInput(traceText);
+  if (bundleChronicle.valid) {
+    return { kind: 'bundle-chronicle', value: bundleChronicle };
+  }
+  if (shouldRenderResponseBundleChronicleError(bundleChronicle)) {
+    return { kind: 'bundle-chronicle-error', value: bundleChronicle };
+  }
+
+  const bundleReplay = inspectResponseBundleReplayInput(traceText);
+  if (bundleReplay.valid) {
+    return { kind: 'bundle-replay', value: bundleReplay };
+  }
+  if (shouldRenderResponseBundleError(bundleReplay, traceText)) {
+    return { kind: 'bundle-replay-error', value: bundleReplay };
+  }
+
+  const shelfReplay = inspectReplayShelfInput(traceText);
+  if (shelfReplay.valid) {
+    return { kind: 'shelf-replay', value: shelfReplay };
+  }
+  if (shouldRenderShelfError(shelfReplay, traceText)) {
+    return { kind: 'shelf-replay-error', value: shelfReplay };
+  }
+
+  const chronicle = inspectCasebookChronicleInput(traceText);
+  if (chronicle.valid) {
+    return { kind: 'dataset-chronicle', value: chronicle };
+  }
+  if (shouldRenderChronicleError(chronicle)) {
+    return { kind: 'dataset-chronicle-error', value: chronicle };
+  }
+
+  const replay = inspectReplayDatasetInput(traceText);
+  if (replay.valid) {
+    return { kind: 'dataset-replay', value: replay };
+  }
+  if (shouldRenderDatasetReplayError(replay, traceText)) {
+    return { kind: 'dataset-replay-error', value: replay };
+  }
+
+  return null;
+}
 
 function renderDiagnosis() {
   const traceText = traceInput.value.trim();
@@ -144,37 +201,42 @@ function renderDiagnosis() {
     return;
   }
 
-  const shelfReplay = inspectReplayShelfInput(traceText);
-  if (shelfReplay.valid) {
-    renderShelfWorkflow(shelfReplay.shelf);
-    return;
-  }
-
-  if (shouldRenderShelfError(shelfReplay, traceText)) {
-    renderShelfError(shelfReplay);
-    return;
-  }
-
-  const chronicle = inspectCasebookChronicleInput(traceText);
-  if (chronicle.valid) {
-    renderChronicleWorkflow(chronicle);
-    return;
-  }
-
-  if (shouldRenderChronicleError(chronicle)) {
-    renderChronicleError(chronicle);
-    return;
-  }
-
-  const replay = inspectReplayDatasetInput(traceText);
-  if (replay.valid) {
-    renderDatasetReplayWorkflow(replay.dataset);
-    return;
-  }
-
-  if (shouldRenderDatasetReplayError(replay, traceText)) {
-    renderDatasetReplayError(replay);
-    return;
+  const savedArtifact = inspectSavedArtifactWorkflow(traceText);
+  if (savedArtifact) {
+    switch (savedArtifact.kind) {
+      case 'bundle-chronicle':
+        renderResponseBundleChronicleWorkflow(savedArtifact.value);
+        return;
+      case 'bundle-chronicle-error':
+        renderResponseBundleChronicleError(savedArtifact.value);
+        return;
+      case 'bundle-replay':
+        renderResponseBundleWorkflow(savedArtifact.value.bundle);
+        return;
+      case 'bundle-replay-error':
+        renderResponseBundleError(savedArtifact.value);
+        return;
+      case 'shelf-replay':
+        renderShelfWorkflow(savedArtifact.value.shelf);
+        return;
+      case 'shelf-replay-error':
+        renderShelfError(savedArtifact.value);
+        return;
+      case 'dataset-chronicle':
+        renderChronicleWorkflow(savedArtifact.value);
+        return;
+      case 'dataset-chronicle-error':
+        renderChronicleError(savedArtifact.value);
+        return;
+      case 'dataset-replay':
+        renderDatasetReplayWorkflow(savedArtifact.value.dataset);
+        return;
+      case 'dataset-replay-error':
+        renderDatasetReplayError(savedArtifact.value);
+        return;
+      default:
+        break;
+    }
   }
 
   const notebook = parseIncidentNotebook(traceText);
@@ -337,6 +399,47 @@ function renderPortfolioWorkflow(input) {
   mergeExportValue.textContent = merge.exportText || 'No merged export available yet.';
 }
 
+function renderResponseBundleWorkflow(bundle) {
+  renderDatasetReplayWorkflow(bundle.dataset);
+
+  const responseOwnerCount = bundle.dataset.responseQueue?.length ?? 0;
+  const mergedCaseCount = bundle.dataset.cases?.length ?? bundle.dataset.summary?.mergedCaseCount ?? 0;
+  const steward = bundle.dataset.steward;
+  const stewardActionCount = steward?.summary?.actionCount ?? 0;
+  const stewardHeadline = describeCasebookStewardHeadline(steward);
+  const stewardNextAction = steward?.nextAction ?? 'No stewardship gaps detected in the current casebook state.';
+  const stewardReplayNote = steward?.preserved === false
+    ? ' Stewardship was reconstructed from older dataset fields for replay.'
+    : '';
+
+  excavationValue.textContent = `Saved response bundle replay: ${bundle.summary.fileCount} files, ${bundle.dataset.summary.packCount} packs, ${bundle.dataset.summary.runnablePackCount} runnable`;
+  runtimeValue.textContent = 'response bundle replay';
+  headlineValue.textContent = 'Stack Sleuth Response Bundle Replay';
+  culpritValue.textContent = 'Saved response bundle artifact';
+  confidenceValue.textContent = 'replay';
+  tagsValue.textContent = 'response-bundle-replay, saved-artifact';
+  signatureValue.textContent = `${bundle.kind}@${bundle.sourceVersion}`;
+  summaryValue.textContent = `Response Bundle replay reuses preserved bundle and dataset fields only, including ${stewardActionCount} stewardship action${stewardActionCount === 1 ? '' : 's'}.${stewardReplayNote} It does not recover raw traces, support frames, or blast radius detail.`;
+  blastRadiusValue.textContent = 'Saved response bundles preserve bundle inventory plus embedded dataset state. They do not recover raw traces, support frames, or culprit-level blast radius detail.';
+  digestGroupsValue.replaceChildren(...buildListItems(buildResponseBundleInventoryItems(bundle.manifest?.files)));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Response Bundle replay does not preserve support frames. Reopen the original traces or portfolio input if you need nearby frame context.'
+  ]));
+  checklistValue.replaceChildren(...buildListItems([
+    'Saved-artifact note: response bundle replay uses preserved bundle and dataset fields only.',
+    ...(steward?.preserved === false ? ['Stewardship note: the saved bundle had to reconstruct steward state from older dataset fields.'] : []),
+    `Stewardship next action: ${stewardNextAction}`,
+    'Route the preserved response queue first so recalled owners see the replayed incident memory quickly.',
+    'Reopen the original portfolio or traces if you need culprit-level evidence beyond the saved artifact.',
+  ]));
+
+  portfolioSummaryValue.textContent = `Response bundle replay restored ${responseOwnerCount} owner-routed entr${responseOwnerCount === 1 ? 'y' : 'ies'}, ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'}, and ${stewardActionCount} stewardship action${stewardActionCount === 1 ? '' : 's'} from the portable saved bundle.`;
+  portfolioPackCountValue.textContent = `${bundle.dataset.summary.runnablePackCount} / ${bundle.dataset.summary.packCount}`;
+  portfolioPriorityValue.replaceChildren(...buildListItems(buildResponseBundleInventoryItems(bundle.manifest?.files)));
+  datasetSummaryValue.textContent = `Saved bundle replay is using the portable response bundle artifact directly, with the embedded Casebook Dataset ${steward?.preserved === false ? 'reconstructed from older fields for replay' : 'preserved for replay'}. ${stewardHeadline}`;
+  caption.textContent = `Response bundle replay restored ${bundle.summary.fileCount} saved bundle file${bundle.summary.fileCount === 1 ? '' : 's'}.`;
+}
+
 function renderDatasetReplayWorkflow(report) {
   resetCasebookState();
   resetRegressionState();
@@ -346,6 +449,10 @@ function renderDatasetReplayWorkflow(report) {
   const recurringIncidentCount = report.recurringIncidents?.length ?? 0;
   const recurringHotspotCount = report.recurringHotspots?.length ?? 0;
   const mergedCaseCount = report.cases?.length ?? report.summary?.mergedCaseCount ?? 0;
+  const stewardHeadline = describeCasebookStewardHeadline(report.steward);
+  const stewardReplayNote = report.steward?.preserved === false
+    ? ' Stewardship was reconstructed from older dataset fields for replay.'
+    : '';
 
   excavationValue.textContent = `Saved dataset replay: ${report.summary.packCount} packs, ${report.summary.runnablePackCount} runnable`;
   runtimeValue.textContent = 'dataset replay';
@@ -354,7 +461,7 @@ function renderDatasetReplayWorkflow(report) {
   confidenceValue.textContent = 'replay';
   tagsValue.textContent = 'dataset-replay, casebook-dataset';
   signatureValue.textContent = `${report.kind}@${report.version}`;
-  summaryValue.textContent = `Replayed ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'}, ${responseOwnerCount} response owner${responseOwnerCount === 1 ? '' : 's'}, ${recurringIncidentCount} recurring incident signature${recurringIncidentCount === 1 ? '' : 's'}, and ${recurringHotspotCount} recurring hotspot${recurringHotspotCount === 1 ? '' : 's'} from a saved Casebook Dataset artifact. Release Gate verdict: ${report.gate?.verdict ?? 'needs-input'}.`;
+  summaryValue.textContent = `Replayed ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'}, ${responseOwnerCount} response owner${responseOwnerCount === 1 ? '' : 's'}, ${recurringIncidentCount} recurring incident signature${recurringIncidentCount === 1 ? '' : 's'}, and ${recurringHotspotCount} recurring hotspot${recurringHotspotCount === 1 ? '' : 's'} from a saved Casebook Dataset artifact. Release Gate verdict: ${report.gate?.verdict ?? 'needs-input'}.${stewardReplayNote}`;
   blastRadiusValue.textContent = 'Saved datasets preserve routing and reusable incident-memory state, not culprit-level blast radius detail. Reopen the source portfolio input for trace-level excavation context.';
   digestGroupsValue.replaceChildren(...buildListItems(buildDatasetReplayPackItems(report.portfolio?.packOrder)));
   supportFramesValue.replaceChildren(...buildListItems([
@@ -362,6 +469,7 @@ function renderDatasetReplayWorkflow(report) {
   ]));
   hotspotsValue.replaceChildren(...buildListItems(buildPortfolioRecurringHotspotItems(report.recurringHotspots ?? [])));
   checklistValue.replaceChildren(...buildListItems([
+    ...(report.steward?.preserved === false ? ['Stewardship note: this saved dataset had to reconstruct steward state from older fields.'] : []),
     ...(report.gate?.checklist ?? []),
     'Route the preserved response queue first so recalled owners see the replayed incident memory quickly.',
     'Paste the saved export text into Casebook Radar or an @@ history @@ section when you want fresh current-versus-history matching.',
@@ -384,7 +492,7 @@ function renderDatasetReplayWorkflow(report) {
   forgeSummaryValue.textContent = `Saved dataset replay preserved ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'} and one reusable casebook export.`;
   forgeExportValue.textContent = report.exportText || 'No reusable casebook export was preserved in this saved dataset.';
 
-  datasetSummaryValue.textContent = `${report.summary.headline} Saved dataset replay is using the portable artifact directly, with Release Gate ${report.gate?.verdict?.toUpperCase?.() ?? 'NEEDS INPUT'} preserved.`;
+  datasetSummaryValue.textContent = `${report.summary.headline} Saved dataset replay is using the portable artifact directly, with Release Gate ${report.gate?.verdict?.toUpperCase?.() ?? 'NEEDS INPUT'} preserved. ${stewardHeadline}`;
   datasetPackCountValue.textContent = `${report.summary.runnablePackCount} / ${report.summary.packCount}`;
   datasetExportValue.textContent = report.exportText || 'No dataset export available in this saved artifact.';
 
@@ -395,6 +503,39 @@ function renderDatasetReplayWorkflow(report) {
       : ['No saved merge conflicts were preserved in this dataset artifact.']
   ));
   mergeExportValue.textContent = report.exportText || 'No merged Casebook export was preserved in this saved artifact.';
+}
+
+function renderResponseBundleError(replay) {
+  resetPortfolioState();
+  resetForgeState();
+  resetDatasetState();
+  resetMergeState();
+  resetCasebookState();
+  resetRegressionState();
+  resetTimelineState();
+
+  const details = describeResponseBundleReplayError(replay);
+
+  excavationValue.textContent = 'Saved response bundle replay blocked';
+  runtimeValue.textContent = 'response bundle replay error';
+  headlineValue.textContent = details.headline;
+  culpritValue.textContent = 'Unsupported response bundle artifact';
+  confidenceValue.textContent = '-';
+  tagsValue.textContent = 'response-bundle-replay, error';
+  signatureValue.textContent = 'stack-sleuth-response-bundle';
+  summaryValue.textContent = details.summary;
+  blastRadiusValue.textContent = 'No blast radius details are available because Stack Sleuth stopped before replaying the saved response bundle.';
+  digestGroupsValue.replaceChildren(...buildListItems([
+    'Paste a saved Stack Sleuth response-bundle.json artifact or a saved response bundle directory.'
+  ]));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Response bundle replay errors happen before Stack Sleuth reaches any trace-level call stack.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems([
+    'Recurring hotspots will appear here once Stack Sleuth can replay a supported saved response bundle.'
+  ]));
+  checklistValue.replaceChildren(...buildListItems(details.checklist));
+  caption.textContent = details.caption;
 }
 
 function renderShelfWorkflow(report) {
@@ -809,6 +950,50 @@ function renderChronicleWorkflow(input) {
     : 'Chronicle replayed saved datasets.';
 }
 
+function renderResponseBundleChronicleWorkflow(input) {
+  resetPortfolioState();
+  resetForgeState();
+  resetDatasetState();
+  resetMergeState();
+  resetCasebookState();
+  resetRegressionState();
+
+  const report = input?.valid
+    ? analyzeResponseBundleChronicle(input)
+    : analyzeResponseBundleChronicle(traceInput.value.trim());
+  const topOwner = report.ownerTrends[0] ?? null;
+  const topHotspot = report.hotspotTrends[0] ?? null;
+  const latestSnapshot = report.snapshots.at(-1) ?? null;
+  const latestDataset = latestSnapshot?.dataset ?? null;
+
+  excavationValue.textContent = `Saved response bundle snapshots: ${report.labels.join(' → ')}`;
+  runtimeValue.textContent = 'response bundle chronicle';
+  headlineValue.textContent = report.summary.headline;
+  culpritValue.textContent = topHotspot ? `${topHotspot.label} (${topHotspot.trend})` : 'Saved response bundle artifact';
+  confidenceValue.textContent = 'saved artifact';
+  tagsValue.textContent = ['bundle-chronicle', topOwner?.trend, topHotspot?.trend].filter(Boolean).join(', ');
+  signatureValue.textContent = `bundle-chronicle:${report.summary.latestLabel}`;
+  summaryValue.textContent = `Bundle Chronicle compared ${report.summary.snapshotCount} saved response bundles. Latest snapshot ${report.summary.latestLabel} preserves ${report.summary.latestPackCount} packs, ${report.summary.latestOwnerCount} response owner${report.summary.latestOwnerCount === 1 ? '' : 's'}, ${report.summary.latestHotspotCount} recurring hotspot${report.summary.latestHotspotCount === 1 ? '' : 's'}, ${report.summary.latestCaseCount} casebook case${report.summary.latestCaseCount === 1 ? '' : 's'}, ${report.summary.latestFileCount} bundle file${report.summary.latestFileCount === 1 ? '' : 's'}, steward drift ${report.summary.stewardDrift.direction}, and Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}.`;
+  blastRadiusValue.textContent = 'Saved response bundle chronicle snapshots preserve bundle inventory plus embedded dataset routing, hotspot, case, and stewardship signals, but not raw trace blast radius, support frames, or culprit-level call stacks.';
+  digestGroupsValue.replaceChildren(...buildListItems(buildChronicleOwnerItems(report.ownerTrends)));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Response Bundle Chronicle replays saved bundle and dataset signals only. Reopen the original portfolio or traces if you need supporting frames.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems(buildChronicleHotspotItems(report.hotspotTrends, latestDataset)));
+  checklistValue.replaceChildren(...buildListItems([
+    `Latest source workflow: ${report.summary.latestSourceMode}${report.summary.latestSourceLabel ? ` (${report.summary.latestSourceLabel})` : ''}.`,
+    `Steward drift: ${report.summary.stewardDrift.summary}`,
+    'Saved-artifact note: response bundle chronicle uses preserved bundle inventory and embedded dataset fields only.',
+  ]));
+
+  timelineSummaryValue.textContent = `Response Bundle Chronicle latest snapshot ${report.summary.latestLabel} came from ${report.summary.latestSourceMode}. Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}, ${report.summary.gateDrift.summary}, and steward view ${report.summary.latestStewardHeadline}. Inventory drift: ${report.summary.newInventoryCount} new files, ${report.summary.resolvedInventoryCount} resolved files.`;
+  timelineIncidentsValue.replaceChildren(...buildListItems(buildChronicleTrendItems(report)));
+  timelineHotspotsValue.replaceChildren(...buildListItems(buildBundleChronicleInventoryItems(report.inventoryTrends)));
+  caption.textContent = latestSnapshot
+    ? `Response Bundle Chronicle replayed saved bundles through ${latestSnapshot.label}.`
+    : 'Response Bundle Chronicle replayed saved bundles.';
+}
+
 function renderChronicleError(details) {
   resetPortfolioState();
   resetForgeState();
@@ -842,6 +1027,41 @@ function renderChronicleError(details) {
     'If the dataset version is unsupported, replay it with a compatible Stack Sleuth build or regenerate the artifact.',
   ]));
   caption.textContent = describeChronicleInputError(details);
+}
+
+function renderResponseBundleChronicleError(details) {
+  resetPortfolioState();
+  resetForgeState();
+  resetDatasetState();
+  resetMergeState();
+  resetCasebookState();
+  resetRegressionState();
+  resetTimelineState();
+
+  excavationValue.textContent = 'Saved response bundle chronicle replay blocked';
+  runtimeValue.textContent = 'response bundle chronicle error';
+  headlineValue.textContent = 'Response Bundle Chronicle could not replay this saved bundle set.';
+  culpritValue.textContent = 'Unsupported bundle chronicle artifact';
+  confidenceValue.textContent = '-';
+  tagsValue.textContent = 'bundle-chronicle, error';
+  signatureValue.textContent = 'stack-sleuth-response-bundle';
+  summaryValue.textContent = describeResponseBundleChronicleInputError(details);
+  blastRadiusValue.textContent = 'No blast radius details are available because Stack Sleuth stopped before replaying the saved response bundle chronicle.';
+  digestGroupsValue.replaceChildren(...buildListItems([
+    'Bundle chronicle snapshots must be labeled === release === style blocks containing saved response-bundle.json artifacts.'
+  ]));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Bundle chronicle replay errors happen before Stack Sleuth reaches any trace-level call stack.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems([
+    'Bundle inventory and hotspot drift appear here once Stack Sleuth can replay at least two saved response bundle snapshots.'
+  ]));
+  checklistValue.replaceChildren(...buildListItems([
+    'Use at least two labeled snapshots like === release-a === and === release-b ===.',
+    'Make sure each snapshot body is saved response-bundle.json, not raw traces or casebook dataset JSON.',
+    'If the bundle version is unsupported, replay it with a compatible Stack Sleuth build or regenerate the artifact.',
+  ]));
+  caption.textContent = describeResponseBundleChronicleInputError(details);
 }
 
 function renderTimelineWorkflow() {
@@ -1079,6 +1299,16 @@ function loadDatasetExample(example) {
   renderDiagnosis();
 }
 
+function loadBundleChronicleExample(example) {
+  if (!example) {
+    return;
+  }
+
+  traceInput.value = example.bundleChronicle;
+  caption.textContent = example.caption;
+  renderDiagnosis();
+}
+
 function loadChronicleExample(example) {
   if (!example) {
     return;
@@ -1143,55 +1373,68 @@ function loadCasebookExample(example) {
 
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
-  const shelfReplay = inspectReplayShelfInput(traceText);
+  const savedArtifact = inspectSavedArtifactWorkflow(traceText);
 
-  if (shelfReplay.valid) {
-    try {
-      await navigator.clipboard.writeText(renderShelfTextSummary(shelfReplay.shelf));
-      caption.textContent = 'Casebook Shelf summary copied to clipboard.';
-    } catch {
-      caption.textContent = 'Clipboard copy unavailable here, but the Casebook Shelf summary is ready to copy manually.';
+  if (savedArtifact) {
+    switch (savedArtifact.kind) {
+      case 'bundle-chronicle':
+        try {
+          await navigator.clipboard.writeText(renderResponseBundleChronicleTextSummary(analyzeResponseBundleChronicle(savedArtifact.value)));
+          caption.textContent = 'Response Bundle Chronicle summary copied to clipboard.';
+        } catch {
+          caption.textContent = 'Clipboard copy unavailable here, but the Response Bundle Chronicle summary is ready to copy manually.';
+        }
+        return;
+      case 'bundle-chronicle-error':
+        caption.textContent = describeResponseBundleChronicleInputError(savedArtifact.value);
+        return;
+      case 'bundle-replay':
+        try {
+          await navigator.clipboard.writeText(renderResponseBundleTextSummary(savedArtifact.value.bundle));
+          caption.textContent = 'Response Bundle replay copied to clipboard.';
+        } catch {
+          caption.textContent = 'Clipboard copy unavailable here, but the Response Bundle replay is ready to copy manually.';
+        }
+        return;
+      case 'bundle-replay-error':
+        caption.textContent = describeResponseBundleReplayError(savedArtifact.value).caption;
+        return;
+      case 'shelf-replay':
+        try {
+          await navigator.clipboard.writeText(renderShelfTextSummary(savedArtifact.value.shelf));
+          caption.textContent = 'Casebook Shelf summary copied to clipboard.';
+        } catch {
+          caption.textContent = 'Clipboard copy unavailable here, but the Casebook Shelf summary is ready to copy manually.';
+        }
+        return;
+      case 'shelf-replay-error':
+        caption.textContent = describeShelfInputError(savedArtifact.value);
+        return;
+      case 'dataset-chronicle':
+        try {
+          await navigator.clipboard.writeText(renderCasebookChronicleTextSummary(analyzeCasebookChronicle(savedArtifact.value)));
+          caption.textContent = 'Casebook Chronicle summary copied to clipboard.';
+        } catch {
+          caption.textContent = 'Clipboard copy unavailable here, but the Casebook Chronicle summary is ready to copy manually.';
+        }
+        return;
+      case 'dataset-chronicle-error':
+        caption.textContent = describeChronicleInputError(savedArtifact.value);
+        return;
+      case 'dataset-replay':
+        try {
+          await navigator.clipboard.writeText(renderDatasetTextSummary(savedArtifact.value.dataset));
+          caption.textContent = 'Casebook Dataset replay copied to clipboard.';
+        } catch {
+          caption.textContent = 'Clipboard copy unavailable here, but the Casebook Dataset replay is ready to copy manually.';
+        }
+        return;
+      case 'dataset-replay-error':
+        caption.textContent = describeDatasetReplayError(savedArtifact.value).caption;
+        return;
+      default:
+        break;
     }
-    return;
-  }
-
-  if (shouldRenderShelfError(shelfReplay, traceText)) {
-    caption.textContent = describeShelfInputError(shelfReplay);
-    return;
-  }
-
-  const chronicle = inspectCasebookChronicleInput(traceText);
-
-  if (chronicle.valid) {
-    try {
-      await navigator.clipboard.writeText(renderCasebookChronicleTextSummary(analyzeCasebookChronicle(chronicle)));
-      caption.textContent = 'Casebook Chronicle summary copied to clipboard.';
-    } catch {
-      caption.textContent = 'Clipboard copy unavailable here, but the Casebook Chronicle summary is ready to copy manually.';
-    }
-    return;
-  }
-
-  if (shouldRenderChronicleError(chronicle)) {
-    caption.textContent = describeChronicleInputError(chronicle);
-    return;
-  }
-
-  const replay = inspectReplayDatasetInput(traceText);
-
-  if (replay.valid) {
-    try {
-      await navigator.clipboard.writeText(renderDatasetTextSummary(replay.dataset));
-      caption.textContent = 'Casebook Dataset replay copied to clipboard.';
-    } catch {
-      caption.textContent = 'Clipboard copy unavailable here, but the Casebook Dataset replay is ready to copy manually.';
-    }
-    return;
-  }
-
-  if (shouldRenderDatasetReplayError(replay, traceText)) {
-    caption.textContent = describeDatasetReplayError(replay).caption;
-    return;
   }
 
   const notebook = parseIncidentNotebook(traceText);
@@ -1461,6 +1704,21 @@ function buildPortfolioBlastRadiusSummary(topPack, primaryIncident) {
   return `Top pack ${topPack.label} centers on ${culprit}. ${formatBlastRadiusSummary(blastRadius)}`;
 }
 
+function shouldRenderResponseBundleError(replay, input) {
+  if (!replay || replay.valid) {
+    return false;
+  }
+
+  if (replay.reason === 'unsupported-version' || replay.reason === 'invalid-json' || replay.reason === 'missing-dataset') {
+    return true;
+  }
+
+  return replay.reason === 'not-bundle'
+    && typeof input === 'string'
+    && input.includes('stack-sleuth-response-bundle')
+    && input.trim().startsWith('{');
+}
+
 function shouldRenderShelfError(replay, input) {
   if (replay.reason === 'unsupported-version' || replay.reason === 'invalid-json') {
     return true;
@@ -1484,6 +1742,31 @@ function shouldRenderChronicleError(chronicle) {
   return chronicle.snapshots.every((snapshot) => String(snapshot.source ?? '').trim().startsWith('{'));
 }
 
+function shouldRenderResponseBundleChronicleError(chronicle) {
+  if (!chronicle || chronicle.valid) {
+    return false;
+  }
+
+  if ((chronicle.snapshots?.length ?? 0) < 1) {
+    return false;
+  }
+
+  if (chronicle.reason === 'unsupported-version') {
+    return true;
+  }
+
+  if (chronicle.reason === 'wrong-kind') {
+    return chronicle.replay?.parsed?.kind === 'stack-sleuth-response-bundle';
+  }
+
+  if (chronicle.reason === 'invalid-json') {
+    return chronicle.snapshots.every((snapshot) => String(snapshot.source ?? '').includes('"stack-sleuth-response-bundle"'));
+  }
+
+  return chronicle.reason === 'missing-dataset'
+    && chronicle.snapshots.every((snapshot) => String(snapshot.source ?? '').includes('"stack-sleuth-response-bundle"'));
+}
+
 function shouldRenderDatasetReplayError(replay, input) {
   if (replay.reason === 'unsupported-version' || replay.reason === 'wrong-kind' || replay.reason === 'invalid-json') {
     return true;
@@ -1493,6 +1776,68 @@ function shouldRenderDatasetReplayError(replay, input) {
     && typeof input === 'string'
     && input.includes('stack-sleuth-casebook-dataset')
     && input.trim().startsWith('{');
+}
+
+function describeResponseBundleReplayError(replay) {
+  if (replay.reason === 'unsupported-version') {
+    const version = replay.parsed?.version ?? 'unknown';
+    const supportedVersions = Array.isArray(replay.supportedVersions) ? replay.supportedVersions.join(', ') : 'unknown';
+    return {
+      headline: `Response Bundle replay uses unsupported version ${version}.`,
+      summary: `Saved response bundle replay uses unsupported version ${version}. Supported versions: ${supportedVersions}. Rebuild the bundle with a compatible Stack Sleuth release or reopen the original portfolio input.`,
+      caption: `Response Bundle replay uses unsupported version ${version}. Supported versions: ${supportedVersions}.`,
+      checklist: [
+        `Rebuild the saved response bundle with a Stack Sleuth version that supports bundle versions ${supportedVersions}.`,
+        'If you still have the original portfolio input, reopen it to regenerate a fresh response bundle artifact.',
+      ],
+    };
+  }
+
+  if (replay.reason === 'wrong-kind') {
+    return {
+      headline: `Response Bundle replay uses unsupported kind ${replay.parsed?.kind ?? 'unknown'}.`,
+      summary: 'This browser replay flow only supports saved Stack Sleuth response bundle artifacts.',
+      caption: `Response Bundle replay uses unsupported kind ${replay.parsed?.kind ?? 'unknown'}.`,
+      checklist: [
+        'Paste a saved Stack Sleuth response-bundle.json artifact instead of another JSON document.',
+        'If the artifact came from another workflow, replay it through the matching Stack Sleuth mode instead.',
+      ],
+    };
+  }
+
+  if (replay.reason === 'invalid-json') {
+    return {
+      headline: 'Response Bundle replay could not parse the saved bundle JSON.',
+      summary: 'The pasted artifact looks like a Stack Sleuth response bundle, but the JSON is malformed. Paste the saved bundle again or reload it from disk before replaying it here.',
+      caption: 'Response Bundle replay could not parse the saved bundle JSON.',
+      checklist: [
+        'Paste the full saved response bundle JSON blob, including the opening and closing braces.',
+        'If the artifact was hand-edited, validate the JSON before replaying it here.',
+      ],
+    };
+  }
+
+  if (replay.reason === 'missing-dataset') {
+    return {
+      headline: 'Response Bundle replay is missing casebook-dataset.json.',
+      summary: 'Saved response bundles must preserve the embedded Casebook Dataset artifact so Stack Sleuth can replay preserved routing and casebook state honestly.',
+      caption: 'Response Bundle replay requires casebook-dataset.json in the saved bundle.',
+      checklist: [
+        'Regenerate the saved bundle so it includes casebook-dataset.json.',
+        'If you only need the saved dataset, replay that artifact directly through Casebook Dataset replay.',
+      ],
+    };
+  }
+
+  return {
+    headline: 'Response Bundle replay requires a saved Stack Sleuth response bundle.',
+    summary: 'Paste a saved Stack Sleuth response-bundle.json artifact to replay preserved bundle inventory and embedded dataset state.',
+    caption: 'Response Bundle replay needs a saved Stack Sleuth response bundle JSON artifact.',
+    checklist: [
+      'Generate a response bundle from a portfolio-shaped workflow first.',
+      'Paste the saved response-bundle.json blob into the shared workspace to replay it here.',
+    ],
+  };
 }
 
 function describeDatasetReplayError(replay) {
@@ -1553,6 +1898,14 @@ function buildShelfInventoryItems(snapshots) {
   return snapshots.map((snapshot) => snapshot.status === 'valid'
     ? `${snapshot.filename}: valid saved snapshot ${snapshot.label}`
     : `${snapshot.filename}: ${snapshot.reason}`);
+}
+
+function buildResponseBundleInventoryItems(fileNames) {
+  if (!fileNames?.length) {
+    return ['Saved bundle inventory is not available in this response bundle artifact.'];
+  }
+
+  return fileNames.map((name) => `saved bundle file: ${name}`);
 }
 
 function buildDatasetReplayPackItems(packOrder) {
@@ -1714,6 +2067,12 @@ function buildChronicleChecklist(report) {
     'Reopen the source portfolio or timeline input if you need trace-level culprit frames or blast radius detail.',
     'Use the owner and hotspot trend lines to decide which saved release window deserves a deeper replay next.',
   ];
+}
+
+function buildBundleChronicleInventoryItems(items) {
+  return items.length
+    ? items.map((entry) => `${entry.trend}: saved bundle file ${entry.filename} ${entry.series.join(' → ')}`)
+    : ['Bundle inventory drift will appear here once the chronicle preserves saved response bundle snapshots.'];
 }
 
 function buildTimelineIncidentItems(incidents) {
@@ -1919,6 +2278,7 @@ loadPackButton?.addEventListener('click', () => loadIncidentPackExample(incident
 loadPortfolioButton?.addEventListener('click', () => loadPortfolioExample(portfolioExample));
 loadHandoffButton?.addEventListener('click', () => loadPortfolioExample(handoffExample));
 loadDatasetButton?.addEventListener('click', () => loadDatasetExample(datasetExample));
+loadBundleChronicleButton?.addEventListener('click', () => loadBundleChronicleExample(bundleChronicleExample));
 loadChronicleButton?.addEventListener('click', () => loadChronicleExample(chronicleExample));
 loadShelfButton?.addEventListener('click', () => loadShelfExample(shelfExample));
 loadMergeButton?.addEventListener('click', () => loadMergeExample(mergeExample));

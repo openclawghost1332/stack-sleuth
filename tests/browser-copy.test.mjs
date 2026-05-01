@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { analyzeIncidentPortfolio } from '../src/portfolio.js';
 import { buildCasebookDataset } from '../src/dataset.js';
+import { buildResponseBundle } from '../src/bundle.js';
 
 const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const stylesCss = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
@@ -140,10 +142,41 @@ const portfolioInput = [
   ].join('\n\n'),
 ].join('\n');
 
-const datasetReplayInput = JSON.stringify(buildCasebookDataset(portfolioInput), null, 2);
+const datasetReplayObject = buildCasebookDataset(portfolioInput);
+const datasetReplayInput = JSON.stringify(datasetReplayObject, null, 2);
+const reconstructedDatasetReplayObject = structuredClone(datasetReplayObject);
+delete reconstructedDatasetReplayObject.steward;
+const reconstructedDatasetReplayInput = JSON.stringify(reconstructedDatasetReplayObject, null, 2);
 const unsupportedDatasetReplayInput = JSON.stringify({
   ...buildCasebookDataset(portfolioInput),
   version: 99,
+}, null, 2);
+const responseBundleReplayObject = JSON.parse(buildResponseBundle({
+  report: analyzeIncidentPortfolio(portfolioInput),
+  sourceMode: 'portfolio',
+  sourceLabel: 'browser replay fixture',
+}).files['response-bundle.json']);
+const responseBundleReplayInput = JSON.stringify(responseBundleReplayObject, null, 2);
+const reconstructedResponseBundleReplayObject = structuredClone(responseBundleReplayObject);
+const reconstructedBundleDataset = JSON.parse(reconstructedResponseBundleReplayObject.artifacts['casebook-dataset.json']);
+delete reconstructedBundleDataset.steward;
+reconstructedResponseBundleReplayObject.artifacts['casebook-dataset.json'] = JSON.stringify(reconstructedBundleDataset, null, 2);
+const reconstructedResponseBundleReplayInput = JSON.stringify(reconstructedResponseBundleReplayObject, null, 2);
+const unsupportedResponseBundleReplayInput = JSON.stringify({
+  kind: 'stack-sleuth-response-bundle',
+  version: 99,
+  manifest: {
+    kind: 'stack-sleuth-response-bundle',
+    version: 99,
+    generatedAt: '2026-05-01T00:00:00.000Z',
+    source: { mode: 'portfolio', label: 'browser replay fixture' },
+    summary: { headline: 'unsupported bundle' },
+    files: ['manifest.json', 'casebook-dataset.json'],
+  },
+  artifacts: {
+    'manifest.json': '{"kind":"stack-sleuth-response-bundle"}',
+    'casebook-dataset.json': datasetReplayInput,
+  },
 }, null, 2);
 const chronicleInput = [
   '=== release-a ===',
@@ -169,6 +202,65 @@ const chronicleInput = [
     hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
     cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
   }), null, 2),
+].join('\n');
+
+const responseBundleChronicleInput = [
+  '=== release-a ===',
+  buildChronicleBundle({
+    sourceMode: 'portfolio',
+    sourceLabel: 'browser release-a fixture',
+    dataset: buildChronicleDataset({
+      packCount: 2,
+      owners: [{ owner: 'web-platform', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+    }),
+    files: ['manifest.json', 'incident-dossier.html', 'portfolio-summary.md', 'handoff.md', 'casebook.txt', 'casebook-dataset.json', 'merge-review.md'],
+  }),
+  '',
+  '=== release-b ===',
+  buildChronicleBundle({
+    sourceMode: 'portfolio',
+    sourceLabel: 'browser release-b fixture',
+    dataset: buildChronicleDataset({
+      packCount: 3,
+      owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    }),
+  }),
+  '',
+  '=== release-c ===',
+  buildChronicleBundle({
+    sourceMode: 'workspace',
+    sourceLabel: 'browser release-c fixture',
+    dataset: buildChronicleDataset({
+      packCount: 4,
+      owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
+      hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    }),
+  }),
+].join('\n');
+const reconstructedResponseBundleChronicleInput = [
+  '=== release-a ===',
+  buildChronicleBundle({
+    sourceMode: 'portfolio',
+    sourceLabel: 'browser release-a fixture',
+    dataset: buildChronicleDataset({
+      packCount: 2,
+      owners: [{ owner: 'web-platform', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+    }),
+  }),
+  '',
+  '=== release-b ===',
+  buildChronicleBundle({
+    sourceMode: 'workspace',
+    sourceLabel: 'browser release-b reconstructed fixture',
+    dataset: reconstructedDatasetReplayObject,
+  }),
 ].join('\n');
 const shelfReplayInput = JSON.stringify({
   kind: 'stack-sleuth-casebook-shelf',
@@ -623,6 +715,130 @@ test('browser dataset replay copy support writes the saved dataset summary to th
   }
 });
 
+test('browser response bundle replay detection runs before dataset replay and renders a saved bundle surface', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', responseBundleReplayInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'response bundle replay');
+    assert.match(harness.get('headline-value').textContent, /Stack Sleuth Response Bundle Replay/i);
+    assert.match(harness.get('summary-value').textContent, /preserved bundle and dataset fields only/i);
+    assert.match(harness.get('summary-value').textContent, /stewardship/i);
+    assert.match(harness.get('portfolio-summary-value').textContent, /Response bundle replay restored 1 owner-routed entr/i);
+    assert.match(harness.get('portfolio-summary-value').textContent, /steward/i);
+    assert.match(harness.get('dataset-summary-value').textContent, /Saved bundle replay is using the portable response bundle artifact directly/i);
+    assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
+    assert.match(harness.get('portfolio-priority-value').children[0].textContent, /saved bundle file: manifest\.json/i);
+    assert.match(harness.get('example-caption').textContent, /response bundle/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser response bundle replay copy support writes the saved bundle summary to the clipboard', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', responseBundleReplayInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Stack Sleuth Response Bundle Replay/);
+    assert.match(harness.clipboard.text, /Source workflow: portfolio \(browser replay fixture\)/i);
+    assert.match(harness.clipboard.text, /Steward actions: [1-9]/i);
+    assert.match(harness.clipboard.text, /Next steward action:/i);
+    assert.match(harness.clipboard.text, /Saved-artifact note:/i);
+    assert.equal(harness.get('example-caption').textContent, 'Response Bundle replay copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser dataset replay discloses reconstructed stewardship honestly', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', reconstructedDatasetReplayInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'dataset replay');
+    assert.match(harness.get('summary-value').textContent, /Stewardship was reconstructed from older dataset fields for replay\./i);
+    assert.match(harness.get('dataset-summary-value').textContent, /Reconstructed Casebook Steward/i);
+    assert.match(harness.get('checklist-value').children[0].textContent, /reconstruct steward state from older fields/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser response bundle replay discloses reconstructed stewardship honestly', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', reconstructedResponseBundleReplayInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'response bundle replay');
+    assert.match(harness.get('summary-value').textContent, /Stewardship was reconstructed from older dataset fields for replay\./i);
+    assert.match(harness.get('dataset-summary-value').textContent, /embedded Casebook Dataset reconstructed from older fields for replay/i);
+    assert.match(harness.get('dataset-summary-value').textContent, /Reconstructed Casebook Steward/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser response bundle chronicle detection runs before single-bundle replay and renders a saved bundle trend surface', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', responseBundleChronicleInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'response bundle chronicle');
+    assert.match(harness.get('headline-value').textContent, /Bundle Chronicle compared 3 saved response bundles/i);
+    assert.match(harness.get('summary-value').textContent, /Release Gate HOLD|release gate hold/i);
+    assert.match(harness.get('summary-value').textContent, /steward/i);
+    assert.match(harness.get('timeline-summary-value').textContent, /workspace/i);
+    assert.match(harness.get('checklist-value').children[1].textContent, /steward/i);
+    assert.match(harness.get('timeline-hotspots-value').children[0].textContent, /saved bundle file|bundle inventory/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser response bundle chronicle copy support writes the saved bundle trend summary to the clipboard', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', responseBundleChronicleInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Stack Sleuth Response Bundle Chronicle/);
+    assert.match(harness.clipboard.text, /Latest source workflow: workspace/i);
+    assert.match(harness.clipboard.text, /Steward drift:/i);
+    assert.match(harness.clipboard.text, /Latest steward:/i);
+    assert.match(harness.clipboard.text, /Bundle inventory trends/);
+    assert.equal(harness.get('example-caption').textContent, 'Response Bundle Chronicle summary copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser response bundle chronicle discloses unavailable steward drift for reconstructed snapshots', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', reconstructedResponseBundleChronicleInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'response bundle chronicle');
+    assert.match(harness.get('timeline-summary-value').textContent, /Reconstructed Casebook Steward/i);
+    assert.match(harness.get('checklist-value').children[1].textContent, /one of the compared snapshots had to reconstruct stewardship detail/i);
+  } finally {
+    harness.restore();
+  }
+});
+
 test('browser Casebook Chronicle example button loads labeled saved datasets and reuses the trend cards', async () => {
   const harness = await loadBrowserHarness();
 
@@ -669,6 +885,22 @@ test('browser dataset replay reports unsupported dataset versions clearly', asyn
     assert.equal(harness.get('runtime-value').textContent, 'dataset replay error');
     assert.match(harness.get('headline-value').textContent, /unsupported version 99/i);
     assert.match(harness.get('summary-value').textContent, /supported version: 1/i);
+    assert.match(harness.get('example-caption').textContent, /unsupported version 99/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser response bundle replay reports unsupported bundle versions clearly', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', unsupportedResponseBundleReplayInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'response bundle replay error');
+    assert.match(harness.get('headline-value').textContent, /unsupported version 99/i);
+    assert.match(harness.get('summary-value').textContent, /Supported versions: 1, 2/i);
     assert.match(harness.get('example-caption').textContent, /unsupported version 99/i);
   } finally {
     harness.restore();
@@ -1088,6 +1320,68 @@ function buildChronicleDataset({
       metadata: {},
       conflicts: [],
     })),
+    steward: {
+      preserved: true,
+      cases: cases.map((entry) => ({
+        label: entry.label,
+        signature: entry.signature,
+        sourcePacks: ['pack-1'],
+        metadata: {},
+        conflicts: [],
+      })),
+      actions: Array.from({ length: Math.max(0, 4 - packCount) }, (_, index) => ({
+        kind: index === 0 ? 'missing-owner' : 'missing-runbook',
+        label: cases[index]?.label ?? `case-${index + 1}`,
+        signature: cases[index]?.signature ?? `sig-${index + 1}`,
+        seenCount: 1,
+        sourcePacks: ['pack-1'],
+        priority: 1000 - index,
+        headline: `Do steward action ${index + 1}`,
+        ask: `Handle steward action ${index + 1}`,
+      })),
+      summary: {
+        caseCount: cases.length,
+        conflictCount: 0,
+        ownerCoveredCount: 0,
+        fixCoveredCount: 0,
+        runbookCoveredCount: 0,
+        actionCount: Math.max(0, 4 - packCount),
+        urgentActionCount: Math.max(0, 4 - packCount) ? 1 : 0,
+        headline: `Casebook Steward found ${Math.max(0, 4 - packCount)} action${Math.max(0, 4 - packCount) === 1 ? '' : 's'} across ${cases.length} case${cases.length === 1 ? '' : 's'}.`,
+      },
+      nextAction: Math.max(0, 4 - packCount) ? 'Handle steward action 1' : 'No stewardship gaps detected in the current casebook state.',
+    },
     exportText: '=== saved-case ===\nTypeError: replay me',
   };
+}
+
+function buildChronicleBundle({
+  dataset = buildChronicleDataset({ packCount: 2 }),
+  sourceMode = 'portfolio',
+  sourceLabel = 'browser bundle chronicle fixture',
+  files = null,
+  version = 2,
+} = {}) {
+  const baseBundle = JSON.parse(buildResponseBundle({
+    report: analyzeIncidentPortfolio(portfolioInput),
+    sourceMode,
+    sourceLabel,
+  }).files['response-bundle.json']);
+
+  baseBundle.version = version;
+  baseBundle.manifest.version = version === 1 ? 1 : 2;
+  baseBundle.manifest.source = { mode: sourceMode, label: sourceLabel };
+  baseBundle.manifest.summary.headline = dataset.summary.headline;
+  baseBundle.manifest.summary.releaseGateVerdict = dataset.gate.verdict;
+  baseBundle.manifest.summary.packCount = dataset.summary.packCount;
+  baseBundle.manifest.summary.runnablePackCount = dataset.summary.runnablePackCount;
+  baseBundle.manifest.summary.ownerCount = dataset.summary.ownerCount;
+  baseBundle.manifest.summary.recurringHotspotCount = dataset.recurringHotspots.length;
+  baseBundle.manifest.summary.recurringIncidentCount = dataset.recurringIncidents.length;
+  baseBundle.manifest.summary.stewardActionCount = dataset.steward?.summary?.actionCount ?? 0;
+  baseBundle.manifest.summary.stewardHeadline = dataset.steward?.summary?.headline ?? 'No steward summary available.';
+  baseBundle.manifest.files = files ?? baseBundle.manifest.files;
+  baseBundle.artifacts['casebook-dataset.json'] = JSON.stringify(dataset, null, 2);
+
+  return JSON.stringify(baseBundle, null, 2);
 }

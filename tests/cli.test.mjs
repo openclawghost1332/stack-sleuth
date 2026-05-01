@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { analyzeTrace } from '../src/analyze.js';
+import { analyzeIncidentPortfolio } from '../src/portfolio.js';
+import { buildResponseBundle } from '../src/bundle.js';
 
 const cliPath = new URL('../bin/stack-sleuth.js', import.meta.url);
 const packageJsonPath = new URL('../package.json', import.meta.url);
@@ -201,6 +203,45 @@ const chronicleInput = [
     hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
     cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
   }), null, 2),
+].join('\n');
+
+const bundleChronicleInput = [
+  '=== release-a ===',
+  buildChronicleBundle({
+    sourceMode: 'portfolio',
+    sourceLabel: 'release-a-fixture',
+    dataset: buildChronicleDataset({
+      packCount: 2,
+      owners: [{ owner: 'web-platform', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+    }),
+    files: ['manifest.json', 'incident-dossier.html', 'portfolio-summary.md', 'handoff.md', 'casebook.txt', 'casebook-dataset.json', 'merge-review.md'],
+  }),
+  '',
+  '=== release-b ===',
+  buildChronicleBundle({
+    sourceMode: 'portfolio',
+    sourceLabel: 'release-b-fixture',
+    dataset: buildChronicleDataset({
+      packCount: 3,
+      owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    }),
+  }),
+  '',
+  '=== release-c ===',
+  buildChronicleBundle({
+    sourceMode: 'workspace',
+    sourceLabel: 'release-c-fixture',
+    dataset: buildChronicleDataset({
+      packCount: 4,
+      owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
+      hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    }),
+  }),
 ].join('\n');
 
 const shelfSnapshotReleaseA = JSON.stringify(buildChronicleDataset({
@@ -564,6 +605,105 @@ test('CLI replays a saved dataset in json mode', () => {
   assert.equal(parsed.gate.verdict, 'hold');
 });
 
+test('CLI replays a self-contained response bundle json from stdin', () => {
+  const report = analyzeIncidentPortfolio(portfolioInput);
+  const bundle = buildResponseBundle({ report, sourceMode: 'portfolio', sourceLabel: 'stdin replay fixture' });
+
+  const result = runCli(['--replay-bundle', '-'], { input: bundle.files['response-bundle.json'] });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Response Bundle Replay/);
+  assert.match(result.stdout, /Source workflow: portfolio \(stdin replay fixture\)/i);
+  assert.match(result.stdout, /Response owners: 1/);
+  assert.match(result.stdout, /Saved-artifact note:/i);
+  assert.doesNotMatch(result.stdout, /raw trace recovery/i);
+});
+
+test('CLI replays a self-contained response bundle json file path in markdown mode', async () => {
+  const report = analyzeIncidentPortfolio(portfolioInput);
+  const bundle = buildResponseBundle({ report, sourceMode: 'portfolio', sourceLabel: 'file replay fixture' });
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-replay-bundle-'));
+  const bundlePath = path.join(tempDir, 'response-bundle.json');
+  await fs.promises.writeFile(bundlePath, bundle.files['response-bundle.json'], 'utf8');
+
+  const result = runCli(['--replay-bundle', bundlePath, '--markdown']);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^# Stack Sleuth Response Bundle Replay/m);
+  assert.match(result.stdout, /- \*\*Source workflow:\*\* portfolio \(file replay fixture\)/i);
+  assert.match(result.stdout, /## Bundle inventory/);
+});
+
+test('CLI replays a saved response bundle directory path', async () => {
+  const outputDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-replay-bundle-dir-'));
+  const writeResult = runCli(['--portfolio', '-', '--bundle', outputDir], { input: portfolioInput });
+  assert.equal(writeResult.status, 0, writeResult.stderr);
+
+  const result = runCli(['--replay-bundle', outputDir]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Response Bundle Replay/);
+  assert.match(result.stdout, /Bundle files: 8/);
+  assert.match(result.stdout, /casebook-dataset\.json/);
+  assert.match(result.stdout, /response-bundle\.json/);
+});
+
+test('CLI replays a legacy version-1 response bundle directory when manifest and dataset exist', async () => {
+  const report = analyzeIncidentPortfolio(portfolioInput);
+  const bundle = buildResponseBundle({ report, sourceMode: 'portfolio', sourceLabel: 'legacy directory fixture' });
+  const outputDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-replay-bundle-v1-'));
+  const manifest = JSON.parse(bundle.files['manifest.json']);
+  manifest.version = 1;
+  manifest.files = manifest.files.filter((name) => name !== 'response-bundle.json');
+  await fs.promises.writeFile(path.join(outputDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  await fs.promises.writeFile(path.join(outputDir, 'casebook-dataset.json'), bundle.files['casebook-dataset.json'], 'utf8');
+  await fs.promises.writeFile(path.join(outputDir, 'portfolio-summary.md'), bundle.files['portfolio-summary.md'], 'utf8');
+
+  const result = runCli(['--replay-bundle', outputDir, '--json']);
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.kind, 'stack-sleuth-response-bundle');
+  assert.equal(parsed.version, 2);
+  assert.equal(parsed.sourceVersion, 1);
+  assert.equal(parsed.dataset.summary.ownerCount, 1);
+  assert.equal(parsed.summary.fileCount, 7);
+});
+
+test('CLI replay-bundle reports specific errors for wrong kind, unsupported version, malformed input, and missing dataset in saved bundle', async () => {
+  const wrongKind = runCli(['--replay-bundle', '-'], {
+    input: JSON.stringify({ kind: 'stack-sleuth-casebook-dataset', version: 1 }),
+  });
+  assert.equal(wrongKind.status, 1);
+  assert.match(wrongKind.stderr, /Response Bundle replay uses unsupported kind: stack-sleuth-casebook-dataset\./i);
+
+  const unsupportedVersion = runCli(['--replay-bundle', '-'], {
+    input: JSON.stringify({ kind: 'stack-sleuth-response-bundle', version: 99, manifest: { files: [] }, artifacts: {} }),
+  });
+  assert.equal(unsupportedVersion.status, 1);
+  assert.match(unsupportedVersion.stderr, /Response Bundle replay uses unsupported version 99\. Supported versions: 1, 2\./i);
+
+  const malformed = runCli(['--replay-bundle', '-'], {
+    input: '{"kind":"stack-sleuth-response-bundle","version":2',
+  });
+  assert.equal(malformed.status, 1);
+  assert.match(malformed.stderr, /Response Bundle replay could not parse the saved bundle JSON\./i);
+
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-replay-bundle-missing-dataset-'));
+  await fs.promises.writeFile(path.join(tempDir, 'manifest.json'), JSON.stringify({
+    kind: 'stack-sleuth-response-bundle',
+    version: 1,
+    generatedAt: '2026-05-01T00:00:00.000Z',
+    source: { mode: 'portfolio', label: 'missing dataset fixture' },
+    summary: { headline: 'missing dataset' },
+    files: ['manifest.json', 'portfolio-summary.md'],
+  }, null, 2), 'utf8');
+
+  const missingDataset = runCli(['--replay-bundle', tempDir]);
+  assert.equal(missingDataset.status, 1);
+  assert.match(missingDataset.stderr, /Response Bundle replay requires casebook-dataset\.json in saved bundle directories\./i);
+});
+
 test('CLI reads labeled saved datasets with --chronicle and prints a chronicle summary', () => {
   const result = runCli(['--chronicle', '-'], { input: chronicleInput });
 
@@ -572,6 +712,16 @@ test('CLI reads labeled saved datasets with --chronicle and prints a chronicle s
   assert.match(result.stdout, /Release gate: hold/i);
   assert.match(result.stdout, /Latest snapshot: release-c/i);
   assert.match(result.stdout, /Owner trends/);
+});
+
+test('CLI reads labeled saved response bundles with --bundle-chronicle and prints a chronicle summary', () => {
+  const result = runCli(['--bundle-chronicle', '-'], { input: bundleChronicleInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Response Bundle Chronicle/);
+  assert.match(result.stdout, /Release gate: hold/i);
+  assert.match(result.stdout, /Latest source workflow: workspace/i);
+  assert.match(result.stdout, /Bundle inventory trends/i);
 });
 
 test('CLI chronicle mode supports --json and --markdown output', () => {
@@ -588,6 +738,23 @@ test('CLI chronicle mode supports --json and --markdown output', () => {
   assert.equal(markdownResult.status, 0, markdownResult.stderr);
   assert.match(markdownResult.stdout, /^# Stack Sleuth Casebook Chronicle/m);
   assert.match(markdownResult.stdout, /## Owner trends/);
+});
+
+test('CLI bundle chronicle mode supports --json and --markdown output', () => {
+  const jsonResult = runCli(['--bundle-chronicle', '-', '--json'], { input: bundleChronicleInput });
+  assert.equal(jsonResult.status, 0, jsonResult.stderr);
+  const parsed = JSON.parse(jsonResult.stdout);
+  assert.equal(parsed.summary.snapshotCount, 3);
+  assert.equal(parsed.summary.latestLabel, 'release-c');
+  assert.equal(parsed.summary.latestGateVerdict, 'hold');
+  assert.equal(parsed.summary.latestSourceMode, 'workspace');
+  assert.equal(parsed.summary.gateDrift.direction, 'regressed');
+  assert.ok(parsed.inventoryTrends.length >= 1);
+
+  const markdownResult = runCli(['--bundle-chronicle', '-', '--markdown'], { input: bundleChronicleInput });
+  assert.equal(markdownResult.status, 0, markdownResult.stderr);
+  assert.match(markdownResult.stdout, /^# Stack Sleuth Response Bundle Chronicle/m);
+  assert.match(markdownResult.stdout, /## Bundle inventory trends/);
 });
 
 test('CLI shelf mode builds a portable shelf from top-level json files and preserves invalid snapshot warnings', async () => {
@@ -688,6 +855,21 @@ test('CLI chronicle mode reports unsupported dataset versions clearly', () => {
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Casebook Chronicle snapshot release-a uses unsupported dataset version 99\. Supported version: 1\./i);
+});
+
+test('CLI bundle chronicle mode reports unsupported bundle versions clearly', () => {
+  const invalidChronicleInput = [
+    '=== release-a ===',
+    buildChronicleBundle({ version: 99 }),
+    '',
+    '=== release-b ===',
+    buildChronicleBundle(),
+  ].join('\n');
+
+  const result = runCli(['--bundle-chronicle', '-'], { input: invalidChronicleInput });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Response Bundle Chronicle snapshot release-a uses unsupported bundle version 99\. Supported versions: 1, 2\./i);
 });
 
 test('CLI Casebook Radar accepts a saved dataset JSON file through --history', async () => {
@@ -1187,7 +1369,96 @@ test('CLI rejects --html for unsupported workflows', () => {
   assert.equal(result.stdout, '');
 });
 
+test('CLI writes a response bundle for --portfolio input', async (t) => {
+  const outputDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-'));
+  t.after(() => fs.promises.rm(outputDir, { recursive: true, force: true }));
+
+  const result = runCli(['--portfolio', '-', '--bundle', outputDir], { input: portfolioInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '');
+  await assertResponseBundle(outputDir, 'portfolio');
+});
+
+test('CLI routes notebook, workspace, and capsule portfolio workflows into response bundles', async (t) => {
+  const notebookBundleDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-notebook-'));
+  const workspaceRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-workspace-'));
+  const workspaceBundleDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-workspace-out-'));
+  const capsuleBundleDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-capsule-'));
+  t.after(() => Promise.all([
+    fs.promises.rm(notebookBundleDir, { recursive: true, force: true }),
+    fs.promises.rm(workspaceRoot, { recursive: true, force: true }),
+    fs.promises.rm(workspaceBundleDir, { recursive: true, force: true }),
+    fs.promises.rm(capsuleBundleDir, { recursive: true, force: true }),
+  ]));
+
+  await fs.promises.mkdir(path.join(workspaceRoot, 'packs', 'checkout-prod'), { recursive: true });
+  await fs.promises.mkdir(path.join(workspaceRoot, 'packs', 'billing-canary'), { recursive: true });
+  await fs.promises.writeFile(path.join(workspaceRoot, 'packs', 'checkout-prod', 'current.log'), sampleTrace, 'utf8');
+  await fs.promises.writeFile(path.join(workspaceRoot, 'packs', 'billing-canary', 'baseline.log'), sampleTrace, 'utf8');
+  await fs.promises.writeFile(path.join(workspaceRoot, 'packs', 'billing-canary', 'candidate.log'), comparisonTrace, 'utf8');
+
+  const notebookResult = runCli(['--notebook', '-', '--bundle', notebookBundleDir], { input: notebookPortfolioInput });
+  const workspaceResult = runCli(['--workspace', workspaceRoot, '--bundle', workspaceBundleDir]);
+  const capsuleResult = runCli(['--capsule', '-', '--bundle', capsuleBundleDir], { input: capsulePortfolioInput });
+
+  assert.equal(notebookResult.status, 0, notebookResult.stderr);
+  assert.equal(workspaceResult.status, 0, workspaceResult.stderr);
+  assert.equal(capsuleResult.status, 0, capsuleResult.stderr);
+  assert.equal(notebookResult.stdout, '');
+  assert.equal(workspaceResult.stdout, '');
+  assert.equal(capsuleResult.stdout, '');
+
+  await assertResponseBundle(notebookBundleDir, 'notebook');
+  await assertResponseBundle(workspaceBundleDir, 'workspace');
+  await assertResponseBundle(capsuleBundleDir, 'capsule');
+});
+
+test('CLI rejects --bundle for pack-shaped workflows and alternate output modes', () => {
+  const packResult = runCli(['--pack', '-', '--bundle', '/tmp/stack-sleuth-invalid-bundle'], { input: incidentPackInput });
+  const notebookPackResult = runCli(['--notebook', '-', '--bundle', '/tmp/stack-sleuth-invalid-notebook-bundle'], { input: notebookPackInput });
+  const jsonResult = runCli(['--portfolio', '-', '--bundle', '/tmp/stack-sleuth-invalid-json-bundle', '--json'], { input: portfolioInput });
+
+  assert.notEqual(packResult.status, 0);
+  assert.match(packResult.stderr, /Bundle output is currently supported only for portfolio-shaped workflows/i);
+  assert.equal(packResult.stdout, '');
+
+  assert.notEqual(notebookPackResult.status, 0);
+  assert.match(notebookPackResult.stderr, /Bundle output is currently supported only when notebook routing normalizes into a portfolio/i);
+  assert.equal(notebookPackResult.stdout, '');
+
+  assert.notEqual(jsonResult.status, 0);
+  assert.match(jsonResult.stderr, /Bundle output cannot be combined with --json, --markdown, or --html/i);
+  assert.equal(jsonResult.stdout, '');
+});
+
 import { buildReleaseGate } from '../src/gate.js';
+
+async function assertResponseBundle(outputDir, expectedSourceMode) {
+  const expectedFiles = [
+    'casebook-dataset.json',
+    'casebook.txt',
+    'handoff.md',
+    'incident-dossier.html',
+    'manifest.json',
+    'merge-review.md',
+    'portfolio-summary.md',
+    'response-bundle.json',
+  ];
+  const files = (await fs.promises.readdir(outputDir)).sort();
+  assert.deepEqual(files, expectedFiles);
+
+  const manifest = JSON.parse(await fs.promises.readFile(path.join(outputDir, 'manifest.json'), 'utf8'));
+  assert.equal(manifest.kind, 'stack-sleuth-response-bundle');
+  assert.equal(manifest.version, 2);
+  assert.equal(manifest.source.mode, expectedSourceMode);
+  assert.deepEqual([...manifest.files].sort(), expectedFiles);
+  assert.match(await fs.promises.readFile(path.join(outputDir, 'incident-dossier.html'), 'utf8'), /<!doctype html>/i);
+  assert.match(await fs.promises.readFile(path.join(outputDir, 'portfolio-summary.md'), 'utf8'), /Stack Sleuth Portfolio Radar/i);
+  assert.match(await fs.promises.readFile(path.join(outputDir, 'handoff.md'), 'utf8'), /Stack Sleuth Handoff Briefing/i);
+  assert.match(await fs.promises.readFile(path.join(outputDir, 'casebook.txt'), 'utf8'), /^=== /m);
+  assert.match(await fs.promises.readFile(path.join(outputDir, 'merge-review.md'), 'utf8'), /Stack Sleuth Casebook Merge/i);
+}
 
 function buildCapsuleArtifact(relativePath, excerpt, options = {}) {
   const version = options.version ?? '1';
@@ -1270,4 +1541,33 @@ function buildChronicleDataset({
     })),
     exportText: '=== saved-case ===\nTypeError: replay me',
   };
+}
+
+function buildChronicleBundle({
+  dataset = buildChronicleDataset({ packCount: 2 }),
+  sourceMode = 'portfolio',
+  sourceLabel = 'bundle chronicle fixture',
+  files = null,
+  version = 2,
+} = {}) {
+  const baseBundle = JSON.parse(buildResponseBundle({
+    report: analyzeIncidentPortfolio(portfolioInput),
+    sourceMode,
+    sourceLabel,
+  }).files['response-bundle.json']);
+
+  baseBundle.version = version;
+  baseBundle.manifest.version = version === 1 ? 1 : 2;
+  baseBundle.manifest.source = { mode: sourceMode, label: sourceLabel };
+  baseBundle.manifest.summary.headline = dataset.summary.headline;
+  baseBundle.manifest.summary.releaseGateVerdict = dataset.gate.verdict;
+  baseBundle.manifest.summary.packCount = dataset.summary.packCount;
+  baseBundle.manifest.summary.runnablePackCount = dataset.summary.runnablePackCount;
+  baseBundle.manifest.summary.ownerCount = dataset.summary.ownerCount;
+  baseBundle.manifest.summary.recurringHotspotCount = dataset.recurringHotspots.length;
+  baseBundle.manifest.summary.recurringIncidentCount = dataset.recurringIncidents.length;
+  baseBundle.manifest.files = files ?? baseBundle.manifest.files;
+  baseBundle.artifacts['casebook-dataset.json'] = JSON.stringify(dataset, null, 2);
+
+  return JSON.stringify(baseBundle, null, 2);
 }

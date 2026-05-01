@@ -175,7 +175,10 @@ test('renderCasebookMerge summaries are copy-ready', () => {
 
   assert.match(renderCasebookMergeTextSummary(report), /Stack Sleuth Casebook Merge/);
   assert.match(renderCasebookMergeTextSummary(report), /Conflicts: 0/);
+  assert.match(renderCasebookMergeTextSummary(report), /Casebook Steward/);
+  assert.match(renderCasebookMergeTextSummary(report), /Top stewardship actions/);
   assert.match(renderCasebookMergeMarkdownSummary(report), /^# Stack Sleuth Casebook Merge/m);
   assert.match(renderCasebookMergeMarkdownSummary(report), /- \*\*New cases:\*\* 1/);
   assert.match(renderCasebookMergeMarkdownSummary(report), /## Merge review/);
+  assert.match(renderCasebookMergeMarkdownSummary(report), /## Casebook Steward/);
 });

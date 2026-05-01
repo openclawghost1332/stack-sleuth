@@ -1,6 +1,8 @@
 import { buildCasebookDataset } from './dataset.js';
 import { buildCasebookShelf } from './shelf.js';
 import { buildReleaseGate } from './gate.js';
+import { analyzeIncidentPortfolio } from './portfolio.js';
+import { buildResponseBundle } from './bundle.js';
 
 const javascriptTrace = `TypeError: Cannot read properties of undefined (reading 'name')
     at renderProfile (/app/src/profile.js:88:17)
@@ -129,6 +131,49 @@ const portfolioTrace = [
 ].join('\n');
 
 const datasetReplay = JSON.stringify(buildCasebookDataset(portfolioTrace), null, 2);
+const responseBundleReplay = buildResponseBundle({
+  report: analyzeIncidentPortfolio(portfolioTrace),
+  sourceMode: 'portfolio',
+  sourceLabel: 'saved example portfolio',
+}).files['response-bundle.json'];
+const responseBundleChronicleReplay = [
+  '=== release-a ===',
+  JSON.stringify(buildChronicleReplayBundle({
+    sourceMode: 'portfolio',
+    sourceLabel: 'release-a-bundle',
+    dataset: buildChronicleReplayDataset({
+      packCount: 2,
+      owners: [{ owner: 'web-platform', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+    }),
+    files: ['manifest.json', 'incident-dossier.html', 'portfolio-summary.md', 'handoff.md', 'casebook.txt', 'casebook-dataset.json', 'merge-review.md'],
+  }), null, 2),
+  '',
+  '=== release-b ===',
+  JSON.stringify(buildChronicleReplayBundle({
+    sourceMode: 'portfolio',
+    sourceLabel: 'release-b-bundle',
+    dataset: buildChronicleReplayDataset({
+      packCount: 3,
+      owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    }),
+  }), null, 2),
+  '',
+  '=== release-c ===',
+  JSON.stringify(buildChronicleReplayBundle({
+    sourceMode: 'workspace',
+    sourceLabel: 'release-c-bundle',
+    dataset: buildChronicleReplayDataset({
+      packCount: 4,
+      owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
+      hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    }),
+  }), null, 2),
+].join('\n');
 const shelfReplay = JSON.stringify(buildCasebookShelf([
   {
     label: 'release-a',
@@ -251,6 +296,16 @@ export const examples = [
     dataset: datasetReplay,
   },
   {
+    label: 'Response Bundle replay',
+    caption: 'A self-contained response-bundle.json artifact replays preserved bundle inventory plus embedded dataset fields for saved incident handoff, while staying honest that replay does not recover raw traces, support frames, or blast radius detail.',
+    bundle: responseBundleReplay,
+  },
+  {
+    label: 'Response Bundle Chronicle',
+    caption: 'Several saved response bundles stitched into one chronicle reveal release gate drift, owner load, source workflow changes, and bundle inventory movement across release windows without pretending to recover raw trace detail.',
+    bundleChronicle: responseBundleChronicleReplay,
+  },
+  {
     label: 'Casebook Chronicle',
     caption: 'Several saved Casebook Dataset snapshots stitched into one chronicle reveal release gate drift, owner load, recurring hotspot drift, and casebook movement across release windows without pretending to recover raw trace detail.',
     chronicle: chronicleReplay,
@@ -321,4 +376,30 @@ function buildChronicleReplayDataset({
     })),
     exportText: '=== saved-case ===\nTypeError: replay me',
   };
+}
+
+function buildChronicleReplayBundle({
+  dataset = buildChronicleReplayDataset(),
+  sourceMode = 'portfolio',
+  sourceLabel = 'saved example portfolio',
+  files = null,
+} = {}) {
+  const bundle = JSON.parse(buildResponseBundle({
+    report: analyzeIncidentPortfolio(portfolioTrace),
+    sourceMode,
+    sourceLabel,
+  }).files['response-bundle.json']);
+
+  bundle.manifest.source = { mode: sourceMode, label: sourceLabel };
+  bundle.manifest.summary.headline = dataset.summary.headline;
+  bundle.manifest.summary.releaseGateVerdict = dataset.gate.verdict;
+  bundle.manifest.summary.packCount = dataset.summary.packCount;
+  bundle.manifest.summary.runnablePackCount = dataset.summary.runnablePackCount;
+  bundle.manifest.summary.ownerCount = dataset.summary.ownerCount;
+  bundle.manifest.summary.recurringHotspotCount = dataset.recurringHotspots.length;
+  bundle.manifest.summary.recurringIncidentCount = dataset.recurringIncidents.length;
+  bundle.manifest.files = files ?? bundle.manifest.files;
+  bundle.artifacts['casebook-dataset.json'] = JSON.stringify(dataset, null, 2);
+
+  return bundle;
 }

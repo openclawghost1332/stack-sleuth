@@ -1,4 +1,4 @@
-import { inspectReplayDatasetInput } from './dataset.js';
+import { inspectResponseBundleReplayInput } from './bundle-replay.js';
 import { compareGateSnapshots } from './gate.js';
 import { compareStewardSnapshots, describeCasebookStewardHeadline } from './steward.js';
 
@@ -12,7 +12,7 @@ const TREND_PRIORITY = {
   resolved: 5,
 };
 
-export function parseCasebookChronicleSnapshots(input) {
+export function parseResponseBundleChronicleSnapshots(input) {
   const source = String(input ?? '').replace(/\r\n/g, '\n').trim();
   if (!source) {
     return [];
@@ -31,11 +31,11 @@ export function parseCasebookChronicleSnapshots(input) {
     .filter((snapshot) => snapshot.label && snapshot.source);
 }
 
-export function inspectCasebookChronicleInput(input) {
-  const snapshots = Array.isArray(input) ? input : parseCasebookChronicleSnapshots(input);
+export function inspectResponseBundleChronicleInput(input) {
+  const snapshots = Array.isArray(input) ? input : parseResponseBundleChronicleSnapshots(input);
 
   if (!snapshots.length) {
-    return { valid: false, reason: 'not-chronicle', snapshots: [] };
+    return { valid: false, reason: 'not-bundle-chronicle', snapshots: [] };
   }
 
   if (snapshots.length < 2) {
@@ -45,7 +45,7 @@ export function inspectCasebookChronicleInput(input) {
   const validatedSnapshots = [];
 
   for (const [snapshotIndex, snapshot] of snapshots.entries()) {
-    const replay = inspectReplayDatasetInput(snapshot.source ?? snapshot.dataset ?? snapshot);
+    const replay = inspectResponseBundleReplayInput(snapshot.source ?? snapshot.bundle ?? snapshot);
     if (!replay.valid) {
       return {
         valid: false,
@@ -61,7 +61,7 @@ export function inspectCasebookChronicleInput(input) {
       label: snapshot.label,
       source: snapshot.source,
       parsed: replay.parsed,
-      dataset: replay.dataset,
+      bundle: replay.bundle,
     });
   }
 
@@ -72,24 +72,26 @@ export function inspectCasebookChronicleInput(input) {
   };
 }
 
-export function analyzeCasebookChronicle(input) {
+export function analyzeResponseBundleChronicle(input) {
   const inspected = input?.valid === true && Array.isArray(input.snapshots)
     ? input
-    : inspectCasebookChronicleInput(input);
+    : inspectResponseBundleChronicleInput(input);
 
   if (!inspected.valid) {
-    throw createChronicleError(inspected);
+    throw createBundleChronicleError(inspected);
   }
 
   const snapshots = inspected.snapshots.map((snapshot) => ({
     label: snapshot.label,
-    dataset: snapshot.dataset,
+    bundle: snapshot.bundle,
+    dataset: snapshot.bundle.dataset,
   }));
   const labels = snapshots.map((snapshot) => snapshot.label);
   const ownerTrends = buildOwnerTrends(snapshots);
   const hotspotTrends = buildHotspotTrends(snapshots);
   const caseTrends = buildCaseTrends(snapshots);
-  const summary = summarizeChronicle(snapshots, ownerTrends, hotspotTrends, caseTrends);
+  const inventoryTrends = buildInventoryTrends(snapshots);
+  const summary = summarizeBundleChronicle(snapshots, ownerTrends, hotspotTrends, caseTrends, inventoryTrends);
 
   return {
     snapshots,
@@ -97,25 +99,29 @@ export function analyzeCasebookChronicle(input) {
     ownerTrends,
     hotspotTrends,
     caseTrends,
+    inventoryTrends,
     summary,
   };
 }
 
-export function renderCasebookChronicleTextSummary(report) {
+export function renderResponseBundleChronicleTextSummary(report) {
   const summary = report.summary;
-  const sections = [
-    'Stack Sleuth Casebook Chronicle',
+  return [
+    'Stack Sleuth Response Bundle Chronicle',
     `Snapshots: ${report.labels.join(' → ')}`,
-    `Latest snapshot: ${summary.latestLabel} (${summary.latestPackCount} packs, ${summary.latestOwnerCount} owners, ${summary.latestHotspotCount} hotspots, ${summary.latestCaseCount} cases)`,
+    `Latest snapshot: ${summary.latestLabel} (${summary.latestPackCount} packs, ${summary.latestOwnerCount} owners, ${summary.latestHotspotCount} hotspots, ${summary.latestCaseCount} cases, ${summary.latestFileCount} files)`,
     `Headline: ${summary.headline}`,
     `Release gate: ${summary.latestGateVerdict}`,
     `Gate drift: ${summary.gateDrift.summary}`,
     `Steward drift: ${summary.stewardDrift.summary}`,
     `Latest steward: ${summary.latestStewardHeadline}`,
+    `Latest source workflow: ${formatSource(summary.latestSourceMode, summary.latestSourceLabel)}`,
+    `Source drift: ${summary.sourceDrift}`,
     `Owner movement: new ${summary.newOwnerCount}, rising ${summary.risingOwnerCount}, flapping ${summary.flappingOwnerCount}, steady ${summary.steadyOwnerCount}, falling ${summary.fallingOwnerCount}, resolved ${summary.resolvedOwnerCount}`,
     `Hotspot movement: new ${summary.newHotspotCount}, rising ${summary.risingHotspotCount}, flapping ${summary.flappingHotspotCount}, steady ${summary.steadyHotspotCount}, falling ${summary.fallingHotspotCount}, resolved ${summary.resolvedHotspotCount}`,
     `Case movement: new ${summary.newCaseCount}, rising ${summary.risingCaseCount}, flapping ${summary.flappingCaseCount}, steady ${summary.steadyCaseCount}, falling ${summary.fallingCaseCount}, resolved ${summary.resolvedCaseCount}`,
-    'Saved-artifact note: Chronicle uses preserved dataset signals only, not raw trace frames, support frames, or blast radius detail.',
+    `Bundle inventory movement: new ${summary.newInventoryCount}, rising ${summary.risingInventoryCount}, flapping ${summary.flappingInventoryCount}, steady ${summary.steadyInventoryCount}, falling ${summary.fallingInventoryCount}, resolved ${summary.resolvedInventoryCount}`,
+    'Saved-artifact note: Bundle Chronicle replays preserved bundle inventory and embedded dataset fields only. It does not recover raw traces, support frames, or blast radius detail.',
     '',
     'Owner trends',
     ...formatTrendLines(report.ownerTrends, (item) => item.owner),
@@ -125,27 +131,31 @@ export function renderCasebookChronicleTextSummary(report) {
     '',
     'Case trends',
     ...formatTrendLines(report.caseTrends, (item) => item.signature),
-  ];
-
-  return sections.join('\n').trim();
+    '',
+    'Bundle inventory trends',
+    ...formatTrendLines(report.inventoryTrends, (item) => item.filename),
+  ].join('\n').trim();
 }
 
-export function renderCasebookChronicleMarkdownSummary(report) {
+export function renderResponseBundleChronicleMarkdownSummary(report) {
   const summary = report.summary;
-  const lines = [
-    '# Stack Sleuth Casebook Chronicle',
+  return [
+    '# Stack Sleuth Response Bundle Chronicle',
     '',
     `- **Snapshots:** ${escapeMarkdownText(report.labels.join(' → '))}`,
-    `- **Latest snapshot:** ${escapeMarkdownText(summary.latestLabel)} (${summary.latestPackCount} packs, ${summary.latestOwnerCount} owners, ${summary.latestHotspotCount} hotspots, ${summary.latestCaseCount} cases)`,
+    `- **Latest snapshot:** ${escapeMarkdownText(summary.latestLabel)} (${summary.latestPackCount} packs, ${summary.latestOwnerCount} owners, ${summary.latestHotspotCount} hotspots, ${summary.latestCaseCount} cases, ${summary.latestFileCount} files)`,
     `- **Headline:** ${escapeMarkdownText(summary.headline)}`,
     `- **Release gate:** ${escapeMarkdownText(summary.latestGateVerdict)}`,
     `- **Gate drift:** ${escapeMarkdownText(summary.gateDrift.summary)}`,
     `- **Steward drift:** ${escapeMarkdownText(summary.stewardDrift.summary)}`,
     `- **Latest steward:** ${escapeMarkdownText(summary.latestStewardHeadline)}`,
+    `- **Latest source workflow:** ${escapeMarkdownText(formatSource(summary.latestSourceMode, summary.latestSourceLabel))}`,
+    `- **Source drift:** ${escapeMarkdownText(summary.sourceDrift)}`,
     `- **Owner movement:** new ${summary.newOwnerCount}, rising ${summary.risingOwnerCount}, flapping ${summary.flappingOwnerCount}, steady ${summary.steadyOwnerCount}, falling ${summary.fallingOwnerCount}, resolved ${summary.resolvedOwnerCount}`,
     `- **Hotspot movement:** new ${summary.newHotspotCount}, rising ${summary.risingHotspotCount}, flapping ${summary.flappingHotspotCount}, steady ${summary.steadyHotspotCount}, falling ${summary.fallingHotspotCount}, resolved ${summary.resolvedHotspotCount}`,
     `- **Case movement:** new ${summary.newCaseCount}, rising ${summary.risingCaseCount}, flapping ${summary.flappingCaseCount}, steady ${summary.steadyCaseCount}, falling ${summary.fallingCaseCount}, resolved ${summary.resolvedCaseCount}`,
-    `- **Saved-artifact note:** ${escapeMarkdownText('Chronicle uses preserved dataset signals only, not raw trace frames, support frames, or blast radius detail.')}`,
+    `- **Bundle inventory movement:** new ${summary.newInventoryCount}, rising ${summary.risingInventoryCount}, flapping ${summary.flappingInventoryCount}, steady ${summary.steadyInventoryCount}, falling ${summary.fallingInventoryCount}, resolved ${summary.resolvedInventoryCount}`,
+    `- **Saved-artifact note:** ${escapeMarkdownText('Bundle Chronicle replays preserved bundle inventory and embedded dataset fields only. It does not recover raw traces, support frames, or blast radius detail.')}`,
     '',
     '## Owner trends',
     formatMarkdownTrendLines(report.ownerTrends, (item) => item.owner),
@@ -155,9 +165,34 @@ export function renderCasebookChronicleMarkdownSummary(report) {
     '',
     '## Case trends',
     formatMarkdownTrendLines(report.caseTrends, (item) => item.signature),
-  ];
+    '',
+    '## Bundle inventory trends',
+    formatMarkdownTrendLines(report.inventoryTrends, (item) => item.filename),
+  ].join('\n').trim();
+}
 
-  return lines.join('\n').trim();
+export function describeResponseBundleChronicleInputError(details) {
+  if (details.reason === 'too-few-snapshots') {
+    return 'Response Bundle Chronicle needs at least two labeled saved response bundle snapshots.';
+  }
+
+  if (details.reason === 'unsupported-version') {
+    return `Response Bundle Chronicle snapshot ${details.snapshotLabel ?? 'unknown'} uses unsupported bundle version ${details.replay?.parsed?.version ?? 'unknown'}. Supported versions: ${(details.replay?.supportedVersions ?? []).join(', ')}.`;
+  }
+
+  if (details.reason === 'wrong-kind') {
+    return `Response Bundle Chronicle snapshot ${details.snapshotLabel ?? 'unknown'} uses unsupported bundle kind ${details.replay?.parsed?.kind ?? 'unknown'}.`;
+  }
+
+  if (details.reason === 'invalid-json') {
+    return `Response Bundle Chronicle snapshot ${details.snapshotLabel ?? 'unknown'} could not parse saved response bundle JSON.`;
+  }
+
+  if (details.reason === 'missing-dataset') {
+    return `Response Bundle Chronicle snapshot ${details.snapshotLabel ?? 'unknown'} is missing casebook-dataset.json replay content.`;
+  }
+
+  return 'Response Bundle Chronicle requires labeled saved Stack Sleuth response-bundle.json snapshots.';
 }
 
 function buildOwnerTrends(snapshots) {
@@ -177,7 +212,6 @@ function buildOwnerTrends(snapshots) {
         peakCount: Math.max(...series, 0),
         labels: snapshots.map((snapshot) => snapshot.label),
         latestLabels: latest?.labels ?? [],
-        guidance: latest?.guidance ?? [],
       };
     })
     .sort(compareTrendEntries);
@@ -197,7 +231,6 @@ function buildHotspotTrends(snapshots) {
         trend: classifyTrend(series),
         latestCount: series.at(-1) ?? 0,
         peakCount: Math.max(...series, 0),
-        maxScore: Math.max(...entries.map((entry) => toCount(entry?.maxScore)), 0),
         labels: snapshots.map((snapshot) => snapshot.label),
       };
     })
@@ -209,40 +242,59 @@ function buildCaseTrends(snapshots) {
   const signatures = [...new Set(casesBySnapshot.flatMap((entries) => [...entries.keys()]).filter(Boolean))];
 
   return signatures
-    .map((signature) => {
-      const entries = casesBySnapshot.map((items) => items.get(signature) ?? null);
-      const series = entries.map((entry) => (entry ? 1 : 0));
-      const latest = selectLatest(entries);
+    .map((signature) => ({
+      signature,
+      series: casesBySnapshot.map((items) => items.has(signature) ? 1 : 0),
+      trend: classifyTrend(casesBySnapshot.map((items) => items.has(signature) ? 1 : 0)),
+      latestCount: casesBySnapshot.at(-1)?.has(signature) ? 1 : 0,
+      peakCount: 1,
+      labels: snapshots.map((snapshot) => snapshot.label),
+    }))
+    .sort(compareTrendEntries);
+}
+
+function buildInventoryTrends(snapshots) {
+  const filesBySnapshot = snapshots.map((snapshot) => new Set(snapshot.bundle.manifest?.files ?? []));
+  const filenames = [...new Set(filesBySnapshot.flatMap((items) => [...items]).filter(Boolean))];
+
+  return filenames
+    .map((filename) => {
+      const series = filesBySnapshot.map((items) => items.has(filename) ? 1 : 0);
       return {
-        signature,
-        label: latest?.label ?? signature,
+        filename,
         series,
-        trend: classifyTrend(series),
+        trend: classifyInventoryTrend(series),
         latestCount: series.at(-1) ?? 0,
-        peakCount: Math.max(...series, 0),
+        peakCount: 1,
         labels: snapshots.map((snapshot) => snapshot.label),
       };
     })
     .sort(compareTrendEntries);
 }
 
-function summarizeChronicle(snapshots, ownerTrends, hotspotTrends, caseTrends) {
-  const latestSnapshot = snapshots.at(-1)?.dataset ?? {};
-  const previousSnapshot = snapshots.at(-2)?.dataset ?? null;
-  const latestGate = latestSnapshot.gate ?? null;
-  const previousGate = previousSnapshot?.gate ?? null;
+function summarizeBundleChronicle(snapshots, ownerTrends, hotspotTrends, caseTrends, inventoryTrends) {
+  const latestSnapshot = snapshots.at(-1) ?? null;
+  const previousSnapshot = snapshots.at(-2) ?? null;
+  const latestDataset = latestSnapshot?.dataset ?? {};
+  const latestBundle = latestSnapshot?.bundle ?? {};
+  const latestSource = latestBundle.manifest?.source ?? {};
+  const previousSource = previousSnapshot?.bundle?.manifest?.source ?? null;
 
   const summary = {
     snapshotCount: snapshots.length,
-    latestLabel: snapshots.at(-1)?.label ?? '-',
-    latestPackCount: toCount(latestSnapshot.summary?.packCount),
-    latestOwnerCount: (latestSnapshot.responseQueue ?? []).length,
-    latestHotspotCount: (latestSnapshot.recurringHotspots ?? []).length,
-    latestCaseCount: (latestSnapshot.cases ?? []).length,
-    latestGateVerdict: latestGate?.verdict ?? 'needs-input',
-    gateDrift: compareGateSnapshots(previousGate, latestGate),
-    stewardDrift: compareStewardSnapshots(previousSnapshot?.steward, latestSnapshot.steward),
-    latestStewardHeadline: describeCasebookStewardHeadline(latestSnapshot.steward),
+    latestLabel: latestSnapshot?.label ?? '-',
+    latestPackCount: toCount(latestDataset.summary?.packCount),
+    latestOwnerCount: (latestDataset.responseQueue ?? []).length,
+    latestHotspotCount: (latestDataset.recurringHotspots ?? []).length,
+    latestCaseCount: (latestDataset.cases ?? []).length,
+    latestFileCount: (latestBundle.manifest?.files ?? []).length,
+    latestGateVerdict: latestDataset.gate?.verdict ?? latestBundle.summary?.releaseGateVerdict ?? 'needs-input',
+    latestSourceMode: String(latestSource.mode ?? 'unknown'),
+    latestSourceLabel: latestSource.label == null ? null : String(latestSource.label),
+    gateDrift: compareGateSnapshots(previousSnapshot?.dataset?.gate ?? null, latestDataset.gate ?? null),
+    stewardDrift: compareStewardSnapshots(previousSnapshot?.dataset?.steward ?? null, latestDataset.steward ?? null),
+    latestStewardHeadline: describeCasebookStewardHeadline(latestDataset.steward),
+    sourceDrift: describeSourceDrift(previousSource, latestSource),
     newOwnerCount: countTrend(ownerTrends, 'new'),
     risingOwnerCount: countTrend(ownerTrends, 'rising'),
     flappingOwnerCount: countTrend(ownerTrends, 'flapping'),
@@ -261,11 +313,25 @@ function summarizeChronicle(snapshots, ownerTrends, hotspotTrends, caseTrends) {
     steadyCaseCount: countTrend(caseTrends, 'steady'),
     fallingCaseCount: countTrend(caseTrends, 'falling'),
     resolvedCaseCount: countTrend(caseTrends, 'resolved'),
+    newInventoryCount: countTrend(inventoryTrends, 'new'),
+    risingInventoryCount: countTrend(inventoryTrends, 'rising'),
+    flappingInventoryCount: countTrend(inventoryTrends, 'flapping'),
+    steadyInventoryCount: countTrend(inventoryTrends, 'steady'),
+    fallingInventoryCount: countTrend(inventoryTrends, 'falling'),
+    resolvedInventoryCount: countTrend(inventoryTrends, 'resolved'),
   };
 
-  summary.headline = `Chronicle compared ${summary.snapshotCount} saved datasets and the latest snapshot ${summary.latestLabel} shows ${summary.newOwnerCount} new owner${summary.newOwnerCount === 1 ? '' : 's'}, ${summary.risingOwnerCount} rising owner${summary.risingOwnerCount === 1 ? '' : 's'}, ${summary.newHotspotCount} new hotspot${summary.newHotspotCount === 1 ? '' : 's'}, and ${summary.newCaseCount} new case${summary.newCaseCount === 1 ? '' : 's'}.`;
+  summary.headline = `Bundle Chronicle compared ${summary.snapshotCount} saved response bundles and the latest snapshot ${summary.latestLabel} shows ${summary.newOwnerCount} new owner${summary.newOwnerCount === 1 ? '' : 's'}, ${summary.risingOwnerCount} rising owner${summary.risingOwnerCount === 1 ? '' : 's'}, ${summary.newHotspotCount} new hotspot${summary.newHotspotCount === 1 ? '' : 's'}, ${summary.stewardDrift.available ? `steward drift ${summary.stewardDrift.direction}, ` : 'steward drift unavailable, '}and Release Gate ${String(summary.latestGateVerdict).toUpperCase()}.`;
 
   return summary;
+}
+
+function describeSourceDrift(previousSource, latestSource) {
+  const previous = formatSource(previousSource?.mode ?? 'unknown', previousSource?.label ?? null);
+  const latest = formatSource(latestSource?.mode ?? 'unknown', latestSource?.label ?? null);
+  return previous === latest
+    ? `Source workflow stayed ${latest}.`
+    : `Source workflow changed from ${previous} to ${latest}.`;
 }
 
 function classifyTrend(series) {
@@ -298,11 +364,33 @@ function classifyTrend(series) {
   return 'steady';
 }
 
+function classifyInventoryTrend(series) {
+  const latest = series.at(-1) ?? 0;
+  const first = series[0] ?? 0;
+  const deltas = series.slice(1).map((count, index) => count - series[index]);
+  const hasIncrease = deltas.some((delta) => delta > 0);
+  const hasDecrease = deltas.some((delta) => delta < 0);
+
+  if (hasIncrease && hasDecrease) {
+    return 'flapping';
+  }
+
+  if (latest > 0 && first === 0) {
+    return 'new';
+  }
+
+  if (latest === 0 && first > 0) {
+    return 'resolved';
+  }
+
+  return 'steady';
+}
+
 function compareTrendEntries(left, right) {
   return (TREND_PRIORITY[left.trend] ?? Number.MAX_SAFE_INTEGER) - (TREND_PRIORITY[right.trend] ?? Number.MAX_SAFE_INTEGER)
     || (right.latestCount ?? 0) - (left.latestCount ?? 0)
     || (right.peakCount ?? 0) - (left.peakCount ?? 0)
-    || String(left.owner ?? left.label ?? left.signature).localeCompare(String(right.owner ?? right.label ?? right.signature));
+    || String(left.owner ?? left.label ?? left.signature ?? left.filename).localeCompare(String(right.owner ?? right.label ?? right.signature ?? right.filename));
 }
 
 function formatTrendLines(items, keySelector) {
@@ -339,31 +427,15 @@ function toCount(value) {
   return Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : 0;
 }
 
-function createChronicleError(details) {
-  const error = new Error(describeChronicleInputError(details));
-  error.code = 'STACK_SLEUTH_CHRONICLE_INPUT_ERROR';
+function createBundleChronicleError(details) {
+  const error = new Error(describeResponseBundleChronicleInputError(details));
+  error.code = 'STACK_SLEUTH_BUNDLE_CHRONICLE_INPUT_ERROR';
   error.details = details;
   return error;
 }
 
-export function describeChronicleInputError(details) {
-  if (details.reason === 'too-few-snapshots') {
-    return 'Casebook Chronicle needs at least two labeled saved dataset snapshots.';
-  }
-
-  if (details.reason === 'unsupported-version') {
-    return `Casebook Chronicle snapshot ${details.snapshotLabel ?? 'unknown'} uses unsupported dataset version ${details.replay?.parsed?.version ?? 'unknown'}. Supported version: ${details.replay?.supportedVersion ?? 'unknown'}.`;
-  }
-
-  if (details.reason === 'wrong-kind') {
-    return `Casebook Chronicle snapshot ${details.snapshotLabel ?? 'unknown'} uses unsupported kind ${details.replay?.parsed?.kind ?? 'unknown'}.`;
-  }
-
-  if (details.reason === 'invalid-json') {
-    return `Casebook Chronicle snapshot ${details.snapshotLabel ?? 'unknown'} could not parse saved dataset JSON.`;
-  }
-
-  return 'Casebook Chronicle requires labeled saved Stack Sleuth Casebook Dataset snapshots.';
+function formatSource(mode, label) {
+  return label ? `${mode} (${label})` : String(mode ?? 'unknown');
 }
 
 function escapeMarkdownText(value) {

@@ -770,6 +770,7 @@ function toSerializablePayload(payload) {
       kind: payload.kind,
       version: payload.version,
       summary: payload.summary,
+      gate: payload.gate ?? null,
       portfolio: {
         packOrder: payload.portfolio?.packOrder ?? [],
       },
@@ -862,6 +863,7 @@ function toSerializablePayload(payload) {
         packOrder: payload.portfolio.packOrder,
       },
       summary: payload.summary,
+      gate: payload.gate ?? null,
       priorityQueue: payload.priorityQueue.map((item) => ({
         label: item.label,
         priorityScore: item.priorityScore,

@@ -144,6 +144,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(replay.valid, true);
   assert.equal(replay.dataset.summary.runnablePackCount, 3);
   assert.equal(replay.dataset.summary.ownerCount, 1);
+  assert.equal(replay.dataset.gate.verdict, 'hold');
   assert.match(replay.dataset.exportText, /=== profile-js-generic-runtime-error ===/);
 
   const chronicleExample = examples.find((item) => item.label === 'Casebook Chronicle');
@@ -157,6 +158,8 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   const chronicle = analyzeCasebookChronicle(chronicleInspection);
   assert.equal(chronicle.summary.snapshotCount, 3);
   assert.equal(chronicle.summary.latestLabel, 'release-c');
+  assert.equal(chronicle.summary.latestGateVerdict, 'hold');
+  assert.equal(chronicle.summary.gateDrift.direction, 'regressed');
   assert.ok(chronicle.ownerTrends.length >= 1);
   assert.ok(chronicle.hotspotTrends.length >= 1);
 
@@ -169,6 +172,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(shelfReplay.valid, true);
   assert.equal(shelfReplay.shelf.summary.validSnapshotCount, 2);
   assert.equal(shelfReplay.shelf.summary.invalidSnapshotCount, 1);
+  assert.equal(shelfReplay.shelf.summary.latestGateVerdict, 'watch');
   assert.equal(shelfReplay.shelf.chronicle.summary.snapshotCount, 2);
 });
 

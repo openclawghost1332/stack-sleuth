@@ -18,9 +18,9 @@ Use the built-in example buttons to compare the main workflows:
 - several structured incident packs ranked in Portfolio Radar mode with an owner-aware response queue, explicit routing gaps, runbook gaps, recurring incidents, and shared hotspots
 - Handoff Briefing turning a labeled portfolio into owner-specific handoff packets plus explicit ownership-gap and runbook-gap follow-ups
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
-- Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, then replaying that artifact later in the CLI or browser
-- Casebook Chronicle replaying several saved dataset snapshots at once to show owner load, recurring hotspot drift, and casebook movement across release windows
-- Casebook Shelf scanning top-level .json files from a saved dataset directory, preserving invalid snapshots as warning entries, and replaying the latest valid library state plus chronicle drift without claiming raw trace recovery
+- Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, while preserving a deterministic release gate verdict for later replay in the CLI or browser
+- Casebook Chronicle replaying several saved dataset snapshots at once to show release gate drift, owner load, recurring hotspot drift, and casebook movement across release windows
+- Casebook Shelf scanning top-level .json files from a saved dataset directory, preserving invalid snapshots as warning entries, and replaying the latest valid library state plus release gate and chronicle drift without claiming raw trace recovery
 - Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
 - browser copy that includes excavation-aware summaries plus notebook normalization when the input started as a markdown handoff
 
@@ -233,7 +233,7 @@ In the browser, paste the full pack into the shared workspace, then press **Expl
 
 ## Portfolio Radar
 
-Portfolio Radar wraps several Incident Pack Briefings into one release-level queue. Use it when one deploy, rollout, or incident-review thread already has multiple packs and you want one ranked answer about which pack deserves attention first, which signatures recur across packs, which hotspot files keep showing up, who likely owns the known incidents, and where the dangerous routing gaps still need fresh triage.
+Portfolio Radar wraps several Incident Pack Briefings into one release-level queue. Use it when one deploy, rollout, or incident-review thread already has multiple packs and you want one ranked answer about which pack deserves attention first, which signatures recur across packs, which hotspot files keep showing up, who likely owns the known incidents, where the dangerous routing gaps still need fresh triage, and whether the release gate is in hold, watch, clear, or needs-input state.
 
 ### Analyze a labeled portfolio from a file
 
@@ -361,7 +361,7 @@ In the browser, paste the full labeled portfolio into the shared workspace, then
 
 ## Casebook Dataset
 
-Casebook Dataset is the CLI-friendly handoff artifact between Portfolio Radar, Casebook Forge, and later Casebook Radar runs. Feed it the same labeled portfolio and it will package the ranked portfolio signals, response queue, recurring hotspots, merged case list, and a reusable casebook export into one saved JSON blob.
+Casebook Dataset is the CLI-friendly handoff artifact between Portfolio Radar, Casebook Forge, and later Casebook Radar runs. Feed it the same labeled portfolio and it will package the ranked portfolio signals, the preserved release gate verdict, response queue, recurring hotspots, merged case list, and a reusable casebook export into one saved JSON blob.
 
 ### Build a reusable dataset from a labeled portfolio file
 
@@ -381,7 +381,7 @@ cat portfolio.txt | node ./bin/stack-sleuth.js --dataset - --json
 node ./bin/stack-sleuth.js --dataset ./portfolio.txt --markdown
 ```
 
-The JSON payload includes the reusable `exportText` casebook plus summary fields you can keep in source control or attach to an incident handoff. Save that JSON artifact and later reuse it directly with `--history`:
+The JSON payload includes the reusable `exportText` casebook, the preserved `gate` object for the release gate verdict, plus summary fields you can keep in source control or attach to an incident handoff. Save that JSON artifact and later reuse it directly with `--history`:
 
 ```bash
 cat current.log | node ./bin/stack-sleuth.js --history ./casebook-dataset.json
@@ -401,13 +401,13 @@ node ./bin/stack-sleuth.js --replay-dataset ./casebook-dataset.json
 cat casebook-dataset.json | node ./bin/stack-sleuth.js --replay-dataset - --markdown
 ```
 
-Replay mode renders the saved dataset itself, so you can reopen the preserved response queue, recurring signals, merged case count, and reusable `exportText` without rebuilding the original labeled portfolio first. If the saved artifact has an unsupported version, Stack Sleuth fails clearly and tells you which supported version the current build understands.
+Replay mode renders the saved dataset itself, so you can reopen the preserved release gate verdict, response queue, recurring signals, merged case count, and reusable `exportText` without rebuilding the original labeled portfolio first. If the saved artifact has an unsupported version, Stack Sleuth fails clearly and tells you which supported version the current build understands.
 
-In the browser, paste a saved dataset JSON blob into the shared workspace and press **Explain trace(s)** to replay the portable artifact directly. The browser will reuse the saved dataset summary, response queue, recurring hotspots, and reusable export text instead of asking for the original portfolio input again. You can also press **Load Casebook Dataset example** to open a saved dataset replay example, and unsupported version or malformed saved dataset JSON will raise a dataset-specific replay error instead of silently falling through.
+In the browser, paste a saved dataset JSON blob into the shared workspace and press **Explain trace(s)** to replay the portable artifact directly. The browser will reuse the saved dataset summary, preserved release gate verdict, response queue, recurring hotspots, and reusable export text instead of asking for the original portfolio input again. You can also press **Load Casebook Dataset example** to open a saved dataset replay example, and unsupported version or malformed saved dataset JSON will raise a dataset-specific replay error instead of silently falling through.
 
 ## Casebook Shelf
 
-Casebook Shelf is the directory-oriented saved-artifact companion to Casebook Dataset and Casebook Chronicle. Point `--shelf` at a folder of top-level `.json` files and Stack Sleuth will scan them in deterministic filename order, preserve both valid snapshots and invalid snapshots as visible warning entries, and then replay the latest valid saved library state. When at least two valid saved datasets remain, the shelf also reuses the chronicle engine to show owner and hotspot drift across the saved snapshots.
+Casebook Shelf is the directory-oriented saved-artifact companion to Casebook Dataset and Casebook Chronicle. Point `--shelf` at a folder of top-level `.json` files and Stack Sleuth will scan them in deterministic filename order, preserve both valid snapshots and invalid snapshots as visible warning entries, and then replay the latest valid saved library state. When at least two valid saved datasets remain, the shelf also reuses the chronicle engine to show the latest release gate state plus owner and hotspot drift across the saved snapshots.
 
 ### Build a shelf from a directory of saved datasets
 
@@ -421,15 +421,15 @@ node ./bin/stack-sleuth.js --shelf ./saved-datasets
 cat casebook-shelf.json | node ./bin/stack-sleuth.js --replay-shelf -
 ```
 
-A Casebook Shelf directory only scans top-level `.json` files. Nested folders are ignored, invalid snapshots stay visible as warning entries, and a shelf with zero valid datasets exits with an error instead of pretending the artifact is usable.
+A Casebook Shelf directory only scans top-level `.json` files. Nested folders are ignored, invalid snapshots stay visible as warning entries, the latest valid snapshot keeps its preserved release gate verdict, and a shelf with zero valid datasets exits with an error instead of pretending the artifact is usable.
 
 Saved-artifact note: Casebook Shelf preserves dataset-level routing, hotspot, and casebook inventory only. It does not recover raw traces, support frames, or culprit-level blast radius detail.
 
-In the browser, paste a saved shelf JSON artifact into the shared workspace and press **Explain trace(s)** to replay it directly, or press **Load Casebook Shelf example** to inspect a shelf that includes both valid snapshots and a broken warning entry.
+In the browser, paste a saved shelf JSON artifact into the shared workspace and press **Explain trace(s)** to replay it directly, or press **Load Casebook Shelf example** to inspect a shelf that includes both valid snapshots and a broken warning entry while keeping the latest release gate verdict visible.
 
 ## Casebook Chronicle
 
-Casebook Chronicle is the saved-artifact sibling of Timeline Radar. Instead of comparing raw traces or noisy logs, it compares several saved Casebook Dataset snapshots across release windows so you can see owner load, recurring hotspot drift, and casebook movement over time without pretending to recover trace-level culprit, support-frame, or blast-radius detail that was never preserved in the artifact.
+Casebook Chronicle is the saved-artifact sibling of Timeline Radar. Instead of comparing raw traces or noisy logs, it compares several saved Casebook Dataset snapshots across release windows so you can see release gate drift, owner load, recurring hotspot drift, and casebook movement over time without pretending to recover trace-level culprit, support-frame, or blast-radius detail that was never preserved in the artifact.
 
 ### Analyze labeled saved datasets from a file
 
@@ -477,7 +477,7 @@ Chronicle snapshots use labeled `=== label ===` blocks whose bodies are saved da
 }
 ```
 
-Stack Sleuth uses the preserved dataset fields, including the response queue, recurring hotspots, case list, and saved summary counts, to classify owner, hotspot, and case trends as the release windows move. In the browser, paste the chronicle bundle into the shared workspace and press **Explain trace(s)**, or press **Load Casebook Chronicle example** to replay a multi-snapshot saved-dataset story through the same trend cards used by Timeline Radar.
+Stack Sleuth uses the preserved dataset fields, including the saved release gate verdict, response queue, recurring hotspots, case list, and saved summary counts, to classify gate, owner, hotspot, and case trends as the release windows move. In the browser, paste the chronicle bundle into the shared workspace and press **Explain trace(s)**, or press **Load Casebook Chronicle example** to replay a multi-snapshot saved-dataset story through the same trend cards used by Timeline Radar.
 
 ## Casebook Merge
 

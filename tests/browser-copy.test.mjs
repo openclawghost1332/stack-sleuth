@@ -561,6 +561,7 @@ test('browser Casebook Dataset example button loads saved dataset JSON and repla
     assert.match(harness.get('trace-input').value, /"kind": "stack-sleuth-casebook-dataset"/);
     assert.equal(harness.get('runtime-value').textContent, 'dataset replay');
     assert.match(harness.get('dataset-summary-value').textContent, /Casebook Dataset captured 3 merged cases/i);
+    assert.match(harness.get('dataset-summary-value').textContent, /Release Gate HOLD|Release gate: hold/i);
     assert.match(harness.get('portfolio-response-queue-value').children[0].textContent, /web-platform/);
     assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
     assert.match(harness.get('example-caption').textContent, /saved dataset|replay/i);
@@ -579,6 +580,7 @@ test('browser Casebook Shelf example button loads saved shelf JSON before datase
     assert.equal(harness.get('runtime-value').textContent, 'casebook shelf');
     assert.match(harness.get('headline-value').textContent, /2 valid snapshots, 1 invalid snapshot/i);
     assert.match(harness.get('summary-value').textContent, /warning entry|saved dataset shelf/i);
+    assert.match(harness.get('summary-value').textContent, /Release Gate WATCH|release gate watch/i);
     assert.match(harness.get('timeline-summary-value').textContent, /release-b/i);
     assert.match(harness.get('timeline-incidents-value').children[0].textContent, /web-platform|owner/i);
     assert.match(harness.get('checklist-value').children[0].textContent, /saved artifact/i);
@@ -613,6 +615,7 @@ test('browser dataset replay copy support writes the saved dataset summary to th
 
     assert.match(harness.clipboard.text, /Stack Sleuth Casebook Dataset/);
     assert.match(harness.clipboard.text, /Response owners: 1/);
+    assert.match(harness.clipboard.text, /Release gate: hold/i);
     assert.match(harness.clipboard.text, /Reusable casebook export/);
     assert.equal(harness.get('example-caption').textContent, 'Casebook Dataset replay copied to clipboard.');
   } finally {
@@ -629,7 +632,9 @@ test('browser Casebook Chronicle example button loads labeled saved datasets and
     assert.match(harness.get('trace-input').value, /=== release-a ===/);
     assert.equal(harness.get('runtime-value').textContent, 'casebook chronicle');
     assert.match(harness.get('headline-value').textContent, /Chronicle compared 3 saved datasets/i);
+    assert.match(harness.get('summary-value').textContent, /Release Gate HOLD|release gate hold/i);
     assert.match(harness.get('timeline-summary-value').textContent, /release-c/i);
+    assert.match(harness.get('timeline-summary-value').textContent, /Regressed from watch to hold|gate drift/i);
     assert.match(harness.get('timeline-incidents-value').children[0].textContent, /owner|case|hotspot/i);
     assert.match(harness.get('example-caption').textContent, /saved datasets|drift|chronicle/i);
   } finally {
@@ -645,6 +650,7 @@ test('browser chronicle copy support writes the saved dataset trend summary to t
     await harness.click('copy-button');
 
     assert.match(harness.clipboard.text, /Stack Sleuth Casebook Chronicle/);
+    assert.match(harness.clipboard.text, /Release gate: hold/i);
     assert.match(harness.clipboard.text, /Saved-artifact note:/);
     assert.match(harness.clipboard.text, /Owner trends/);
     assert.equal(harness.get('example-caption').textContent, 'Casebook Chronicle summary copied to clipboard.');
@@ -725,6 +731,7 @@ test('browser multi-pack notebook analyze flow routes # Pack headings into portf
 
     assert.equal(harness.get('runtime-value').textContent, 'portfolio radar');
     assert.match(harness.get('headline-value').textContent, /Portfolio Radar ranked 3 runnable packs/i);
+    assert.match(harness.get('summary-value').textContent, /Release Gate HOLD|Release gate: hold/i);
     assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
     assert.match(harness.get('portfolio-priority-value').children[0].textContent, /profile-rollout/);
     assert.match(harness.get('forge-export-value').textContent, /=== release-2026-04-15 ===/);
@@ -764,6 +771,7 @@ test('browser portfolio flow keeps Portfolio Radar as the primary runtime while 
 
     assert.equal(harness.get('runtime-value').textContent, 'portfolio radar');
     assert.match(harness.get('headline-value').textContent, /Portfolio Radar ranked 3 runnable packs/i);
+    assert.match(harness.get('summary-value').textContent, /Release Gate HOLD|Release gate: hold/i);
     assert.match(harness.get('summary-value').textContent, /Top priority: profile-rollout/i);
     assert.match(harness.get('portfolio-summary-value').textContent, /3 runnable pack/i);
     assert.match(harness.get('portfolio-priority-value').children[0].textContent, /profile-rollout/);
@@ -794,6 +802,7 @@ test('browser portfolio copy support keeps Portfolio Radar as the clipboard arti
     await harness.click('copy-button');
 
     assert.match(harness.clipboard.text, /Stack Sleuth Portfolio Radar/);
+    assert.match(harness.clipboard.text, /Release gate: hold/i);
     assert.match(harness.clipboard.text, /Response queue/);
     assert.doesNotMatch(harness.clipboard.text, /Stack Sleuth Casebook Merge/);
     assert.equal(harness.get('example-caption').textContent, 'Portfolio Radar summary copied to clipboard.');
@@ -1025,6 +1034,8 @@ test('browser Casebook Radar clears shared result cards when one casebook input 
   }
 });
 
+import { buildReleaseGate } from '../src/gate.js';
+
 function buildChronicleDataset({
   packCount = 2,
   owners = [],
@@ -1047,6 +1058,13 @@ function buildChronicleDataset({
     portfolio: {
       packOrder: Array.from({ length: packCount }, (_, index) => `pack-${index + 1}`),
     },
+    gate: buildReleaseGate({
+      runnablePackCount: packCount,
+      totalNovelIncidents: packCount >= 4 ? 1 : 0,
+      runbookGapCount: 1,
+      recurringHotspotCount: hotspots.length,
+      recurringIncidentCount: Math.max(0, cases.length - 1),
+    }),
     responseQueue: owners.map((entry) => ({
       owner: entry.owner,
       labels: Array.from({ length: entry.packCount }, (_, index) => `${entry.owner}-pack-${index + 1}`),

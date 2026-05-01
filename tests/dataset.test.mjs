@@ -34,6 +34,7 @@ test('buildCasebookDataset packages merge and portfolio signals into a reusable 
   assert.equal(dataset.summary.runnablePackCount, 2);
   assert.ok(dataset.summary.mergedCaseCount >= 1);
   assert.equal(dataset.summary.conflictCount, 0);
+  assert.equal(dataset.gate.verdict, 'hold');
   assert.ok(dataset.responseQueue.length >= 1);
   assert.ok(dataset.cases.length >= 1);
   assert.match(dataset.exportText, /^=== release-2026-04-15 ===/m);
@@ -57,6 +58,7 @@ test('inspectReplayDatasetInput validates a saved dataset and returns a normaliz
   assert.equal(result.dataset.kind, 'stack-sleuth-casebook-dataset');
   assert.equal(result.dataset.version, 1);
   assert.equal(result.dataset.summary.ownerCount, 1);
+  assert.equal(result.dataset.gate.verdict, 'hold');
   assert.ok(result.dataset.responseQueue.length >= 1);
   assert.ok(result.dataset.recurringHotspots.length >= 1);
   assert.match(result.dataset.exportText, /^=== release-2026-04-15 ===/m);
@@ -77,16 +79,23 @@ test('inspectReplayDatasetInput rejects unsupported dataset versions with the su
 test('shared dataset renderers include summary counts and reusable export text', () => {
   const dataset = buildCasebookDataset(portfolioInput);
 
-  const text = renderDatasetTextSummary(dataset);
-  const markdown = renderDatasetMarkdownSummary(dataset);
+  delete dataset.gate;
+  const replay = inspectReplayDatasetInput(JSON.stringify(dataset));
+  assert.equal(replay.valid, true);
+  assert.equal(replay.dataset.gate.verdict, 'hold');
+
+  const text = renderDatasetTextSummary(replay.dataset);
+  const markdown = renderDatasetMarkdownSummary(replay.dataset);
 
   assert.match(text, /Stack Sleuth Casebook Dataset/);
   assert.match(text, /Response owners: 1/);
+  assert.match(text, /Release gate: hold/i);
   assert.match(text, /Merged cases:/);
   assert.match(text, /Reusable casebook export/);
   assert.match(text, /=== release-2026-04-15 ===/);
 
   assert.match(markdown, /^# Stack Sleuth Casebook Dataset/m);
+  assert.match(markdown, /- \*\*Release gate:\*\* hold/i);
   assert.match(markdown, /- \*\*Response owners:\*\* 1/);
   assert.match(markdown, /## Reusable casebook export/);
   assert.match(markdown, /=== release-2026-04-15 ===/);

@@ -1,5 +1,6 @@
 import { buildCasebookDataset } from './dataset.js';
 import { buildCasebookShelf } from './shelf.js';
+import { buildReleaseGate } from './gate.js';
 
 const javascriptTrace = `TypeError: Cannot read properties of undefined (reading 'name')
     at renderProfile (/app/src/profile.js:88:17)
@@ -231,7 +232,7 @@ export const examples = [
   },
   {
     label: 'Portfolio radar',
-    caption: 'Several labeled incident packs roll up into one owner-aware Portfolio Radar queue, surfacing recalled owners, runbook gaps, routing gaps, recurring incidents, shared hotspots, and copy-ready handoff packets in one release-level view.',
+    caption: 'Several labeled incident packs roll up into one owner-aware Portfolio Radar queue, surfacing a deterministic release gate verdict alongside recalled owners, runbook gaps, routing gaps, recurring incidents, shared hotspots, and copy-ready handoff packets in one release-level view.',
     portfolio: portfolioTrace,
   },
   {
@@ -246,17 +247,17 @@ export const examples = [
   },
   {
     label: 'Casebook Dataset',
-    caption: 'A saved Casebook Dataset JSON artifact replays the preserved routing, recurring hotspot, and reusable casebook export story without needing the original portfolio input.',
+    caption: 'A saved Casebook Dataset JSON artifact replays the preserved release gate verdict, routing, recurring hotspot, and reusable casebook export story without needing the original portfolio input.',
     dataset: datasetReplay,
   },
   {
     label: 'Casebook Chronicle',
-    caption: 'Several saved Casebook Dataset snapshots stitched into one chronicle reveal owner load, recurring hotspot drift, and casebook movement across release windows without pretending to recover raw trace detail.',
+    caption: 'Several saved Casebook Dataset snapshots stitched into one chronicle reveal release gate drift, owner load, recurring hotspot drift, and casebook movement across release windows without pretending to recover raw trace detail.',
     chronicle: chronicleReplay,
   },
   {
     label: 'Casebook Shelf',
-    caption: 'A saved dataset shelf catalogs several saved snapshots, keeps invalid warning entries visible, and replays the latest saved library state plus chronicle drift without pretending to recover raw traces.',
+    caption: 'A saved dataset shelf catalogs several saved snapshots, keeps invalid warning entries visible, and replays the latest saved library state plus release gate and chronicle drift without pretending to recover raw traces.',
     shelf: shelfReplay,
   },
   {
@@ -288,6 +289,13 @@ function buildChronicleReplayDataset({
     portfolio: {
       packOrder: Array.from({ length: packCount }, (_, index) => `pack-${index + 1}`),
     },
+    gate: buildReleaseGate({
+      runnablePackCount: packCount,
+      totalNovelIncidents: packCount >= 4 ? 1 : 0,
+      runbookGapCount: 1,
+      recurringHotspotCount: hotspots.length,
+      recurringIncidentCount: Math.max(0, cases.length - 1),
+    }),
     responseQueue: owners.map((entry) => ({
       owner: entry.owner,
       labels: Array.from({ length: entry.packCount }, (_, index) => `${entry.owner}-pack-${index + 1}`),

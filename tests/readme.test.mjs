@@ -150,6 +150,7 @@ test('README documents Casebook Dataset workflows for browser and CLI handoff', 
   assert.match(readme, /--dataset/);
   assert.match(readme, /--replay-dataset/);
   assert.match(readme, /saved JSON blob|JSON artifact/i);
+  assert.match(readme, /release gate/i);
   assert.match(readme, /exportText/i);
   assert.match(readme, /--history .*casebook-dataset\.json|casebook-dataset\.json/i);
   assert.match(readme, /paste a saved dataset JSON blob|saved dataset JSON/i);
@@ -162,6 +163,7 @@ test('README documents Casebook Chronicle workflows for browser and CLI longitud
   assert.match(readme, /--chronicle/);
   assert.match(readme, /saved datasets|saved dataset snapshots/i);
   assert.match(readme, /=== release-a ===|=== canary ===/i);
+  assert.match(readme, /release gate/i);
   assert.match(readme, /owner load|recurring hotspots|drift/i);
 });
 
@@ -171,6 +173,7 @@ test('README documents Casebook Shelf workflows for browser and CLI snapshot she
   assert.match(readme, /--shelf/);
   assert.match(readme, /--replay-shelf/);
   assert.match(readme, /top-level \.json files/i);
+  assert.match(readme, /release gate/i);
   assert.match(readme, /invalid snapshots|warning entries/i);
   assert.match(readme, /saved-artifact note|does not recover raw traces/i);
 });

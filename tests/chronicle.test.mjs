@@ -133,6 +133,8 @@ test('analyzeCasebookChronicle classifies owner, hotspot, and case trends across
   assert.equal(chronicle.summary.resolvedHotspotCount, 1);
   assert.equal(chronicle.summary.newCaseCount, 1);
   assert.equal(chronicle.summary.resolvedCaseCount, 1);
+  assert.equal(chronicle.summary.latestGateVerdict, 'hold');
+  assert.equal(chronicle.summary.gateDrift.direction, 'regressed');
 
   assert.deepEqual(findTrendSeries(chronicle.ownerTrends, 'owner-new'), { trend: 'new', series: [0, 0, 4] });
   assert.deepEqual(findTrendSeries(chronicle.ownerTrends, 'owner-rising'), { trend: 'rising', series: [1, 2, 3] });
@@ -155,6 +157,8 @@ test('chronicle renderers describe saved-artifact chronology without pretending 
   assert.match(text, /Stack Sleuth Casebook Chronicle/);
   assert.match(text, /Snapshots: release-a → release-b → release-c/);
   assert.match(text, /Owner trends/);
+  assert.match(text, /Release gate: hold/i);
+  assert.match(text, /Gate drift: regressed from watch to hold/i);
   assert.match(text, /Saved-artifact note: Chronicle uses preserved dataset signals only/);
   assert.match(text, /new: 0 → 0 → 4 owner-new/);
 
@@ -189,6 +193,17 @@ function buildDataset({
       portfolioHeadline: 'portfolio headline',
       mergeHeadline: 'merge headline',
       ownerCount: owners.length,
+    },
+    gate: {
+      verdict: packCount >= 5 ? 'hold' : 'watch',
+      blockers: packCount >= 5 ? [{ key: 'totalNovelIncidents', count: 1, label: 'novel incidents' }] : [],
+      warnings: packCount < 5 ? [{ key: 'runbookGapCount', count: 1, label: 'runbook gaps' }] : [],
+      summary: packCount >= 5 ? 'Release gate is hold with 1 blocker and 0 warnings.' : 'Release gate is watch with 0 blockers and 1 warning.',
+      nextAction: packCount >= 5 ? 'Stop the release and inspect the blocking packs first.' : 'Proceed carefully and inspect the warning signals before widening the rollout.',
+      sources: {
+        runnablePackCount: packCount,
+        unrunnablePackCount: 0,
+      },
     },
     portfolio: {
       packOrder: Array.from({ length: packCount }, (_, index) => `pack-${index + 1}`),

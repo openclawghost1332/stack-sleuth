@@ -155,11 +155,15 @@ test('analyzeIncidentPortfolio ranks runnable packs and reports recurring incide
   assert.match(report.summary.headline, /profile-rollout/);
   assert.equal(report.summary.totalNovelIncidents, 1);
   assert.equal(report.summary.totalRegressionNew, 1);
+  assert.equal(report.gate.verdict, 'hold');
+  assert.deepEqual(report.gate.blockers.map((item) => item.key), ['totalNovelIncidents', 'totalRegressionNew', 'unownedPackCount']);
   assert.ok(report.priorityQueue[0].priorityReasons.length > 0);
   assert.ok(report.recurringIncidents.some((item) => item.packCount >= 2));
   assert.ok(report.recurringHotspots.some((item) => item.packCount >= 2));
   assert.match(renderIncidentPortfolioTextSummary(report), /Stack Sleuth Portfolio Radar/);
+  assert.match(renderIncidentPortfolioTextSummary(report), /Release gate: hold/i);
   assert.match(renderIncidentPortfolioMarkdownSummary(report), /^# Stack Sleuth Portfolio Radar/m);
+  assert.match(renderIncidentPortfolioMarkdownSummary(report), /## Release gate/);
 });
 
 test('analyzeIncidentPortfolio degrades gracefully for malformed or unrunnable packs', () => {

@@ -429,6 +429,7 @@ test('CLI reads a multi-pack portfolio with --portfolio and prints a ranked port
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Stack Sleuth Portfolio Radar/);
+  assert.match(result.stdout, /Release gate: hold/i);
   assert.match(result.stdout, /Prioritize profile-rollout first/i);
   assert.match(result.stdout, /Recurring hotspots/i);
 });
@@ -440,6 +441,7 @@ test('CLI portfolio mode supports --json and --markdown output', () => {
   assert.equal(parsed.summary.runnablePackCount, 3);
   assert.equal(parsed.summary.ownedPackCount, 1);
   assert.equal(parsed.summary.runbookGapCount, 2);
+  assert.equal(parsed.gate.verdict, 'hold');
   assert.equal(parsed.priorityQueue[0].label, 'profile-rollout');
   assert.equal(parsed.responseQueue[0].owner, 'web-platform');
   assert.deepEqual(parsed.responseQueue[0].labels, ['profile-rollout']);
@@ -449,6 +451,7 @@ test('CLI portfolio mode supports --json and --markdown output', () => {
   const markdownResult = runCli(['--portfolio', '-', '--markdown'], { input: portfolioInput });
   assert.equal(markdownResult.status, 0, markdownResult.stderr);
   assert.match(markdownResult.stdout, /^# Stack Sleuth Portfolio Radar/m);
+  assert.match(markdownResult.stdout, /## Release gate/);
   assert.match(markdownResult.stdout, /## Response queue/);
   assert.match(markdownResult.stdout, /web\\-platform/);
   assert.match(markdownResult.stdout, /## Routing gaps/);
@@ -494,6 +497,7 @@ test('CLI reads a portfolio with --dataset and prints a Casebook Dataset summary
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Stack Sleuth Casebook Dataset/);
+  assert.match(result.stdout, /Release gate: hold/i);
   assert.match(result.stdout, /Runnable packs: 3/);
   assert.match(result.stdout, /Merged cases: 3/);
   assert.match(result.stdout, /Reusable casebook export/);
@@ -507,6 +511,7 @@ test('CLI replays a saved dataset from stdin in text mode', () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Stack Sleuth Casebook Dataset/);
+  assert.match(result.stdout, /Release gate: hold/i);
   assert.match(result.stdout, /Response owners: 1/);
   assert.match(result.stdout, /Reusable casebook export/);
 });
@@ -533,6 +538,7 @@ test('CLI replays a saved dataset in json mode', () => {
   assert.equal(parsed.kind, 'stack-sleuth-casebook-dataset');
   assert.equal(parsed.version, 1);
   assert.equal(parsed.summary.ownerCount, 1);
+  assert.equal(parsed.gate.verdict, 'hold');
 });
 
 test('CLI reads labeled saved datasets with --chronicle and prints a chronicle summary', () => {
@@ -540,6 +546,7 @@ test('CLI reads labeled saved datasets with --chronicle and prints a chronicle s
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Stack Sleuth Casebook Chronicle/);
+  assert.match(result.stdout, /Release gate: hold/i);
   assert.match(result.stdout, /Latest snapshot: release-c/i);
   assert.match(result.stdout, /Owner trends/);
 });
@@ -550,6 +557,8 @@ test('CLI chronicle mode supports --json and --markdown output', () => {
   const parsed = JSON.parse(jsonResult.stdout);
   assert.equal(parsed.summary.snapshotCount, 3);
   assert.equal(parsed.summary.latestLabel, 'release-c');
+  assert.equal(parsed.summary.latestGateVerdict, 'hold');
+  assert.equal(parsed.summary.gateDrift.direction, 'regressed');
   assert.equal(parsed.summary.risingOwnerCount, 2);
 
   const markdownResult = runCli(['--chronicle', '-', '--markdown'], { input: chronicleInput });
@@ -570,6 +579,7 @@ test('CLI shelf mode builds a portable shelf from top-level json files and prese
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Stack Sleuth Casebook Shelf/);
+  assert.match(result.stdout, /Latest release gate: watch/i);
   assert.match(result.stdout, /Valid snapshots: 2/);
   assert.match(result.stdout, /Invalid snapshots: 1/);
   assert.match(result.stdout, /Chronicle summary: Chronicle compared 2 saved datasets/i);
@@ -587,6 +597,7 @@ test('CLI shelf mode supports --json and --markdown output', async () => {
   assert.equal(parsed.kind, 'stack-sleuth-casebook-shelf');
   assert.equal(parsed.version, 1);
   assert.equal(parsed.summary.validSnapshotCount, 2);
+  assert.equal(parsed.summary.latestGateVerdict, 'watch');
   assert.equal(parsed.summary.invalidSnapshotCount, 0);
   assert.equal(parsed.chronicle.summary.snapshotCount, 2);
 
@@ -607,6 +618,7 @@ test('CLI replay-shelf mode replays saved shelf json from stdin', async () => {
   const replayResult = runCli(['--replay-shelf', '-'], { input: shelfResult.stdout });
   assert.equal(replayResult.status, 0, replayResult.stderr);
   assert.match(replayResult.stdout, /Stack Sleuth Casebook Shelf/);
+  assert.match(replayResult.stdout, /Latest release gate: watch/i);
   assert.match(replayResult.stdout, /Chronicle summary: Chronicle compared 2 saved datasets/i);
 });
 
@@ -718,6 +730,7 @@ test('CLI dataset mode supports --json and --markdown output', () => {
   const parsed = JSON.parse(jsonResult.stdout);
   assert.equal(parsed.kind, 'stack-sleuth-casebook-dataset');
   assert.equal(parsed.version, 1);
+  assert.equal(parsed.gate.verdict, 'hold');
   assert.equal(parsed.summary.packCount, 3);
   assert.equal(parsed.summary.runnablePackCount, 3);
   assert.equal(parsed.summary.mergedCaseCount, 3);
@@ -726,6 +739,7 @@ test('CLI dataset mode supports --json and --markdown output', () => {
   const markdownResult = runCli(['--dataset', '-', '--markdown'], { input: portfolioInput });
   assert.equal(markdownResult.status, 0, markdownResult.stderr);
   assert.match(markdownResult.stdout, /^# Stack Sleuth Casebook Dataset/m);
+  assert.match(markdownResult.stdout, /## Release gate/);
   assert.match(markdownResult.stdout, /## Reusable casebook export/);
 });
 
@@ -1071,6 +1085,8 @@ test('CLI exits non-zero when multiple workflow modes are requested together', a
   assert.equal(result.stdout, '');
 });
 
+import { buildReleaseGate } from '../src/gate.js';
+
 function buildChronicleDataset({
   packCount = 2,
   owners = [],
@@ -1093,6 +1109,13 @@ function buildChronicleDataset({
     portfolio: {
       packOrder: Array.from({ length: packCount }, (_, index) => `pack-${index + 1}`),
     },
+    gate: buildReleaseGate({
+      runnablePackCount: packCount,
+      totalNovelIncidents: packCount >= 4 ? 1 : 0,
+      runbookGapCount: 1,
+      recurringHotspotCount: hotspots.length,
+      recurringIncidentCount: Math.max(0, cases.length - 1),
+    }),
     responseQueue: owners.map((entry) => ({
       owner: entry.owner,
       labels: Array.from({ length: entry.packCount }, (_, index) => `${entry.owner}-pack-${index + 1}`),

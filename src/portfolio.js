@@ -1,5 +1,10 @@
 import { formatFrame } from './analyze.js';
 import { analyzeIncidentPack } from './briefing.js';
+import {
+  buildReleaseGate,
+  renderReleaseGateMarkdown,
+  renderReleaseGateText,
+} from './gate.js';
 
 const PACK_MARKER = /^@@@\s*(.+?)\s*@@@$/gm;
 
@@ -48,17 +53,7 @@ export function analyzeIncidentPortfolio(input) {
   const recurringHotspots = collectRecurringHotspots(packReports);
   const { responseQueue, runbookGaps, unownedPacks } = collectResponseSignals(priorityQueue);
   const topPack = priorityQueue[0] ?? null;
-
-  return {
-    portfolio,
-    packReports,
-    priorityQueue,
-    responseQueue,
-    runbookGaps,
-    unownedPacks,
-    recurringIncidents,
-    recurringHotspots,
-    summary: {
+  const summary = {
       packCount: packReports.length,
       runnablePackCount: priorityQueue.length,
       unrunnablePackCount: packReports.length - priorityQueue.length,
@@ -75,7 +70,24 @@ export function analyzeIncidentPortfolio(input) {
         ? `Prioritize ${topPack.label} first because ${topPack.priorityReasons[0]}.`
         : 'No runnable incident packs were found in this portfolio.',
       checklist: buildChecklist({ priorityQueue, recurringIncidents, recurringHotspots, packReports }),
-    },
+    };
+  const gate = buildReleaseGate({
+    ...summary,
+    recurringIncidentCount: recurringIncidents.length,
+    recurringHotspotCount: recurringHotspots.length,
+  });
+
+  return {
+    portfolio,
+    packReports,
+    priorityQueue,
+    responseQueue,
+    runbookGaps,
+    unownedPacks,
+    recurringIncidents,
+    recurringHotspots,
+    gate,
+    summary,
   };
 }
 
@@ -91,6 +103,9 @@ export function renderIncidentPortfolioTextSummary(report) {
     `Runbook gaps: ${report.summary.runbookGapCount}`,
     `Headline: ${report.summary.headline}`,
     `Portfolio signals: ${report.summary.totalNovelIncidents} novel, ${report.summary.totalRegressionNew} regression-new, ${report.summary.totalRegressionVolumeUp} regression-volume-up, ${report.summary.totalTimelineNew} timeline-new, ${report.summary.totalTimelineRising} timeline-rising`,
+    '',
+    'Release gate',
+    ...renderReleaseGateText(report.gate).split('\n'),
     '',
     'Priority queue',
     ...formatPriorityQueue(report.priorityQueue),
@@ -127,6 +142,9 @@ export function renderIncidentPortfolioMarkdownSummary(report) {
     `- **Runbook gaps:** ${report.summary.runbookGapCount}`,
     `- **Headline:** ${escapeMarkdownText(report.summary.headline)}`,
     `- **Portfolio signals:** ${escapeMarkdownText(`${report.summary.totalNovelIncidents} novel, ${report.summary.totalRegressionNew} regression-new, ${report.summary.totalRegressionVolumeUp} regression-volume-up, ${report.summary.totalTimelineNew} timeline-new, ${report.summary.totalTimelineRising} timeline-rising`)}`,
+    '',
+    '## Release gate',
+    renderReleaseGateMarkdown(report.gate),
     '',
     '## Priority queue',
     ...formatPriorityQueue(report.priorityQueue).map((item) => escapeMarkdownListItem(item)),

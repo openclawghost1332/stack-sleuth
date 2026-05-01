@@ -38,6 +38,7 @@ test('buildCasebookShelf packages valid and invalid saved dataset snapshots into
   assert.equal(shelf.summary.validSnapshotCount, 2);
   assert.equal(shelf.summary.invalidSnapshotCount, 1);
   assert.equal(shelf.summary.chronicleAvailable, true);
+  assert.equal(shelf.summary.latestGateVerdict, 'hold');
   assert.equal(shelf.chronicle.summary.snapshotCount, 2);
   assert.equal(shelf.snapshots[0].status, 'valid');
   assert.equal(shelf.snapshots[2].status, 'invalid');
@@ -101,6 +102,7 @@ test('shared shelf renderers include chronicle context and invalid snapshot warn
   assert.match(text, /Valid snapshots: 2/);
   assert.match(text, /Invalid snapshots: 1/);
   assert.match(text, /Chronicle summary: Chronicle compared 2 saved datasets/i);
+  assert.match(text, /Latest release gate: hold/i);
   assert.match(text, /broken\.json: invalid-json/);
   assert.match(text, /saved-artifact note/i);
   assert.doesNotMatch(text, /raw trace recovery/i);
@@ -130,6 +132,17 @@ function buildDataset({
       portfolioHeadline: `${label} portfolio headline`,
       mergeHeadline: `${label} merge headline`,
       ownerCount: owners.length,
+    },
+    gate: {
+      verdict: packCount >= 3 ? 'hold' : 'watch',
+      blockers: packCount >= 3 ? [{ key: 'totalNovelIncidents', count: 1, label: 'novel incidents' }] : [],
+      warnings: packCount < 3 ? [{ key: 'runbookGapCount', count: 1, label: 'runbook gaps' }] : [],
+      summary: packCount >= 3 ? 'Release gate is hold with 1 blocker and 0 warnings.' : 'Release gate is watch with 0 blockers and 1 warning.',
+      nextAction: packCount >= 3 ? 'Stop the release and inspect the blocking packs first.' : 'Proceed carefully and inspect the warning signals before widening the rollout.',
+      sources: {
+        runnablePackCount: packCount,
+        unrunnablePackCount: 0,
+      },
     },
     portfolio: {
       packOrder: Array.from({ length: packCount }, (_, index) => `${label}-pack-${index + 1}`),

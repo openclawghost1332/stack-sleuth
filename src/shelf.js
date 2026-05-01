@@ -82,6 +82,7 @@ export function renderShelfTextSummary(report) {
     `Valid snapshots: ${report.summary.validSnapshotCount}`,
     `Invalid snapshots: ${report.summary.invalidSnapshotCount}`,
     `Latest snapshot: ${report.summary.latestLabel}`,
+    `Latest release gate: ${report.summary.latestGateVerdict}`,
     report.chronicle
       ? `Chronicle summary: ${report.chronicle.summary.headline}`
       : 'Chronicle summary: add one more valid saved dataset snapshot to unlock drift analysis.',
@@ -110,6 +111,7 @@ export function renderShelfMarkdownSummary(report) {
     `- **Valid snapshots:** ${report.summary.validSnapshotCount}`,
     `- **Invalid snapshots:** ${report.summary.invalidSnapshotCount}`,
     `- **Latest snapshot:** ${escapeMarkdownText(report.summary.latestLabel)}`,
+    `- **Latest release gate:** ${escapeMarkdownText(report.summary.latestGateVerdict)}`,
     `- **Saved-artifact note:** ${escapeMarkdownText('Casebook Shelf replays preserved dataset signals only and does not recover raw traces, support frames, or blast radius detail.')}`,
     '',
     '## Chronicle summary',
@@ -217,6 +219,8 @@ function buildShelfSummary(snapshots, chronicle) {
     ?? snapshots.at(-1)?.label
     ?? '-';
 
+  const latestValidDataset = snapshots.filter((snapshot) => snapshot.status === 'valid').at(-1)?.dataset ?? null;
+
   return {
     headline: `Casebook Shelf cataloged ${validSnapshotCount} valid snapshot${validSnapshotCount === 1 ? '' : 's'}, ${invalidSnapshotCount} invalid snapshot${invalidSnapshotCount === 1 ? '' : 's'}, and ${invalidSnapshotCount} warning entr${invalidSnapshotCount === 1 ? 'y' : 'ies'}.`,
     snapshotCount: snapshots.length,
@@ -224,6 +228,7 @@ function buildShelfSummary(snapshots, chronicle) {
     invalidSnapshotCount,
     chronicleAvailable: Boolean(chronicle),
     latestLabel,
+    latestGateVerdict: latestValidDataset?.gate?.verdict ?? 'needs-input',
   };
 }
 

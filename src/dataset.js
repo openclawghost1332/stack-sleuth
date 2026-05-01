@@ -1,6 +1,11 @@
 import { analyzeIncidentPortfolio } from './portfolio.js';
 import { analyzeCasebookMerge } from './merge.js';
 import { parseLabeledTraceBatches } from './labeled.js';
+import {
+  normalizeReleaseGate,
+  renderReleaseGateMarkdown,
+  renderReleaseGateText,
+} from './gate.js';
 
 export const DATASET_KIND = 'stack-sleuth-casebook-dataset';
 export const DATASET_VERSION = 1;
@@ -13,6 +18,11 @@ export function buildCasebookDataset(input) {
     kind: DATASET_KIND,
     version: DATASET_VERSION,
     summary: buildDatasetSummary(portfolioReport, mergeReport),
+    gate: normalizeReleaseGate(portfolioReport.gate, {
+      ...portfolioReport.summary,
+      recurringIncidentCount: portfolioReport.recurringIncidents?.length ?? 0,
+      recurringHotspotCount: portfolioReport.recurringHotspots?.length ?? 0,
+    }),
     portfolio: {
       packOrder: portfolioReport.portfolio?.packOrder ?? [],
     },
@@ -95,6 +105,9 @@ export function renderDatasetTextSummary(report) {
     `Merged cases: ${report.summary.mergedCaseCount}`,
     `Conflicts: ${report.summary.conflictCount}`,
     '',
+    'Release gate',
+    ...renderReleaseGateText(report.gate).split('\n'),
+    '',
     'Reusable casebook export',
     report.exportText,
   ].join('\n').trim();
@@ -110,6 +123,9 @@ export function renderDatasetMarkdownSummary(report) {
     `- **Response owners:** ${report.summary.ownerCount}`,
     `- **Merged cases:** ${report.summary.mergedCaseCount}`,
     `- **Conflicts:** ${report.summary.conflictCount}`,
+    '',
+    '## Release gate',
+    renderReleaseGateMarkdown(report.gate),
     '',
     '## Reusable casebook export',
     '```text',
@@ -164,6 +180,20 @@ function buildDatasetSummary(portfolioReport, mergeReport) {
 }
 
 function normalizeDataset(parsed) {
+  const fallbackSignals = {
+    totalNovelIncidents: 0,
+    totalRegressionNew: 0,
+    totalRegressionVolumeUp: 0,
+    unownedPackCount: Math.max(0, toCount(parsed.summary?.runnablePackCount) - toCount(parsed.summary?.ownerCount)),
+    runbookGapCount: 0,
+    totalTimelineNew: 0,
+    totalTimelineRising: 0,
+    recurringHotspotCount: Array.isArray(parsed.recurringHotspots) ? parsed.recurringHotspots.length : 0,
+    recurringIncidentCount: Array.isArray(parsed.recurringIncidents) ? parsed.recurringIncidents.length : 0,
+    runnablePackCount: toCount(parsed.summary?.runnablePackCount),
+    unrunnablePackCount: Math.max(0, toCount(parsed.summary?.packCount) - toCount(parsed.summary?.runnablePackCount)),
+  };
+
   return {
     kind: DATASET_KIND,
     version: DATASET_VERSION,
@@ -184,6 +214,7 @@ function normalizeDataset(parsed) {
     recurringIncidents: Array.isArray(parsed.recurringIncidents) ? parsed.recurringIncidents : [],
     recurringHotspots: Array.isArray(parsed.recurringHotspots) ? parsed.recurringHotspots : [],
     cases: Array.isArray(parsed.cases) ? parsed.cases : [],
+    gate: normalizeReleaseGate(parsed.gate, fallbackSignals),
     exportText: typeof parsed.exportText === 'string' ? parsed.exportText : '',
   };
 }

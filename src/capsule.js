@@ -3,7 +3,8 @@ import { parseIncidentNotebook, renderNormalizedNotebookText } from './notebook.
 import { analyzeIncidentPortfolio } from './portfolio.js';
 
 const CAPSULE_KIND = 'incident-capsule';
-const CAPSULE_VERSION = '1';
+const CAPSULE_VERSIONS = new Set(['1', '2']);
+const SUPPORTED_CAPSULE_VERSIONS = [...CAPSULE_VERSIONS].join(', ');
 const PACKS_PREFIX = 'packs/';
 const NOTEBOOK_FILE = 'notebook.md';
 const SECTION_FILES = {
@@ -30,8 +31,8 @@ export function inspectCapsuleInput(input) {
       return { valid: false, reason: 'wrong-kind', parsed };
     }
 
-    if (parsed.version !== CAPSULE_VERSION) {
-      return { valid: false, reason: 'unsupported-version', parsed, supportedVersion: CAPSULE_VERSION };
+    if (!CAPSULE_VERSIONS.has(parsed.version)) {
+      return { valid: false, reason: 'unsupported-version', parsed, supportedVersions: [...CAPSULE_VERSIONS] };
     }
 
     if (!Array.isArray(parsed.artifacts)) {
@@ -62,7 +63,7 @@ export function describeCapsuleInputError(inspection) {
   }
 
   if (inspection?.reason === 'unsupported-version') {
-    return `Incident Capsule input uses unsupported version ${inspection.parsed?.version ?? 'unknown'}. Supported version: ${inspection.supportedVersion ?? CAPSULE_VERSION}.`;
+    return `Incident Capsule input uses unsupported version ${inspection.parsed?.version ?? 'unknown'}. Supported versions: ${inspection.supportedVersions?.join(', ') ?? SUPPORTED_CAPSULE_VERSIONS}.`;
   }
 
   if (inspection?.reason === 'invalid-shape') {
@@ -292,11 +293,13 @@ function renderPackFromSections(entries) {
 }
 
 function readArtifactContent(artifact) {
-  if (typeof artifact?.excerpt !== 'string') {
-    return '';
-  }
+  const content = typeof artifact?.content === 'string'
+    ? artifact.content
+    : typeof artifact?.excerpt === 'string'
+      ? artifact.excerpt
+      : '';
 
-  return artifact.excerpt.replace(/\r\n/g, '\n').trim();
+  return content.replace(/\r\n/g, '\n').trim();
 }
 
 function normalizeRelativePath(relativePath) {

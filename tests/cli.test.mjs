@@ -153,6 +153,18 @@ const capsulePortfolioInput = JSON.stringify({
   ],
 }, null, 2);
 
+const capsuleLongHistory = buildLongCasebookHistory(6);
+const capsuleLongHistoryExcerpt = capsuleLongHistory.split('\n\n').slice(0, 2).join('\n\n');
+const capsuleV2LongHistoryInput = JSON.stringify({
+  kind: 'incident-capsule',
+  version: '2',
+  source: { inputPath: 'fixture' },
+  artifacts: [
+    buildCapsuleArtifact('current.log', sampleTrace, { version: '2' }),
+    buildCapsuleArtifact('history.casebook', capsuleLongHistoryExcerpt, { version: '2', content: capsuleLongHistory }),
+  ],
+}, null, 2);
+
 const noisySingleTraceLog = [
   '2026-04-30T01:50:00Z INFO api boot complete',
   `2026-04-30T01:50:01Z ERROR web ${sampleTrace.split('\n').join('\n2026-04-30T01:50:01Z ERROR web ')}`,
@@ -1034,6 +1046,26 @@ test('CLI reads a raw incident capsule with --capsule and prints the routed brie
   assert.match(result.stdout, /billing-canary/);
 });
 
+test('CLI capsule mode replays long v2 casebook history from content instead of truncated excerpt', () => {
+  const result = runCli(['--capsule', '-', '--json'], { input: capsuleV2LongHistoryInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.capsule.kind, 'pack');
+  assert.equal(parsed.casebook.summary.historicalCaseCount, 6);
+  assert.equal(parsed.casebook.summary.knownCount, 1);
+  assert.equal(parsed.casebook.summary.topCaseLabel, 'release-2026-04-15');
+});
+
+test('CLI capsule mode reports supported incident capsule versions 1 and 2', () => {
+  const result = runCli(['--capsule', '-'], {
+    input: JSON.stringify({ kind: 'incident-capsule', version: '9', artifacts: [] }),
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Incident Capsule input uses unsupported version 9\. Supported versions: 1, 2\./i);
+});
+
 test('CLI reads --workspace for a single incident folder and prints an incident pack briefing', async (t) => {
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-cli-workspace-'));
   t.after(() => fs.promises.rm(tempDir, { recursive: true, force: true }));
@@ -1106,7 +1138,8 @@ test('CLI exits non-zero when multiple workflow modes are requested together', a
 
 import { buildReleaseGate } from '../src/gate.js';
 
-function buildCapsuleArtifact(relativePath, excerpt) {
+function buildCapsuleArtifact(relativePath, excerpt, options = {}) {
+  const version = options.version ?? '1';
   return {
     relativePath,
     kind: relativePath.endsWith('.md') ? 'markdown' : 'log',
@@ -1114,9 +1147,22 @@ function buildCapsuleArtifact(relativePath, excerpt) {
     size: excerpt.length,
     modifiedAt: '2026-05-01T07:14:00.000Z',
     contentLength: excerpt.length,
+    ...(version === '2' ? { content: options.content ?? excerpt } : {}),
     excerpt,
     warnings: [],
   };
+}
+
+function buildLongCasebookHistory(caseCount) {
+  return Array.from({ length: caseCount }, (_, index) => {
+    const label = `release-2026-04-${String(15 + index).padStart(2, '0')}`;
+    const traceBody = index === 0
+      ? sampleTrace
+      : index === caseCount - 1
+        ? comparisonTrace
+        : `${sampleTrace}\n\n${comparisonTrace}`;
+    return [`=== ${label} ===`, traceBody].join('\n');
+  }).join('\n\n');
 }
 
 function buildChronicleDataset({

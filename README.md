@@ -171,6 +171,8 @@ This keeps the public CLI opinionated but lightweight. Real folders normalize in
 
 Incident Capsule is the CLI-first portable bridge from `incident-capsule` into Stack Sleuth. Feed Stack Sleuth a raw `incident-capsule` artifact and it will normalize the recognized capsule files into the existing Incident Pack Briefing or Portfolio Radar workflows.
 
+Stack Sleuth accepts Incident Capsule versions `1` and `2`. When a capsule artifact includes both `content` and `excerpt`, Stack Sleuth prefers the full `content` payload and falls back to `excerpt` for older version `1` artifacts. That keeps long `history.casebook` handoffs, notebook text, and other workflow files intact across the capsule boundary instead of replaying a truncated excerpt window.
+
 ### Analyze a raw incident capsule from a file
 
 ```bash
@@ -184,6 +186,8 @@ cat sample/incident-capsule.json | node ./bin/stack-sleuth.js --capsule - --json
 ```
 
 This repo ships `sample/incident-capsule.json` as a ready-to-run fixture for the bridge.
+
+If you are generating capsules from the sibling `incident-capsule` repo, use its raw capsule artifact output directly. Version `2` capsules preserve full workflow file `content`, while Stack Sleuth still keeps version `1` compatibility for older saved artifacts.
 
 Stack Sleuth currently recognizes these capsule filenames by deterministic convention:
 

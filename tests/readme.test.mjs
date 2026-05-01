@@ -39,6 +39,8 @@ test('README documents Incident Capsule intake for CLI-first capsule interop', (
   assert.match(readme, /Incident Capsule/i);
   assert.match(readme, /--capsule/);
   assert.match(readme, /incident-capsule/i);
+  assert.match(readme, /version[s]? `?1`? and `?2`?/i);
+  assert.match(readme, /prefer(?:s)? .*content.*excerpt/i);
 });
 
 test('README documents browser and CLI workflows, including incident digest mode', () => {

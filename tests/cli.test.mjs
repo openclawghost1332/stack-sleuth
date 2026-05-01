@@ -1517,6 +1517,79 @@ test('CLI workspace mode exits non-zero for unsupported folders', async (t) => {
   assert.equal(result.stdout, '');
 });
 
+test('CLI scans --workspace-fleet top-level directories deterministically, reuses notebook routing, and preserves warnings in json output', async (t) => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-cli-workspace-fleet-'));
+  t.after(() => fs.promises.rm(tempDir, { recursive: true, force: true }));
+
+  await fs.promises.mkdir(path.join(tempDir, 'zeta-pack'), { recursive: true });
+  await fs.promises.writeFile(path.join(tempDir, 'zeta-pack', 'current.log'), sampleTrace, 'utf8');
+
+  await fs.promises.mkdir(path.join(tempDir, 'alpha-notebook'), { recursive: true });
+  await fs.promises.writeFile(path.join(tempDir, 'alpha-notebook', 'notebook.md'), notebookPortfolioInput, 'utf8');
+
+  await fs.promises.mkdir(path.join(tempDir, 'broken'), { recursive: true });
+  await fs.promises.writeFile(path.join(tempDir, 'broken', 'notes.txt'), 'nothing useful yet', 'utf8');
+
+  await fs.promises.mkdir(path.join(tempDir, 'nested', 'child'), { recursive: true });
+  await fs.promises.writeFile(path.join(tempDir, 'nested', 'child', 'current.log'), sampleTrace, 'utf8');
+
+  const result = runCli(['--workspace-fleet', tempDir, '--json']);
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.kind, 'stack-sleuth-workspace-fleet');
+  assert.equal(parsed.version, 1);
+  assert.equal(parsed.summary.validWorkspaceCount, 2);
+  assert.deepEqual(parsed.rankings.map((entry) => entry.label), ['alpha-notebook', 'zeta-pack']);
+  assert.equal(parsed.rankings[0].workspace.kind, 'notebook');
+  assert.equal(parsed.rankings[0].routed.mode, 'portfolio');
+  assert.equal(parsed.rankings[0].coordination.runnablePackCount, 2);
+  assert.deepEqual(parsed.warnings.map((entry) => entry.label), ['broken', 'nested']);
+});
+
+test('CLI workspace-fleet mode supports markdown output and honest replay from stdin', async (t) => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-cli-workspace-fleet-'));
+  t.after(() => fs.promises.rm(tempDir, { recursive: true, force: true }));
+
+  await fs.promises.mkdir(path.join(tempDir, 'alpha-notebook'), { recursive: true });
+  await fs.promises.writeFile(path.join(tempDir, 'alpha-notebook', 'notebook.md'), notebookPortfolioInput, 'utf8');
+  await fs.promises.mkdir(path.join(tempDir, 'zeta-pack'), { recursive: true });
+  await fs.promises.writeFile(path.join(tempDir, 'zeta-pack', 'current.log'), sampleTrace, 'utf8');
+
+  const markdownResult = runCli(['--workspace-fleet', tempDir, '--markdown']);
+  assert.equal(markdownResult.status, 0, markdownResult.stderr);
+  assert.match(markdownResult.stdout, /^# Stack Sleuth Workspace Fleet/m);
+  assert.match(markdownResult.stdout, /saved-artifact note/i);
+
+  const jsonResult = runCli(['--workspace-fleet', tempDir, '--json']);
+  assert.equal(jsonResult.status, 0, jsonResult.stderr);
+
+  const replayResult = runCli(['--replay-workspace-fleet', '-'], { input: jsonResult.stdout });
+  assert.equal(replayResult.status, 0, replayResult.stderr);
+  assert.match(replayResult.stdout, /Stack Sleuth Workspace Fleet/);
+  assert.match(replayResult.stdout, /saved-artifact note: Workspace Fleet replay preserves normalized summaries and coordination signals only/i);
+  assert.doesNotMatch(replayResult.stdout, /raw trace recovery/i);
+});
+
+test('CLI workspace-fleet mode exits non-zero for wrong-type input and when zero valid workspaces remain', async (t) => {
+  const tempFile = path.join(await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-cli-workspace-fleet-')), 'not-a-dir.txt');
+  await fs.promises.writeFile(tempFile, 'nope', 'utf8');
+  t.after(() => fs.promises.rm(path.dirname(tempFile), { recursive: true, force: true }));
+
+  const wrongType = runCli(['--workspace-fleet', tempFile]);
+  assert.notEqual(wrongType.status, 0);
+  assert.match(wrongType.stderr, /workspace fleet target must be a directory/i);
+
+  const emptyDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-cli-workspace-fleet-empty-'));
+  t.after(() => fs.promises.rm(emptyDir, { recursive: true, force: true }));
+  await fs.promises.mkdir(path.join(emptyDir, 'broken'), { recursive: true });
+  await fs.promises.writeFile(path.join(emptyDir, 'broken', 'notes.txt'), 'nothing useful yet', 'utf8');
+
+  const noValid = runCli(['--workspace-fleet', emptyDir]);
+  assert.notEqual(noValid.status, 0);
+  assert.match(noValid.stderr, /workspace fleet did not find any valid workspaces/i);
+});
+
 test('CLI exits non-zero when multiple workflow modes are requested together', async () => {
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-mode-clash-'));
   const historyPath = path.join(tempDir, 'history.txt');

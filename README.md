@@ -22,6 +22,7 @@ Use the built-in example buttons to compare the main workflows:
 - Response Bundle replay opening a self-contained `response-bundle.json` artifact or saved bundle directory to restore preserved bundle inventory plus embedded dataset state in the CLI or browser
 - Response Bundle Chronicle replaying several labeled `response-bundle.json` snapshots at once to show release gate drift, source workflow changes, owner load, recurring hotspot drift, casebook movement, bundle inventory drift, and a steward ledger of resurfaced versus resolved backlog items across release windows
 - Response Bundle Shelf scanning top-level directories or `.json` files from a saved bundle library, preserving invalid snapshots as warning entries, and replaying the newest valid bundle plus chronicle drift without claiming raw trace recovery
+- Workspace Fleet scanning top-level workspace folders, normalizing packs, portfolio workspaces, and notebook-only folders into one ranked command queue with visible warnings and honest saved-artifact replay
 - Casebook Chronicle replaying several saved dataset snapshots at once to show release gate drift, owner load, recurring hotspot drift, casebook movement, and a steward ledger of resurfaced versus resolved backlog items across release windows
 - Casebook Shelf scanning top-level .json files from a saved dataset directory, preserving invalid snapshots as warning entries, and replaying the latest valid library state plus release gate and chronicle drift without claiming raw trace recovery
 - Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
@@ -304,6 +305,28 @@ release-review/
 ```
 
 This keeps the public CLI opinionated but lightweight. Real folders normalize into the same reusable pack and portfolio engines, so one workspace can move from ad hoc triage to ranking, casebook forging, or casebook merge without a second translation step.
+
+## Workspace Fleet
+
+Workspace Fleet is the directory-scale companion to `--workspace`. Point `--workspace-fleet` at one parent directory of incident workspaces and Stack Sleuth will scan only the top-level folders in deterministic filename order, normalize every supported pack, portfolio workspace, or notebook-only folder through the existing shared analyzers, and rank the valid workspaces into one visible command queue.
+
+### Rank a directory of saved workspaces
+
+```bash
+node ./bin/stack-sleuth.js --workspace-fleet ./workspace-library
+```
+
+A Workspace Fleet directory only scans top-level directories. Nested child folders are not traversed as separate workspaces. Valid candidates keep their normalized routing and coordination summaries, while unsupported or broken folders stay visible as warning entries when at least one valid workspace remains.
+
+### Replay a previously saved Workspace Fleet artifact
+
+```bash
+cat ./sample/workspace-fleet.json | node ./bin/stack-sleuth.js --replay-workspace-fleet - --markdown
+```
+
+Workspace Fleet replay stays honest about saved-artifact limits. It preserves normalized summaries, priority reasons, runnable-pack counts, routing gaps, runbook gaps, recurring hotspot counts, and other coordination signals only. It does not recover raw traces, support frames, or culprit-level blast radius detail.
+
+This repo ships `sample/workspace-fleet.json` as a committed replay artifact that includes ranked notebook and pack workspaces plus a broken warning entry.
 
 ## Incident Capsule
 

@@ -1,0 +1,100 @@
+{
+  "kind": "stack-sleuth-workspace-fleet",
+  "version": 1,
+  "directory": "./workspace-library",
+  "summary": {
+    "headline": "Workspace Fleet ranked 2 valid workspaces from ./workspace-library.",
+    "validWorkspaceCount": 2,
+    "warningCount": 1,
+    "topWorkspaceLabel": "alpha-notebook"
+  },
+  "rankings": [
+    {
+      "label": "alpha-notebook",
+      "path": "./workspace-library/alpha-notebook",
+      "status": "valid",
+      "workspace": {
+        "kind": "notebook",
+        "path": "./workspace-library/alpha-notebook",
+        "recognizedFiles": [
+          "notebook.md"
+        ],
+        "packOrder": []
+      },
+      "notebook": {
+        "kind": "portfolio",
+        "packOrder": [
+          "checkout-prod",
+          "billing-canary"
+        ],
+        "sectionOrder": []
+      },
+      "routed": {
+        "mode": "portfolio"
+      },
+      "summary": {
+        "headline": "Prioritize billing-canary first because it introduces 1 new regression incident."
+      },
+      "coordination": {
+        "runnablePackCount": 2,
+        "responseOwnerCount": 0,
+        "routingGapCount": 2,
+        "runbookGapCount": 2,
+        "recurringHotspotCount": 2,
+        "availableAnalyses": []
+      },
+      "priority": {
+        "score": 104200,
+        "reasons": [
+          "Notebook-routed portfolio workspace with 2 runnable packs",
+          "1 new regression incident"
+        ]
+      }
+    },
+    {
+      "label": "zeta-pack",
+      "path": "./workspace-library/zeta-pack",
+      "status": "valid",
+      "workspace": {
+        "kind": "pack",
+        "path": "./workspace-library/zeta-pack",
+        "recognizedFiles": [
+          "current.log",
+          "history.casebook"
+        ],
+        "packOrder": []
+      },
+      "notebook": null,
+      "routed": {
+        "mode": "pack"
+      },
+      "summary": {
+        "headline": "Current digest found 1 incident group across 1 trace."
+      },
+      "coordination": {
+        "runnablePackCount": 1,
+        "responseOwnerCount": 0,
+        "routingGapCount": 0,
+        "runbookGapCount": 0,
+        "recurringHotspotCount": 2,
+        "availableAnalyses": [
+          "current",
+          "casebook"
+        ]
+      },
+      "priority": {
+        "score": 11000,
+        "reasons": [
+          "pack workspace with 2 runnable analyses"
+        ]
+      }
+    }
+  ],
+  "warnings": [
+    {
+      "label": "broken",
+      "path": "./workspace-library/broken",
+      "warning": "Supported filenames: current.log, current.txt, current.trace, history.casebook, history.txt, history.log, baseline.log, baseline.txt, candidate.log, candidate.txt, timeline.log, timeline.txt, notebook.md."
+    }
+  ]
+}

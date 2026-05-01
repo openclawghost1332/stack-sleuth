@@ -1,4 +1,5 @@
 import { buildCasebookDataset } from './dataset.js';
+import { buildResponseBundleShelf } from './bundle-shelf.js';
 import { buildCasebookShelf } from './shelf.js';
 import { buildReleaseGate } from './gate.js';
 import { analyzeIncidentPortfolio } from './portfolio.js';
@@ -213,6 +214,41 @@ const shelfReplay = JSON.stringify(buildCasebookShelf([
     source: '{"kind":"stack-sleuth-casebook-dataset","version":1',
   },
 ]), null, 2);
+const responseBundleShelfReplay = JSON.stringify(buildResponseBundleShelf([
+  {
+    label: 'release-a',
+    filename: 'release-a',
+    source: JSON.stringify(buildChronicleReplayBundle({
+      sourceMode: 'portfolio',
+      sourceLabel: 'release-a-bundle',
+      dataset: buildChronicleReplayDataset({
+        packCount: 2,
+        owners: [{ owner: 'web-platform', packCount: 1 }],
+        hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+        cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+      }),
+    }), null, 2),
+  },
+  {
+    label: 'release-b',
+    filename: 'release-b-response-bundle.json',
+    source: JSON.stringify(buildChronicleReplayBundle({
+      sourceMode: 'workspace',
+      sourceLabel: 'release-b-bundle',
+      dataset: buildChronicleReplayDataset({
+        packCount: 4,
+        owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
+        hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
+        cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+      }),
+    }), null, 2),
+  },
+  {
+    label: 'broken',
+    filename: 'broken-response-bundle.json',
+    source: '{"kind":"stack-sleuth-response-bundle","version":3',
+  },
+]), null, 2);
 const chronicleReplay = [
   '=== release-a ===',
   JSON.stringify(buildChronicleReplayDataset({
@@ -328,6 +364,11 @@ export const examples = [
     label: 'Response Bundle Chronicle',
     caption: 'Several saved response bundles stitched into one chronicle reveal release gate drift, owner load, source workflow changes, bundle inventory movement, and stewardship backlog resurfacing across release windows without pretending to recover raw trace detail.',
     bundleChronicle: responseBundleChronicleReplay,
+  },
+  {
+    label: 'Response Bundle Shelf',
+    caption: 'A saved response bundle shelf catalogs several saved handoff snapshots, keeps invalid warning entries visible, and replays the latest saved command library plus release gate and chronicle drift without pretending to recover raw traces.',
+    bundleShelf: responseBundleShelfReplay,
   },
   {
     label: 'Casebook Chronicle',

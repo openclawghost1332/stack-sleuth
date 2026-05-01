@@ -83,6 +83,13 @@ import {
   renderResponseBundleTextSummary,
 } from '../src/bundle-replay.js';
 import {
+  buildResponseBundleShelf,
+  describeResponseBundleShelfInputError,
+  inspectReplayBundleShelfInput,
+  renderResponseBundleShelfMarkdownSummary,
+  renderResponseBundleShelfTextSummary,
+} from '../src/bundle-shelf.js';
+import {
   buildCasebookShelf,
   describeShelfInputError,
   inspectReplayShelfInput,
@@ -127,6 +134,8 @@ const bundleChronicleArgumentError = validateOptionValue(args, '--bundle-chronic
 const datasetArgumentError = validateOptionValue(args, '--dataset');
 const replayDatasetArgumentError = validateOptionValue(args, '--replay-dataset');
 const replayBundleArgumentError = validateOptionValue(args, '--replay-bundle');
+const bundleShelfArgumentError = validateOptionValue(args, '--bundle-shelf');
+const replayBundleShelfArgumentError = validateOptionValue(args, '--replay-bundle-shelf');
 const shelfArgumentError = validateOptionValue(args, '--shelf');
 const replayShelfArgumentError = validateOptionValue(args, '--replay-shelf');
 const historyArgumentError = validateOptionValue(args, '--history');
@@ -149,6 +158,8 @@ const bundleChroniclePath = readOptionValue(args, '--bundle-chronicle');
 const datasetPath = readOptionValue(args, '--dataset');
 const replayDatasetPath = readOptionValue(args, '--replay-dataset');
 const replayBundlePath = readOptionValue(args, '--replay-bundle');
+const bundleShelfPath = readOptionValue(args, '--bundle-shelf');
+const replayBundleShelfPath = readOptionValue(args, '--replay-bundle-shelf');
 const shelfPath = readOptionValue(args, '--shelf');
 const replayShelfPath = readOptionValue(args, '--replay-shelf');
 const historyPath = readOptionValue(args, '--history');
@@ -172,6 +183,8 @@ const workflowArgumentError = validateWorkflowArguments({
   datasetPath,
   replayDatasetPath,
   replayBundlePath,
+  bundleShelfPath,
+  replayBundleShelfPath,
   shelfPath,
   replayShelfPath,
   historyPath,
@@ -217,6 +230,8 @@ const filePath = args.find((arg, index) => {
     '--dataset',
     '--replay-dataset',
     '--replay-bundle',
+    '--bundle-shelf',
+    '--replay-bundle-shelf',
     '--shelf',
     '--replay-shelf',
     '--history',
@@ -285,6 +300,14 @@ if (replayDatasetArgumentError) {
 
 if (replayBundleArgumentError) {
   fail(replayBundleArgumentError);
+}
+
+if (bundleShelfArgumentError) {
+  fail(bundleShelfArgumentError);
+}
+
+if (replayBundleShelfArgumentError) {
+  fail(replayBundleShelfArgumentError);
 }
 
 if (shelfArgumentError) {
@@ -563,6 +586,38 @@ try {
     }
 
     writeOutput(replay.bundle, mode, renderResponseBundleTextSummary, renderResponseBundleMarkdownSummary);
+    process.exit(0);
+  }
+
+  if (bundleShelfPath) {
+    const report = buildResponseBundleShelf(readBundleShelfDirectoryEntries(bundleShelfPath));
+    if (!report.summary.validSnapshotCount) {
+      fail('Response Bundle Shelf requires at least one valid saved response bundle snapshot.');
+    }
+
+    writeOutput(report, mode, renderResponseBundleShelfTextSummary, renderResponseBundleShelfMarkdownSummary);
+    process.exit(0);
+  }
+
+  if (replayBundleShelfPath) {
+    const replayInput = replayBundleShelfPath === '-'
+      ? fs.readFileSync(0, 'utf8')
+      : readNamedInput(replayBundleShelfPath, 'response bundle shelf replay');
+    const replay = inspectReplayBundleShelfInput(replayInput);
+
+    if (!replay.valid && replay.reason === 'wrong-kind') {
+      fail(`Response Bundle Shelf replay uses unsupported kind: ${replay.parsed?.kind ?? 'unknown'}.`);
+    }
+
+    if (!replay.valid && replay.reason === 'unsupported-version') {
+      fail(`Response Bundle Shelf replay uses unsupported version ${replay.parsed?.version ?? 'unknown'}. Supported version: ${replay.supportedVersion}.`);
+    }
+
+    if (!replay.valid) {
+      fail(describeResponseBundleShelfInputError(replay));
+    }
+
+    writeOutput(replay.shelf, mode, renderResponseBundleShelfTextSummary, renderResponseBundleShelfMarkdownSummary);
     process.exit(0);
   }
 
@@ -881,7 +936,7 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, boardPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, bundleChroniclePath, datasetPath, replayDatasetPath, replayBundlePath, shelfPath, replayShelfPath, historyPath, workspacePath, capsulePath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, boardPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, bundleChroniclePath, datasetPath, replayDatasetPath, replayBundlePath, bundleShelfPath, replayBundleShelfPath, shelfPath, replayShelfPath, historyPath, workspacePath, capsulePath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     capsulePath ? 'capsule' : null,
@@ -899,13 +954,15 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
     datasetPath ? 'dataset' : null,
     replayDatasetPath ? 'replay-dataset' : null,
     replayBundlePath ? 'replay-bundle' : null,
+    bundleShelfPath ? 'bundle-shelf' : null,
+    replayBundleShelfPath ? 'replay-bundle-shelf' : null,
     shelfPath ? 'shelf' : null,
     replayShelfPath ? 'replay-shelf' : null,
     baselinePath || candidatePath ? 'compare' : null,
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: capsule, forge, handoff, merge-casebook, portfolio, board, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, replay-bundle, shelf, replay-shelf, or compare.';
+    return 'Choose one workflow mode at a time: capsule, forge, handoff, merge-casebook, portfolio, board, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, replay-bundle, bundle-shelf, replay-bundle-shelf, shelf, replay-shelf, or compare.';
   }
 
   return null;
@@ -1057,6 +1114,59 @@ function readShelfDirectoryEntries(targetPath) {
     }));
 }
 
+function readBundleShelfDirectoryEntries(targetPath) {
+  let stats;
+  try {
+    stats = fs.statSync(targetPath);
+  } catch (error) {
+    throw new Error(`Could not read response bundle shelf input directory: ${error.message}`);
+  }
+
+  if (!stats.isDirectory()) {
+    throw new Error('Response Bundle Shelf requires a directory of top-level bundle entries.');
+  }
+
+  let entries;
+  try {
+    entries = fs.readdirSync(targetPath, { withFileTypes: true });
+  } catch (error) {
+    throw new Error(`Could not read response bundle shelf input directory: ${error.message}`);
+  }
+
+  return entries
+    .filter((entry) => isBundleShelfCandidate(entry, targetPath))
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((entry) => {
+      const candidatePath = `${targetPath}/${entry.name}`;
+      const label = entry.isDirectory()
+        ? entry.name
+        : entry.name.replace(/\.json$/i, '').replace(/\/response-bundle$/i, '');
+
+      return {
+        label,
+        sourceName: entry.name,
+        source: entry.isDirectory() ? readReplayBundleDirectory(candidatePath) : fs.readFileSync(candidatePath, 'utf8'),
+      };
+    });
+}
+
+function isBundleShelfCandidate(entry, targetPath) {
+  if (entry.isFile()) {
+    return entry.name.toLowerCase().endsWith('.json');
+  }
+
+  if (!entry.isDirectory()) {
+    return false;
+  }
+
+  try {
+    const names = fs.readdirSync(`${targetPath}/${entry.name}`);
+    return names.includes('response-bundle.json') || names.includes('manifest.json');
+  } catch {
+    return false;
+  }
+}
+
 function writeOutput(payload, outputMode, textRenderer, markdownRenderer, htmlRenderer = null) {
   if (outputMode === 'json') {
     process.stdout.write(`${JSON.stringify(toSerializablePayload(payload), null, 2)}\n`);
@@ -1177,6 +1287,36 @@ function toSerializablePayload(payload) {
           reason: snapshot.reason,
         }),
       invalidSnapshots: payload.invalidSnapshots ?? [],
+      chronicle: payload.chronicle ? toSerializablePayload(payload.chronicle) : null,
+    };
+  }
+
+  if (payload?.kind === 'stack-sleuth-response-bundle-shelf' && typeof payload?.version === 'number') {
+    return {
+      kind: payload.kind,
+      version: payload.version,
+      summary: payload.summary,
+      snapshots: (payload.snapshots ?? []).map((snapshot) => snapshot.status === 'valid'
+        ? {
+          label: snapshot.label,
+          sourceName: snapshot.sourceName,
+          status: snapshot.status,
+          bundle: snapshot.bundle ? {
+            kind: snapshot.bundle.kind,
+            version: snapshot.bundle.version,
+            sourceVersion: snapshot.bundle.sourceVersion,
+            summary: snapshot.bundle.summary,
+            manifest: snapshot.bundle.manifest,
+            artifacts: snapshot.bundle.artifacts,
+            dataset: snapshot.bundle.dataset ? toSerializablePayload(snapshot.bundle.dataset) : null,
+          } : null,
+        }
+        : {
+          label: snapshot.label,
+          sourceName: snapshot.sourceName,
+          status: snapshot.status,
+          reason: snapshot.reason,
+        }),
       chronicle: payload.chronicle ? toSerializablePayload(payload.chronicle) : null,
     };
   }

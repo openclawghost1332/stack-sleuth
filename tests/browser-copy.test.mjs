@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { analyzeIncidentPortfolio } from '../src/portfolio.js';
 import { buildCasebookDataset } from '../src/dataset.js';
 import { buildResponseBundle } from '../src/bundle.js';
+import { buildResponseBundleShelf } from '../src/bundle-shelf.js';
 
 const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const stylesCss = fs.readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
@@ -262,6 +263,41 @@ const reconstructedResponseBundleChronicleInput = [
     dataset: reconstructedDatasetReplayObject,
   }),
 ].join('\n');
+const bundleShelfReplayInput = JSON.stringify(buildResponseBundleShelf([
+  {
+    label: 'release-a',
+    sourceName: 'release-a/response-bundle.json',
+    source: buildChronicleBundle({
+      sourceMode: 'portfolio',
+      sourceLabel: 'browser release-a fixture',
+      dataset: buildChronicleDataset({
+        packCount: 2,
+        owners: [{ owner: 'web-platform', packCount: 1 }],
+        hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+        cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+      }),
+    }),
+  },
+  {
+    label: 'release-b',
+    sourceName: 'release-b-response-bundle.json',
+    source: buildChronicleBundle({
+      sourceMode: 'workspace',
+      sourceLabel: 'browser release-b fixture',
+      dataset: buildChronicleDataset({
+        packCount: 3,
+        owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+        hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+        cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+      }),
+    }),
+  },
+  {
+    label: 'broken',
+    sourceName: 'broken.json',
+    source: '{"kind":"stack-sleuth-response-bundle","version":3',
+  },
+]), null, 2);
 const shelfReplayInput = JSON.stringify({
   kind: 'stack-sleuth-casebook-shelf',
   version: 1,
@@ -417,6 +453,7 @@ const requiredIds = [
   'load-handoff-button',
   'load-dataset-button',
   'load-bundle-chronicle-button',
+  'load-bundle-shelf-button',
   'load-chronicle-button',
   'load-shelf-button',
   'load-merge-button',
@@ -624,6 +661,7 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, />Load Handoff Briefing example</i);
   assert.match(indexHtml, /Handoff Briefing/i);
   assert.match(indexHtml, />Load Casebook Dataset example</i);
+  assert.match(indexHtml, />Load Response Bundle Shelf example</i);
   assert.match(indexHtml, />Load Casebook Chronicle example</i);
   assert.match(indexHtml, />Load Casebook Shelf example</i);
   assert.match(indexHtml, />Load Casebook Merge example</i);
@@ -662,6 +700,44 @@ test('browser Casebook Dataset example button loads saved dataset JSON and repla
     assert.match(harness.get('action-board-cards-value').children[0].textContent, /web-platform|Assign owner|Capture runbook/i);
     assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
     assert.match(harness.get('example-caption').textContent, /saved dataset|replay/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser Response Bundle Shelf example button loads saved shelf JSON before single-bundle replay and reuses chronicle cards', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.click('load-bundle-shelf-button');
+
+    assert.match(harness.get('trace-input').value, /"kind": "stack-sleuth-response-bundle-shelf"/);
+    assert.equal(harness.get('runtime-value').textContent, 'response bundle shelf');
+    assert.match(harness.get('headline-value').textContent, /2 valid snapshots, 1 invalid snapshot/i);
+    assert.match(harness.get('summary-value').textContent, /saved response bundle shelf/i);
+    assert.match(harness.get('summary-value').textContent, /release gate hold/i);
+    assert.match(harness.get('timeline-summary-value').textContent, /release-b/i);
+    assert.match(harness.get('timeline-incidents-value').children[0].textContent, /owner/i);
+    assert.match(harness.get('action-board-summary-value').textContent, /Response Bundle Shelf restored the latest saved Action Board/i);
+    assert.match(harness.get('checklist-value').children[0].textContent, /saved artifact note/i);
+    assert.match(harness.get('example-caption').textContent, /response bundle shelf|warning/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser Response Bundle Shelf copy support writes the saved shelf summary to the clipboard', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', bundleShelfReplayInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Stack Sleuth Response Bundle Shelf/);
+    assert.match(harness.clipboard.text, /Valid snapshots: 2/);
+    assert.match(harness.clipboard.text, /Latest source workflow: workspace \(browser release-b fixture\)/i);
+    assert.match(harness.clipboard.text, /broken\.json: invalid-json/);
+    assert.equal(harness.get('example-caption').textContent, 'Response Bundle Shelf summary copied to clipboard.');
   } finally {
     harness.restore();
   }

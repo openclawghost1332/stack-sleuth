@@ -21,6 +21,7 @@ Use the built-in example buttons to compare the main workflows:
 - Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, while preserving a deterministic release gate verdict plus Action Board routing lanes for later replay in the CLI or browser
 - Response Bundle replay opening a self-contained `response-bundle.json` artifact or saved bundle directory to restore preserved bundle inventory plus embedded dataset state in the CLI or browser
 - Response Bundle Chronicle replaying several labeled `response-bundle.json` snapshots at once to show release gate drift, source workflow changes, owner load, recurring hotspot drift, casebook movement, bundle inventory drift, and a steward ledger of resurfaced versus resolved backlog items across release windows
+- Response Bundle Shelf scanning top-level directories or `.json` files from a saved bundle library, preserving invalid snapshots as warning entries, and replaying the newest valid bundle plus chronicle drift without claiming raw trace recovery
 - Casebook Chronicle replaying several saved dataset snapshots at once to show release gate drift, owner load, recurring hotspot drift, casebook movement, and a steward ledger of resurfaced versus resolved backlog items across release windows
 - Casebook Shelf scanning top-level .json files from a saved dataset directory, preserving invalid snapshots as warning entries, and replaying the latest valid library state plus release gate and chronicle drift without claiming raw trace recovery
 - Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
@@ -184,6 +185,30 @@ cat ./sample/response-bundle-chronicle.txt | node ./bin/stack-sleuth.js --bundle
 In the browser, paste the same labeled snapshots and use **Load Response Bundle Chronicle example**, **Explain trace(s)**, or **Copy result**.
 
 Response Bundle Chronicle stays honest about saved-artifact limits. It compares release gate movement, source workflow drift, owner load, recurring hotspots, casebook movement, bundle inventory changes, and steward ledger movement from preserved bundle fields only. It does not recover raw traces, support frames, or blast radius detail.
+
+## Response Bundle Shelf
+
+Response Bundle Shelf is the directory-oriented saved-artifact companion to Response Bundle replay and Response Bundle Chronicle. Point `--bundle-shelf` at a folder of top-level bundle candidates and Stack Sleuth will scan them with deterministic top-level scanning in filename order, preserve valid snapshots plus invalid warning entries, replay the newest valid saved command library state, and reuse the chronicle engine when at least two valid saved bundles remain.
+
+### Build a shelf from a directory of saved response bundles
+
+```bash
+node ./bin/stack-sleuth.js --bundle-shelf ./saved-response-bundles
+```
+
+Candidate entries are intentionally narrow: top-level directories containing `response-bundle.json` or `manifest.json`, plus top-level `.json` files.
+
+### Replay a previously saved bundle shelf artifact
+
+```bash
+cat response-bundle-shelf.json | node ./bin/stack-sleuth.js --replay-bundle-shelf -
+```
+
+Response Bundle Shelf keeps invalid snapshots visible as warning entries, preserves the newest valid release gate verdict, source workflow, steward summary, and Action Board card count, exits with an error when zero valid saved response bundles remain, and also fails clearly when `--bundle-shelf` points at a non-directory path.
+
+Saved-artifact note: Response Bundle Shelf preserves bundle inventory plus embedded dataset routing, hotspot, steward, and Action Board signals only. It does not recover raw traces, support frames, or culprit-level blast radius detail.
+
+In the browser, paste a saved shelf JSON artifact into the shared workspace and press **Explain trace(s)** or **Copy result**, or press **Load Response Bundle Shelf example** to inspect a shelf that includes both valid snapshots and a broken warning entry.
 
 ## Notebook ingest
 

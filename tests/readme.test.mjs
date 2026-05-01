@@ -240,6 +240,18 @@ test('README documents response bundle chronicle workflows for CLI and browser',
   assert.match(readme, /steward ledger|resurfaced|resolved backlog/i);
 });
 
+test('README documents Response Bundle Shelf workflows for deterministic top-level scanning and replay', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Response Bundle Shelf/i);
+  assert.match(readme, /--bundle-shelf/);
+  assert.match(readme, /--replay-bundle-shelf/);
+  assert.match(readme, /top-level response-bundle directories|top-level \.json files/i);
+  assert.match(readme, /response-bundle\.json|manifest\.json/i);
+  assert.match(readme, /invalid snapshots|warning entries/i);
+  assert.match(readme, /saved-artifact note|does not recover raw traces/i);
+  assert.match(readme, /Load Response Bundle Shelf example|paste a saved shelf JSON/i);
+});
+
 test('sample portfolio dossier artifact is committed as standalone HTML', () => {
   const sample = fs.readFileSync(new URL('../sample/portfolio-dossier.html', import.meta.url), 'utf8');
   assert.match(sample, /<!doctype html>/i);

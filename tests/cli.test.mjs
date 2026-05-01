@@ -267,6 +267,26 @@ const bundleChronicleInput = [
     }),
   }),
 ].join('\n');
+const bundleShelfSnapshotReleaseA = buildChronicleBundle({
+  sourceMode: 'portfolio',
+  sourceLabel: 'release-a-fixture',
+  dataset: buildChronicleDataset({
+    packCount: 2,
+    owners: [{ owner: 'web-platform', packCount: 1 }],
+    hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+    cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+  }),
+});
+const bundleShelfSnapshotReleaseB = buildChronicleBundle({
+  sourceMode: 'workspace',
+  sourceLabel: 'release-b-fixture',
+  dataset: buildChronicleDataset({
+    packCount: 3,
+    owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+    hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+    cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+  }),
+});
 
 const shelfSnapshotReleaseA = JSON.stringify(buildChronicleDataset({
   packCount: 2,
@@ -937,6 +957,102 @@ test('CLI replay-shelf mode reports unsupported shelf versions clearly', () => {
 
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Casebook Shelf replay uses unsupported version 99\. Supported version: 1\./i);
+});
+
+test('CLI bundle-shelf mode scans top-level bundle directories and json files deterministically, preserving warnings', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-shelf-'));
+  await fs.promises.mkdir(path.join(tempDir, 'release-b'));
+  await fs.promises.writeFile(path.join(tempDir, 'release-b', 'response-bundle.json'), bundleShelfSnapshotReleaseB, 'utf8');
+  await fs.promises.mkdir(path.join(tempDir, 'release-a'));
+  await fs.promises.writeFile(path.join(tempDir, 'release-a', 'manifest.json'), JSON.stringify(JSON.parse(bundleShelfSnapshotReleaseA).manifest, null, 2), 'utf8');
+  await fs.promises.writeFile(path.join(tempDir, 'release-a', 'casebook-dataset.json'), JSON.parse(bundleShelfSnapshotReleaseA).artifacts['casebook-dataset.json'], 'utf8');
+  await fs.promises.writeFile(path.join(tempDir, 'broken.json'), '{"kind":"stack-sleuth-response-bundle","version":3', 'utf8');
+  await fs.promises.writeFile(path.join(tempDir, 'ignored.txt'), bundleShelfSnapshotReleaseA, 'utf8');
+  await fs.promises.mkdir(path.join(tempDir, 'nested'));
+  await fs.promises.writeFile(path.join(tempDir, 'nested', 'response-bundle.json'), bundleShelfSnapshotReleaseA, 'utf8');
+
+  const result = runCli(['--bundle-shelf', tempDir]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Response Bundle Shelf/);
+  assert.match(result.stdout, /Valid snapshots: 3/);
+  assert.match(result.stdout, /Invalid snapshots: 1/);
+  assert.match(result.stdout, /Latest release gate: watch/i);
+  assert.match(result.stdout, /Latest source workflow: workspace \(release-b-fixture\)/i);
+  assert.match(result.stdout, /Chronicle summary: Bundle Chronicle compared 3 saved response bundles/i);
+  assert.match(result.stdout, /broken\.json: invalid-json/);
+  assert.match(result.stdout, /nested: valid \(nested\)/i);
+  assert.match(result.stdout, /release-a: valid \(release-a\)/i);
+  assert.match(result.stdout, /release-b: valid \(release-b\)/i);
+});
+
+test('CLI bundle-shelf mode supports --json and --markdown output', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-shelf-'));
+  await fs.promises.mkdir(path.join(tempDir, 'release-a'));
+  await fs.promises.writeFile(path.join(tempDir, 'release-a', 'response-bundle.json'), bundleShelfSnapshotReleaseA, 'utf8');
+  await fs.promises.mkdir(path.join(tempDir, 'release-b'));
+  await fs.promises.writeFile(path.join(tempDir, 'release-b', 'response-bundle.json'), bundleShelfSnapshotReleaseB, 'utf8');
+
+  const jsonResult = runCli(['--bundle-shelf', tempDir, '--json']);
+  assert.equal(jsonResult.status, 0, jsonResult.stderr);
+  const parsed = JSON.parse(jsonResult.stdout);
+  assert.equal(parsed.kind, 'stack-sleuth-response-bundle-shelf');
+  assert.equal(parsed.version, 1);
+  assert.equal(parsed.summary.validSnapshotCount, 2);
+  assert.equal(parsed.summary.latestReleaseGateVerdict, 'watch');
+  assert.equal(parsed.summary.latestSourceMode, 'workspace');
+  assert.equal(parsed.chronicle.summary.snapshotCount, 2);
+
+  const markdownResult = runCli(['--bundle-shelf', tempDir, '--markdown']);
+  assert.equal(markdownResult.status, 0, markdownResult.stderr);
+  assert.match(markdownResult.stdout, /^# Stack Sleuth Response Bundle Shelf/m);
+  assert.match(markdownResult.stdout, /## Chronicle summary/);
+});
+
+test('CLI replay-bundle-shelf mode replays saved shelf json from stdin', async () => {
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-shelf-'));
+  await fs.promises.mkdir(path.join(tempDir, 'release-a'));
+  await fs.promises.writeFile(path.join(tempDir, 'release-a', 'response-bundle.json'), bundleShelfSnapshotReleaseA, 'utf8');
+  await fs.promises.mkdir(path.join(tempDir, 'release-b'));
+  await fs.promises.writeFile(path.join(tempDir, 'release-b', 'response-bundle.json'), bundleShelfSnapshotReleaseB, 'utf8');
+
+  const shelfResult = runCli(['--bundle-shelf', tempDir, '--json']);
+  assert.equal(shelfResult.status, 0, shelfResult.stderr);
+
+  const replayResult = runCli(['--replay-bundle-shelf', '-'], { input: shelfResult.stdout });
+  assert.equal(replayResult.status, 0, replayResult.stderr);
+  assert.match(replayResult.stdout, /Stack Sleuth Response Bundle Shelf/);
+  assert.match(replayResult.stdout, /Latest source workflow: workspace \(release-b-fixture\)/i);
+});
+
+test('CLI bundle-shelf mode exits non-zero for non-directory input and when zero valid snapshots remain', async () => {
+  const tempFile = path.join(await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-shelf-')), 'not-a-dir.json');
+  await fs.promises.writeFile(tempFile, bundleShelfSnapshotReleaseA, 'utf8');
+
+  const wrongType = runCli(['--bundle-shelf', tempFile]);
+  assert.notEqual(wrongType.status, 0);
+  assert.match(wrongType.stderr, /Response Bundle Shelf requires a directory of top-level bundle entries/i);
+
+  const emptyDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-shelf-empty-'));
+  await fs.promises.writeFile(path.join(emptyDir, 'broken.json'), '{"kind":"stack-sleuth-response-bundle","version":3', 'utf8');
+  const noValid = runCli(['--bundle-shelf', emptyDir]);
+  assert.notEqual(noValid.status, 0);
+  assert.match(noValid.stderr, /Response Bundle Shelf requires at least one valid saved response bundle snapshot/i);
+});
+
+test('CLI replay-bundle-shelf mode reports unsupported shelf versions clearly', () => {
+  const result = runCli(['--replay-bundle-shelf', '-'], {
+    input: JSON.stringify({
+      kind: 'stack-sleuth-response-bundle-shelf',
+      version: 99,
+      summary: {},
+      snapshots: [],
+      chronicle: null,
+    }),
+  });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Response Bundle Shelf replay uses unsupported version 99\. Supported version: 1\./i);
 });
 
 test('CLI chronicle mode reports unsupported dataset versions clearly', () => {

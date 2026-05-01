@@ -7,6 +7,7 @@ import { analyzeCasebookChronicle, inspectCasebookChronicleInput } from '../src/
 import { analyzeIncidentPack } from '../src/briefing.js';
 import { inspectReplayDatasetInput } from '../src/dataset.js';
 import { inspectReplayShelfInput } from '../src/shelf.js';
+import { inspectReplayBundleShelfInput } from '../src/bundle-shelf.js';
 import { inspectResponseBundleReplayInput } from '../src/bundle-replay.js';
 import { analyzeCasebookForge } from '../src/forge.js';
 import { analyzeIncidentPortfolio } from '../src/portfolio.js';
@@ -36,6 +37,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.ok(labels.includes('Casebook Dataset'));
   assert.ok(labels.includes('Response Bundle replay'));
   assert.ok(labels.includes('Response Bundle Chronicle'));
+  assert.ok(labels.includes('Response Bundle Shelf'));
   assert.ok(labels.includes('Casebook Chronicle'));
   assert.ok(labels.includes('Casebook Shelf'));
 
@@ -182,6 +184,19 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(bundleChronicle.stewardLedger.summary.resurfacedActionCount, 1);
   assert.ok(bundleChronicle.inventoryTrends.length >= 1);
 
+  const bundleShelfExample = examples.find((item) => item.label === 'Response Bundle Shelf');
+  assert.match(bundleShelfExample.caption, /response bundle shelf|invalid warning|chronicle/i);
+  assert.equal(typeof bundleShelfExample.bundleShelf, 'string');
+  assert.match(bundleShelfExample.bundleShelf, /"kind": "stack-sleuth-response-bundle-shelf"/i);
+
+  const bundleShelfReplay = inspectReplayBundleShelfInput(bundleShelfExample.bundleShelf);
+  assert.equal(bundleShelfReplay.valid, true);
+  assert.equal(bundleShelfReplay.shelf.summary.validSnapshotCount, 2);
+  assert.equal(bundleShelfReplay.shelf.summary.invalidSnapshotCount, 1);
+  assert.equal(bundleShelfReplay.shelf.summary.latestReleaseGateVerdict, 'hold');
+  assert.equal(bundleShelfReplay.shelf.summary.latestSourceMode, 'workspace');
+  assert.equal(bundleShelfReplay.shelf.chronicle.summary.snapshotCount, 2);
+
   const chronicleExample = examples.find((item) => item.label === 'Casebook Chronicle');
   assert.match(chronicleExample.caption, /saved datasets|release windows|drift|chronicle/i);
   assert.equal(typeof chronicleExample.chronicle, 'string');
@@ -217,5 +232,13 @@ test('browser main uses the shared Casebook Radar example instead of a duplicate
   const mainSource = fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
 
   assert.match(mainSource, /const casebookExample = examples\.find\(\(item\) => item\.label === 'Casebook Radar'\);/);
+  assert.match(mainSource, /const bundleShelfExample = examples\.find\(\(item\) => item\.label === 'Response Bundle Shelf'\);/);
   assert.doesNotMatch(mainSource, /const casebookExample = \{/);
+});
+
+test('browser index exposes a Response Bundle Shelf example button', () => {
+  const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+
+  assert.match(indexHtml, /id="load-bundle-shelf-button"/);
+  assert.match(indexHtml, />Load Response Bundle Shelf example</);
 });

@@ -105,6 +105,13 @@ import {
 import { parseIncidentPack } from '../src/pack.js';
 import { loadIncidentWorkspace } from '../src/workspace.js';
 import {
+  buildWorkspaceFleetArtifact,
+  describeWorkspaceFleetInputError,
+  inspectReplayWorkspaceFleetInput,
+  renderWorkspaceFleetMarkdownSummary,
+  renderWorkspaceFleetTextSummary,
+} from '../src/workspace-fleet.js';
+import {
   describeCapsuleInputError,
   inspectCapsuleInput,
   normalizeCapsuleToWorkflow,
@@ -141,6 +148,8 @@ const replayShelfArgumentError = validateOptionValue(args, '--replay-shelf');
 const historyArgumentError = validateOptionValue(args, '--history');
 const currentArgumentError = validateOptionValue(args, '--current');
 const workspaceArgumentError = validateOptionValue(args, '--workspace');
+const workspaceFleetArgumentError = validateOptionValue(args, '--workspace-fleet');
+const replayWorkspaceFleetArgumentError = validateOptionValue(args, '--replay-workspace-fleet');
 const capsuleArgumentError = validateOptionValue(args, '--capsule');
 const bundleArgumentError = validateOptionValue(args, '--bundle');
 const baselinePath = readOptionValue(args, '--baseline');
@@ -165,6 +174,8 @@ const replayShelfPath = readOptionValue(args, '--replay-shelf');
 const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
 const workspacePath = readOptionValue(args, '--workspace');
+const workspaceFleetPath = readOptionValue(args, '--workspace-fleet');
+const replayWorkspaceFleetPath = readOptionValue(args, '--replay-workspace-fleet');
 const capsulePath = readOptionValue(args, '--capsule');
 const bundlePath = readOptionValue(args, '--bundle');
 const workflowArgumentError = validateWorkflowArguments({
@@ -183,6 +194,8 @@ const workflowArgumentError = validateWorkflowArguments({
   datasetPath,
   replayDatasetPath,
   replayBundlePath,
+  workspaceFleetPath,
+  replayWorkspaceFleetPath,
   bundleShelfPath,
   replayBundleShelfPath,
   shelfPath,
@@ -237,6 +250,8 @@ const filePath = args.find((arg, index) => {
     '--history',
     '--current',
     '--workspace',
+    '--workspace-fleet',
+    '--replay-workspace-fleet',
     '--capsule',
     '--bundle',
   ].includes(previous);
@@ -330,6 +345,14 @@ if (workspaceArgumentError) {
   fail(workspaceArgumentError);
 }
 
+if (workspaceFleetArgumentError) {
+  fail(workspaceFleetArgumentError);
+}
+
+if (replayWorkspaceFleetArgumentError) {
+  fail(replayWorkspaceFleetArgumentError);
+}
+
 if (capsuleArgumentError) {
   fail(capsuleArgumentError);
 }
@@ -409,6 +432,34 @@ try {
     }
 
     writeOutput({ workspace, routed: { mode: 'pack', report } }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary, renderWorkspaceCliHtmlSummary);
+    process.exit(0);
+  }
+
+  if (workspaceFleetPath) {
+    const fleet = buildWorkspaceFleetArtifact({
+      directory: workspaceFleetPath,
+      entries: readWorkspaceFleetEntries(workspaceFleetPath),
+    });
+
+    if (!fleet.summary.validWorkspaceCount) {
+      fail('Workspace Fleet did not find any valid workspaces. Add at least one top-level workspace directory with supported incident files or a supported notebook.md.');
+    }
+
+    writeOutput(fleet, mode, renderWorkspaceFleetTextSummary, renderWorkspaceFleetMarkdownSummary);
+    process.exit(0);
+  }
+
+  if (replayWorkspaceFleetPath) {
+    const replayInput = replayWorkspaceFleetPath === '-'
+      ? fs.readFileSync(0, 'utf8')
+      : readNamedInput(replayWorkspaceFleetPath, 'workspace fleet replay');
+    const replay = inspectReplayWorkspaceFleetInput(replayInput);
+
+    if (!replay.valid) {
+      fail(describeWorkspaceFleetInputError(replay));
+    }
+
+    writeOutput(replay.fleet, mode, renderWorkspaceFleetTextSummary, renderWorkspaceFleetMarkdownSummary);
     process.exit(0);
   }
 
@@ -817,6 +868,14 @@ try {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read workspace input: ${error.message}`);
   }
 
+  if (workspaceFleetPath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read workspace fleet input: ${error.message}`);
+  }
+
+  if (replayWorkspaceFleetPath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read workspace fleet replay input: ${error.message}`);
+  }
+
   if (capsulePath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read capsule input: ${error.message}`);
   }
@@ -936,7 +995,7 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, boardPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, bundleChroniclePath, datasetPath, replayDatasetPath, replayBundlePath, bundleShelfPath, replayBundleShelfPath, shelfPath, replayShelfPath, historyPath, workspacePath, capsulePath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, boardPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, bundleChroniclePath, datasetPath, replayDatasetPath, replayBundlePath, workspaceFleetPath, replayWorkspaceFleetPath, bundleShelfPath, replayBundleShelfPath, shelfPath, replayShelfPath, historyPath, workspacePath, capsulePath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     capsulePath ? 'capsule' : null,
@@ -946,6 +1005,8 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
     handoffPath ? 'handoff' : null,
     notebookPath ? 'notebook' : null,
     workspacePath ? 'workspace' : null,
+    workspaceFleetPath ? 'workspace-fleet' : null,
+    replayWorkspaceFleetPath ? 'replay-workspace-fleet' : null,
     mergeCasebookPath ? 'merge-casebook' : null,
     packPath ? 'incident-pack' : null,
     timelinePath ? 'timeline' : null,
@@ -962,7 +1023,7 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: capsule, forge, handoff, merge-casebook, portfolio, board, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, replay-bundle, bundle-shelf, replay-bundle-shelf, shelf, replay-shelf, or compare.';
+    return 'Choose one workflow mode at a time: capsule, forge, handoff, merge-casebook, portfolio, board, notebook, workspace, workspace-fleet, replay-workspace-fleet, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, replay-bundle, bundle-shelf, replay-bundle-shelf, shelf, replay-shelf, or compare.';
   }
 
   return null;
@@ -1192,6 +1253,26 @@ function writeBundleOutput(targetDir, { report, sourceMode, sourceLabel = null }
 }
 
 function toSerializablePayload(payload) {
+  if (payload?.kind === 'stack-sleuth-workspace-fleet' && typeof payload?.version === 'number') {
+    return {
+      kind: payload.kind,
+      version: payload.version,
+      directory: payload.directory ?? null,
+      summary: payload.summary,
+      rankings: (payload.rankings ?? []).map((entry) => ({
+        label: entry.label,
+        path: entry.path,
+        workspace: entry.workspace,
+        notebook: entry.notebook ?? null,
+        routed: entry.routed,
+        summary: entry.summary,
+        coordination: entry.coordination,
+        priority: entry.priority,
+      })),
+      warnings: payload.warnings ?? [],
+    };
+  }
+
   if (payload?.capsule && payload?.routed?.report) {
     const routedPayload = toSerializablePayload(payload.routed.report);
     return {
@@ -1602,6 +1683,90 @@ function routeNotebookForCli(notebook) {
       },
     },
   });
+}
+
+function routeWorkspaceForCli(workspace) {
+  if (workspace.kind === 'notebook') {
+    const notebook = parseIncidentNotebook(workspace.input);
+    if (notebook.kind === 'unsupported') {
+      return {
+        warning: notebook.reason ?? 'Workspace notebook did not contain supported incident headings.',
+      };
+    }
+
+    return {
+      notebook,
+      routed: routeNotebookForCli(notebook),
+    };
+  }
+
+  if (workspace.kind === 'portfolio') {
+    return {
+      routed: {
+        mode: 'portfolio',
+        report: analyzeIncidentPortfolio(workspace.normalizedText),
+      },
+    };
+  }
+
+  if (workspace.kind === 'pack') {
+    return {
+      routed: {
+        mode: 'pack',
+        report: analyzeIncidentPack(workspace.normalizedText),
+      },
+    };
+  }
+
+  return {
+    warning: workspace.reason ?? 'Workspace could not be normalized into a supported Stack Sleuth workflow.',
+  };
+}
+
+function readWorkspaceFleetEntries(targetPath) {
+  let stats;
+
+  try {
+    stats = fs.statSync(targetPath);
+  } catch (error) {
+    throw new Error(`Could not read workspace fleet input: ${error.message}`);
+  }
+
+  if (!stats.isDirectory()) {
+    throw new Error('Workspace Fleet target must be a directory of top-level workspace folders.');
+  }
+
+  let entries;
+  try {
+    entries = fs.readdirSync(targetPath, { withFileTypes: true });
+  } catch (error) {
+    throw new Error(`Could not read workspace fleet input: ${error.message}`);
+  }
+
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((entry) => {
+      const workspaceDir = `${targetPath}/${entry.name}`;
+      try {
+        const workspace = loadIncidentWorkspace(workspaceDir);
+        const routed = routeWorkspaceForCli(workspace);
+        return {
+          label: entry.name,
+          path: workspaceDir,
+          workspace,
+          notebook: routed.notebook,
+          routed: routed.routed,
+          warning: routed.warning,
+        };
+      } catch (error) {
+        return {
+          label: entry.name,
+          path: workspaceDir,
+          warning: error.message,
+        };
+      }
+    });
 }
 
 function renderWorkspaceCliTextSummary(payload) {

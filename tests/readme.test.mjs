@@ -34,6 +34,18 @@ test('README documents incident workspace intake for single folders and portfoli
   assert.match(readme, /notebook\.md/);
 });
 
+test('README documents Workspace Fleet workflows for ranked top-level workspace scanning and replay', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Workspace Fleet/i);
+  assert.match(readme, /--workspace-fleet/);
+  assert.match(readme, /--replay-workspace-fleet/);
+  assert.match(readme, /top-level directories/i);
+  assert.match(readme, /deterministic filename order|deterministic/i);
+  assert.match(readme, /warning entries|broken warning entry/i);
+  assert.match(readme, /sample\/workspace-fleet\.json/i);
+  assert.match(readme, /does not recover raw traces/i);
+});
+
 test('README documents Incident Capsule intake for CLI-first capsule interop', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.match(readme, /Incident Capsule/i);
@@ -278,4 +290,16 @@ test('sample response bundle artifact is committed with manifest, replay json, a
   assert.equal(replay.manifest.version, 3);
   assert.equal(typeof replay.artifacts['casebook-dataset.json'], 'string');
   assert.equal(replay.artifacts['response-bundle.json'], undefined);
+});
+
+test('sample workspace fleet artifact is committed with ranked workspaces and warning entries', () => {
+  const replay = JSON.parse(fs.readFileSync(new URL('../sample/workspace-fleet.json', import.meta.url), 'utf8'));
+
+  assert.equal(replay.kind, 'stack-sleuth-workspace-fleet');
+  assert.equal(replay.version, 1);
+  assert.equal(replay.summary.validWorkspaceCount, 2);
+  assert.deepEqual(replay.rankings.map((entry) => entry.label), ['alpha-notebook', 'zeta-pack']);
+  assert.equal(replay.rankings[0].routed.mode, 'portfolio');
+  assert.equal(replay.rankings[0].coordination.runnablePackCount, 2);
+  assert.deepEqual(replay.warnings.map((entry) => entry.label), ['broken']);
 });

@@ -23,6 +23,48 @@ export function buildCasebookSteward(input = {}) {
   };
 }
 
+export function normalizeCasebookSteward(steward, fallback = {}) {
+  if (steward && typeof steward === 'object') {
+    const normalized = buildCasebookSteward({
+      cases: Array.isArray(steward.cases) && steward.cases.length ? steward.cases : fallback.cases,
+      preserved: steward.preserved !== false,
+    });
+
+    const actions = Array.isArray(steward.actions) && steward.actions.length
+      ? steward.actions.map((action) => ({
+        kind: String(action.kind ?? 'missing-runbook'),
+        label: String(action.label ?? 'case'),
+        signature: String(action.signature ?? action.label ?? 'case'),
+        seenCount: Math.max(toCount(action.seenCount), 1),
+        sourcePacks: normalizeSourcePacks(action.sourcePacks),
+        priority: Number.isFinite(Number(action.priority)) ? Number(action.priority) : 0,
+        headline: String(action.headline ?? 'Stewardship action'),
+        ask: String(action.ask ?? 'Review the stewardship backlog.'),
+      }))
+      : normalized.actions;
+    const summary = typeof steward.summary === 'object' && steward.summary
+      ? {
+        ...normalized.summary,
+        ...steward.summary,
+        headline: String(steward.summary.headline ?? normalized.summary.headline),
+      }
+      : normalized.summary;
+
+    return {
+      ...normalized,
+      preserved: steward.preserved !== false,
+      actions,
+      summary,
+      nextAction: String(steward.nextAction ?? actions[0]?.ask ?? normalized.nextAction),
+    };
+  }
+
+  return {
+    ...buildCasebookSteward({ cases: fallback.cases, preserved: false }),
+    preserved: false,
+  };
+}
+
 export function compareStewardSnapshots(previous, current) {
   if (!previous || !current) {
     return finalizeDrift('unavailable', previous, current, 'Steward drift unavailable because one of the compared snapshots is missing Casebook Steward detail.');

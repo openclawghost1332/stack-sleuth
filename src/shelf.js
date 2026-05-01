@@ -83,6 +83,7 @@ export function renderShelfTextSummary(report) {
     `Invalid snapshots: ${report.summary.invalidSnapshotCount}`,
     `Latest snapshot: ${report.summary.latestLabel}`,
     `Latest release gate: ${report.summary.latestGateVerdict}`,
+    `Latest steward: ${report.summary.latestStewardHeadline}`,
     report.chronicle
       ? `Chronicle summary: ${report.chronicle.summary.headline}`
       : 'Chronicle summary: add one more valid saved dataset snapshot to unlock drift analysis.',
@@ -112,6 +113,7 @@ export function renderShelfMarkdownSummary(report) {
     `- **Invalid snapshots:** ${report.summary.invalidSnapshotCount}`,
     `- **Latest snapshot:** ${escapeMarkdownText(report.summary.latestLabel)}`,
     `- **Latest release gate:** ${escapeMarkdownText(report.summary.latestGateVerdict)}`,
+    `- **Latest steward:** ${escapeMarkdownText(report.summary.latestStewardHeadline)}`,
     `- **Saved-artifact note:** ${escapeMarkdownText('Casebook Shelf replays preserved dataset signals only and does not recover raw traces, support frames, or blast radius detail.')}`,
     '',
     '## Chronicle summary',
@@ -229,6 +231,7 @@ function buildShelfSummary(snapshots, chronicle) {
     chronicleAvailable: Boolean(chronicle),
     latestLabel,
     latestGateVerdict: latestValidDataset?.gate?.verdict ?? 'needs-input',
+    latestStewardHeadline: latestValidDataset?.steward?.summary?.headline ?? 'No steward summary available.',
   };
 }
 

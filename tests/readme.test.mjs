@@ -156,6 +156,15 @@ test('README documents Casebook Dataset workflows for browser and CLI handoff', 
   assert.match(readme, /unsupported version|supported version/i);
 });
 
+test('README documents Casebook Chronicle workflows for browser and CLI longitudinal replay', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Casebook Chronicle/i);
+  assert.match(readme, /--chronicle/);
+  assert.match(readme, /saved datasets|saved dataset snapshots/i);
+  assert.match(readme, /=== release-a ===|=== canary ===/i);
+  assert.match(readme, /owner load|recurring hotspots|drift/i);
+});
+
 test('README documents Casebook Merge workflows for browser and CLI living-casebook updates', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.match(readme, /Casebook Merge/i);

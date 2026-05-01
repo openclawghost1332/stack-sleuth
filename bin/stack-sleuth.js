@@ -29,6 +29,13 @@ import {
   renderTimelineMarkdownSummary,
 } from '../src/timeline.js';
 import {
+  analyzeCasebookChronicle,
+  describeChronicleInputError,
+  inspectCasebookChronicleInput,
+  renderCasebookChronicleTextSummary,
+  renderCasebookChronicleMarkdownSummary,
+} from '../src/chronicle.js';
+import {
   analyzeIncidentPortfolio,
   parseIncidentPortfolio,
   renderIncidentPortfolioTextSummary,
@@ -76,6 +83,7 @@ const handoffArgumentError = validateOptionValue(args, '--handoff');
 const notebookArgumentError = validateOptionValue(args, '--notebook');
 const mergeCasebookArgumentError = validateOptionValue(args, '--merge-casebook');
 const timelineArgumentError = validateOptionValue(args, '--timeline');
+const chronicleArgumentError = validateOptionValue(args, '--chronicle');
 const datasetArgumentError = validateOptionValue(args, '--dataset');
 const replayDatasetArgumentError = validateOptionValue(args, '--replay-dataset');
 const historyArgumentError = validateOptionValue(args, '--history');
@@ -90,6 +98,7 @@ const handoffPath = readOptionValue(args, '--handoff');
 const notebookPath = readOptionValue(args, '--notebook');
 const mergeCasebookPath = readOptionValue(args, '--merge-casebook');
 const timelinePath = readOptionValue(args, '--timeline');
+const chroniclePath = readOptionValue(args, '--chronicle');
 const datasetPath = readOptionValue(args, '--dataset');
 const replayDatasetPath = readOptionValue(args, '--replay-dataset');
 const historyPath = readOptionValue(args, '--history');
@@ -105,6 +114,7 @@ const workflowArgumentError = validateWorkflowArguments({
   notebookPath,
   mergeCasebookPath,
   timelinePath,
+  chroniclePath,
   datasetPath,
   replayDatasetPath,
   historyPath,
@@ -126,6 +136,7 @@ const filePath = args.find((arg, index) => {
     '--notebook',
     '--merge-casebook',
     '--timeline',
+    '--chronicle',
     '--dataset',
     '--replay-dataset',
     '--history',
@@ -164,6 +175,10 @@ if (mergeCasebookArgumentError) {
 
 if (timelineArgumentError) {
   fail(timelineArgumentError);
+}
+
+if (chronicleArgumentError) {
+  fail(chronicleArgumentError);
 }
 
 if (datasetArgumentError) {
@@ -428,6 +443,19 @@ try {
     process.exit(0);
   }
 
+  if (chroniclePath) {
+    const chronicleInput = chroniclePath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(chroniclePath, 'chronicle');
+    const chronicleInspection = inspectCasebookChronicleInput(chronicleInput);
+
+    if (!chronicleInspection.valid) {
+      fail(describeChronicleInputError(chronicleInspection));
+    }
+
+    const chronicle = analyzeCasebookChronicle(chronicleInspection);
+    writeOutput(chronicle, mode, renderCasebookChronicleTextSummary, renderCasebookChronicleMarkdownSummary);
+    process.exit(0);
+  }
+
   if (baselinePath || candidatePath) {
     if (!baselinePath || !candidatePath) {
       fail('Compare mode requires both --baseline and --candidate inputs.');
@@ -557,7 +585,7 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, datasetPath, replayDatasetPath, historyPath, workspacePath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, datasetPath, replayDatasetPath, historyPath, workspacePath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     portfolioPath ? 'portfolio' : null,
@@ -568,13 +596,14 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
     mergeCasebookPath ? 'merge-casebook' : null,
     packPath ? 'incident-pack' : null,
     timelinePath ? 'timeline' : null,
+    chroniclePath ? 'chronicle' : null,
     datasetPath ? 'dataset' : null,
     replayDatasetPath ? 'replay-dataset' : null,
     baselinePath || candidatePath ? 'compare' : null,
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, dataset, replay-dataset, or compare.';
+    return 'Choose one workflow mode at a time: forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, or compare.';
   }
 
   return null;

@@ -127,6 +127,31 @@ const portfolioTrace = [
 ].join('\n');
 
 const datasetReplay = JSON.stringify(buildCasebookDataset(portfolioTrace), null, 2);
+const chronicleReplay = [
+  '=== release-a ===',
+  JSON.stringify(buildChronicleReplayDataset({
+    packCount: 2,
+    owners: [{ owner: 'web-platform', packCount: 1 }],
+    hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+    cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+  }), null, 2),
+  '',
+  '=== release-b ===',
+  JSON.stringify(buildChronicleReplayDataset({
+    packCount: 3,
+    owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+    hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+    cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+  }), null, 2),
+  '',
+  '=== release-c ===',
+  JSON.stringify(buildChronicleReplayDataset({
+    packCount: 4,
+    owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
+    hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
+    cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+  }), null, 2),
+].join('\n');
 
 export const examples = [
   {
@@ -197,8 +222,62 @@ export const examples = [
     dataset: datasetReplay,
   },
   {
+    label: 'Casebook Chronicle',
+    caption: 'Several saved Casebook Dataset snapshots stitched into one chronicle reveal owner load, recurring hotspot drift, and casebook movement across release windows without pretending to recover raw trace detail.',
+    chronicle: chronicleReplay,
+  },
+  {
     label: 'Casebook Merge',
     caption: 'A labeled incident portfolio plus embedded history turns into a living casebook update that preserves human guidance, adds seen-count and source-packs metadata, and flags merge conflicts when older entries disagree.',
     portfolio: portfolioTrace,
   }
 ];
+
+function buildChronicleReplayDataset({
+  packCount = 2,
+  owners = [],
+  hotspots = [],
+  cases = [],
+} = {}) {
+  return {
+    kind: 'stack-sleuth-casebook-dataset',
+    version: 1,
+    summary: {
+      headline: `Casebook Dataset captured ${cases.length} merged case${cases.length === 1 ? '' : 's'} from ${packCount} pack${packCount === 1 ? '' : 's'}.`,
+      packCount,
+      runnablePackCount: packCount,
+      mergedCaseCount: cases.length,
+      conflictCount: 0,
+      portfolioHeadline: 'Saved portfolio snapshot',
+      mergeHeadline: 'Saved merge snapshot',
+      ownerCount: owners.length,
+    },
+    portfolio: {
+      packOrder: Array.from({ length: packCount }, (_, index) => `pack-${index + 1}`),
+    },
+    responseQueue: owners.map((entry) => ({
+      owner: entry.owner,
+      labels: Array.from({ length: entry.packCount }, (_, index) => `${entry.owner}-pack-${index + 1}`),
+      guidance: [],
+      highestPriorityScore: entry.packCount * 100,
+      novelIncidentCount: entry.packCount,
+      bestQueueIndex: 0,
+      packCount: entry.packCount,
+    })),
+    recurringIncidents: [],
+    recurringHotspots: hotspots.map((entry) => ({
+      label: entry.label,
+      labels: Array.from({ length: entry.packCount }, (_, index) => `${entry.label}-pack-${index + 1}`),
+      packCount: entry.packCount,
+      maxScore: entry.maxScore ?? entry.packCount,
+    })),
+    cases: cases.map((entry) => ({
+      label: entry.label,
+      signature: entry.signature,
+      sourcePacks: ['pack-1'],
+      metadata: {},
+      conflicts: [],
+    })),
+    exportText: '=== saved-case ===\nTypeError: replay me',
+  };
+}

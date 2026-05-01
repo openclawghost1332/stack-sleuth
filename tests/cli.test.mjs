@@ -154,6 +154,32 @@ const noisyDigestLog = [
   `2026-04-30T03:00:04Z ERROR billing ${comparisonTrace.split('\n').join('\n2026-04-30T03:00:04Z ERROR billing ')}`,
 ].join('\n');
 
+const chronicleInput = [
+  '=== release-a ===',
+  JSON.stringify(buildChronicleDataset({
+    packCount: 2,
+    owners: [{ owner: 'web-platform', packCount: 1 }],
+    hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+    cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+  }), null, 2),
+  '',
+  '=== release-b ===',
+  JSON.stringify(buildChronicleDataset({
+    packCount: 3,
+    owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+    hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+    cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+  }), null, 2),
+  '',
+  '=== release-c ===',
+  JSON.stringify(buildChronicleDataset({
+    packCount: 4,
+    owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
+    hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
+    cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+  }), null, 2),
+].join('\n');
+
 function runCli(args = [], options = {}) {
   return spawnSync(process.execPath, [cliPath.pathname, ...args], {
     encoding: 'utf8',
@@ -494,6 +520,44 @@ test('CLI replays a saved dataset in json mode', () => {
   assert.equal(parsed.kind, 'stack-sleuth-casebook-dataset');
   assert.equal(parsed.version, 1);
   assert.equal(parsed.summary.ownerCount, 1);
+});
+
+test('CLI reads labeled saved datasets with --chronicle and prints a chronicle summary', () => {
+  const result = runCli(['--chronicle', '-'], { input: chronicleInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Casebook Chronicle/);
+  assert.match(result.stdout, /Latest snapshot: release-c/i);
+  assert.match(result.stdout, /Owner trends/);
+});
+
+test('CLI chronicle mode supports --json and --markdown output', () => {
+  const jsonResult = runCli(['--chronicle', '-', '--json'], { input: chronicleInput });
+  assert.equal(jsonResult.status, 0, jsonResult.stderr);
+  const parsed = JSON.parse(jsonResult.stdout);
+  assert.equal(parsed.summary.snapshotCount, 3);
+  assert.equal(parsed.summary.latestLabel, 'release-c');
+  assert.equal(parsed.summary.risingOwnerCount, 2);
+
+  const markdownResult = runCli(['--chronicle', '-', '--markdown'], { input: chronicleInput });
+  assert.equal(markdownResult.status, 0, markdownResult.stderr);
+  assert.match(markdownResult.stdout, /^# Stack Sleuth Casebook Chronicle/m);
+  assert.match(markdownResult.stdout, /## Owner trends/);
+});
+
+test('CLI chronicle mode reports unsupported dataset versions clearly', () => {
+  const invalidChronicleInput = [
+    '=== release-a ===',
+    JSON.stringify({ ...buildChronicleDataset({ packCount: 2 }), version: 99 }, null, 2),
+    '',
+    '=== release-b ===',
+    JSON.stringify(buildChronicleDataset({ packCount: 3 }), null, 2),
+  ].join('\n');
+
+  const result = runCli(['--chronicle', '-'], { input: invalidChronicleInput });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Casebook Chronicle snapshot release-a uses unsupported dataset version 99\. Supported version: 1\./i);
 });
 
 test('CLI Casebook Radar accepts a saved dataset JSON file through --history', async () => {
@@ -911,3 +975,52 @@ test('CLI exits non-zero when multiple workflow modes are requested together', a
   assert.match(result.stderr, /choose one workflow mode at a time/i);
   assert.equal(result.stdout, '');
 });
+
+function buildChronicleDataset({
+  packCount = 2,
+  owners = [],
+  hotspots = [],
+  cases = [],
+} = {}) {
+  return {
+    kind: 'stack-sleuth-casebook-dataset',
+    version: 1,
+    summary: {
+      headline: `Dataset captured ${packCount} pack${packCount === 1 ? '' : 's'}.`,
+      packCount,
+      runnablePackCount: packCount,
+      mergedCaseCount: cases.length,
+      conflictCount: 0,
+      portfolioHeadline: 'portfolio headline',
+      mergeHeadline: 'merge headline',
+      ownerCount: owners.length,
+    },
+    portfolio: {
+      packOrder: Array.from({ length: packCount }, (_, index) => `pack-${index + 1}`),
+    },
+    responseQueue: owners.map((entry) => ({
+      owner: entry.owner,
+      labels: Array.from({ length: entry.packCount }, (_, index) => `${entry.owner}-pack-${index + 1}`),
+      guidance: [],
+      highestPriorityScore: entry.packCount * 100,
+      novelIncidentCount: entry.packCount,
+      bestQueueIndex: 0,
+      packCount: entry.packCount,
+    })),
+    recurringIncidents: [],
+    recurringHotspots: hotspots.map((entry) => ({
+      label: entry.label,
+      labels: Array.from({ length: entry.packCount }, (_, index) => `${entry.label}-pack-${index + 1}`),
+      packCount: entry.packCount,
+      maxScore: entry.maxScore ?? entry.packCount,
+    })),
+    cases: cases.map((entry) => ({
+      label: entry.label,
+      signature: entry.signature,
+      sourcePacks: ['pack-1'],
+      metadata: {},
+      conflicts: [],
+    })),
+    exportText: '=== saved-case ===\nTypeError: replay me',
+  };
+}

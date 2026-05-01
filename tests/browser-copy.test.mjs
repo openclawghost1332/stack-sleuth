@@ -145,6 +145,31 @@ const unsupportedDatasetReplayInput = JSON.stringify({
   ...buildCasebookDataset(portfolioInput),
   version: 99,
 }, null, 2);
+const chronicleInput = [
+  '=== release-a ===',
+  JSON.stringify(buildChronicleDataset({
+    packCount: 2,
+    owners: [{ owner: 'web-platform', packCount: 1 }],
+    hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+    cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+  }), null, 2),
+  '',
+  '=== release-b ===',
+  JSON.stringify(buildChronicleDataset({
+    packCount: 3,
+    owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+    hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+    cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+  }), null, 2),
+  '',
+  '=== release-c ===',
+  JSON.stringify(buildChronicleDataset({
+    packCount: 4,
+    owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
+    hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
+    cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+  }), null, 2),
+].join('\n');
 
 const notebookPackInput = [
   '# Checkout incident notebook',
@@ -222,6 +247,7 @@ const requiredIds = [
   'load-portfolio-button',
   'load-handoff-button',
   'load-dataset-button',
+  'load-chronicle-button',
   'load-merge-button',
   'copy-button',
   'example-caption',
@@ -425,6 +451,7 @@ test('browser copy invites pasting one or more traces for digesting, comparing, 
   assert.match(indexHtml, />Load Handoff Briefing example</i);
   assert.match(indexHtml, /Handoff Briefing/i);
   assert.match(indexHtml, />Load Casebook Dataset example</i);
+  assert.match(indexHtml, />Load Casebook Chronicle example</i);
   assert.match(indexHtml, />Load Casebook Merge example</i);
   assert.match(indexHtml, />Copy result</i);
 });
@@ -474,6 +501,39 @@ test('browser dataset replay copy support writes the saved dataset summary to th
     assert.match(harness.clipboard.text, /Response owners: 1/);
     assert.match(harness.clipboard.text, /Reusable casebook export/);
     assert.equal(harness.get('example-caption').textContent, 'Casebook Dataset replay copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser Casebook Chronicle example button loads labeled saved datasets and reuses the trend cards', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.click('load-chronicle-button');
+
+    assert.match(harness.get('trace-input').value, /=== release-a ===/);
+    assert.equal(harness.get('runtime-value').textContent, 'casebook chronicle');
+    assert.match(harness.get('headline-value').textContent, /Chronicle compared 3 saved datasets/i);
+    assert.match(harness.get('timeline-summary-value').textContent, /release-c/i);
+    assert.match(harness.get('timeline-incidents-value').children[0].textContent, /owner|case|hotspot/i);
+    assert.match(harness.get('example-caption').textContent, /saved datasets|drift|chronicle/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser chronicle copy support writes the saved dataset trend summary to the clipboard', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', chronicleInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Stack Sleuth Casebook Chronicle/);
+    assert.match(harness.clipboard.text, /Saved-artifact note:/);
+    assert.match(harness.clipboard.text, /Owner trends/);
+    assert.equal(harness.get('example-caption').textContent, 'Casebook Chronicle summary copied to clipboard.');
   } finally {
     harness.restore();
   }
@@ -850,3 +910,52 @@ test('browser Casebook Radar clears shared result cards when one casebook input 
     harness.restore();
   }
 });
+
+function buildChronicleDataset({
+  packCount = 2,
+  owners = [],
+  hotspots = [],
+  cases = [],
+} = {}) {
+  return {
+    kind: 'stack-sleuth-casebook-dataset',
+    version: 1,
+    summary: {
+      headline: `Dataset captured ${packCount} pack${packCount === 1 ? '' : 's'}.`,
+      packCount,
+      runnablePackCount: packCount,
+      mergedCaseCount: cases.length,
+      conflictCount: 0,
+      portfolioHeadline: 'portfolio headline',
+      mergeHeadline: 'merge headline',
+      ownerCount: owners.length,
+    },
+    portfolio: {
+      packOrder: Array.from({ length: packCount }, (_, index) => `pack-${index + 1}`),
+    },
+    responseQueue: owners.map((entry) => ({
+      owner: entry.owner,
+      labels: Array.from({ length: entry.packCount }, (_, index) => `${entry.owner}-pack-${index + 1}`),
+      guidance: [],
+      highestPriorityScore: entry.packCount * 100,
+      novelIncidentCount: entry.packCount,
+      bestQueueIndex: 0,
+      packCount: entry.packCount,
+    })),
+    recurringIncidents: [],
+    recurringHotspots: hotspots.map((entry) => ({
+      label: entry.label,
+      labels: Array.from({ length: entry.packCount }, (_, index) => `${entry.label}-pack-${index + 1}`),
+      packCount: entry.packCount,
+      maxScore: entry.maxScore ?? entry.packCount,
+    })),
+    cases: cases.map((entry) => ({
+      label: entry.label,
+      signature: entry.signature,
+      sourcePacks: ['pack-1'],
+      metadata: {},
+      conflicts: [],
+    })),
+    exportText: '=== saved-case ===\nTypeError: replay me',
+  };
+}

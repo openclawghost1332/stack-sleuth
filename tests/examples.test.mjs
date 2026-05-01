@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { analyzeCasebook } from '../src/casebook.js';
+import { analyzeCasebookChronicle, inspectCasebookChronicleInput } from '../src/chronicle.js';
 import { analyzeIncidentPack } from '../src/briefing.js';
 import { inspectReplayDatasetInput } from '../src/dataset.js';
 import { analyzeCasebookForge } from '../src/forge.js';
@@ -30,6 +31,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.ok(labels.includes('Portfolio radar'));
   assert.ok(labels.includes('Casebook Forge'));
   assert.ok(labels.includes('Casebook Dataset'));
+  assert.ok(labels.includes('Casebook Chronicle'));
 
   const rawLogExample = examples.find((item) => item.label === 'Raw log excavation');
   assert.match(rawLogExample.caption, /raw log|excavat/i);
@@ -141,6 +143,20 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(replay.dataset.summary.runnablePackCount, 3);
   assert.equal(replay.dataset.summary.ownerCount, 1);
   assert.match(replay.dataset.exportText, /=== profile-js-generic-runtime-error ===/);
+
+  const chronicleExample = examples.find((item) => item.label === 'Casebook Chronicle');
+  assert.match(chronicleExample.caption, /saved datasets|release windows|drift|chronicle/i);
+  assert.equal(typeof chronicleExample.chronicle, 'string');
+  assert.match(chronicleExample.chronicle, /=== release-a ===/i);
+  assert.match(chronicleExample.chronicle, /"kind": "stack-sleuth-casebook-dataset"/i);
+
+  const chronicleInspection = inspectCasebookChronicleInput(chronicleExample.chronicle);
+  assert.equal(chronicleInspection.valid, true);
+  const chronicle = analyzeCasebookChronicle(chronicleInspection);
+  assert.equal(chronicle.summary.snapshotCount, 3);
+  assert.equal(chronicle.summary.latestLabel, 'release-c');
+  assert.ok(chronicle.ownerTrends.length >= 1);
+  assert.ok(chronicle.hotspotTrends.length >= 1);
 });
 
 test('browser main uses the shared Casebook Radar example instead of a duplicate fixture', () => {

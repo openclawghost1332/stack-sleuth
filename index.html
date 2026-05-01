@@ -10,8 +10,8 @@
     <main class="app-shell">
       <section class="hero card">
         <p class="eyebrow">Stack Sleuth</p>
-        <h1>Paste one or more stack traces or raw logs, or a markdown incident notebook, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, compare two batches with a Regression Radar, look up prior incidents with a Casebook Radar, map rollout drift with a Timeline Radar, hand Stack Sleuth a full incident pack for one composed briefing, or rank several packs at once with Portfolio Radar, Handoff Briefing packets, and a reusable Casebook Dataset.</h1>
-        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, excavating a noisy raw log dump, collapsing an incident bundle, dropping in a markdown handoff notebook with headings like Current incident and Prior incidents, asking what got worse after a release, checking whether today matches a prior incident, tracking a canary rollout across multiple snapshots, pasting one structured incident pack that should turn into an Incident Pack Briefing, or ranking a release-worth of packs into one Portfolio Radar queue that also yields copy-ready owner handoff packets and a reusable dataset handoff.</p>
+        <h1>Paste one or more stack traces or raw logs, or a markdown incident notebook, spot the likeliest culprit, rank suspect hotspots, collapse noisy failures into an incident digest, compare two batches with a Regression Radar, look up prior incidents with a Casebook Radar, map rollout drift with a Timeline Radar, replay saved artifacts with Casebook Chronicle, hand Stack Sleuth a full incident pack for one composed briefing, or rank several packs at once with Portfolio Radar, Handoff Briefing packets, and a reusable Casebook Dataset.</h1>
+        <p class="hero-copy">Built for quick triage on a laptop or phone, whether you are explaining a single crash, excavating a noisy raw log dump, collapsing an incident bundle, dropping in a markdown handoff notebook with headings like Current incident and Prior incidents, asking what got worse after a release, checking whether today matches a prior incident, tracking a canary rollout across multiple snapshots, replaying several saved dataset snapshots to inspect owner load and hotspot drift, pasting one structured incident pack that should turn into an Incident Pack Briefing, or ranking a release-worth of packs into one Portfolio Radar queue that also yields copy-ready owner handoff packets and a reusable dataset handoff.</p>
       </section>
 
       <section class="workspace card">
@@ -28,6 +28,7 @@
           <button id="load-portfolio-button" type="button" class="secondary">Load portfolio example</button>
           <button id="load-handoff-button" type="button" class="secondary">Load Handoff Briefing example</button>
           <button id="load-dataset-button" type="button" class="secondary">Load Casebook Dataset example</button>
+          <button id="load-chronicle-button" type="button" class="secondary">Load Casebook Chronicle example</button>
           <button id="load-merge-button" type="button" class="secondary">Load Casebook Merge example</button>
           <button id="copy-button" type="button" class="ghost">Copy result</button>
         </div>
@@ -205,17 +206,17 @@
           </ul>
         </article>
         <article class="card result-card wide">
-          <span class="result-label">Timeline Radar</span>
+          <span class="result-label">Timeline Radar / Casebook Chronicle</span>
           <p id="timeline-summary-value">Paste labeled rollout snapshots to see incident trends across more than two batches.</p>
         </article>
         <article class="card result-card wide">
-          <span class="result-label">Timeline trend calls</span>
+          <span class="result-label">Trend calls</span>
           <ul id="timeline-incidents-value" class="checklist">
             <li>Timeline trend calls and hotspot movement will appear here after at least two labeled snapshots.</li>
           </ul>
         </article>
         <article class="card result-card wide">
-          <span class="result-label">Timeline hotspot movement</span>
+          <span class="result-label">Hotspot movement</span>
           <ul id="timeline-hotspots-value" class="checklist">
             <li>Timeline hotspot movement between labeled snapshots will appear here once a rollout timeline is pasted.</li>
           </ul>

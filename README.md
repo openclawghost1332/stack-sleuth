@@ -19,6 +19,7 @@ Use the built-in example buttons to compare the main workflows:
 - Handoff Briefing turning a labeled portfolio into owner-specific handoff packets plus explicit ownership-gap and runbook-gap follow-ups
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
 - Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, then replaying that artifact later in the CLI or browser
+- Casebook Chronicle replaying several saved dataset snapshots at once to show owner load, recurring hotspot drift, and casebook movement across release windows
 - Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
 - browser copy that includes excavation-aware summaries plus notebook normalization when the input started as a markdown handoff
 
@@ -402,6 +403,58 @@ cat casebook-dataset.json | node ./bin/stack-sleuth.js --replay-dataset - --mark
 Replay mode renders the saved dataset itself, so you can reopen the preserved response queue, recurring signals, merged case count, and reusable `exportText` without rebuilding the original labeled portfolio first. If the saved artifact has an unsupported version, Stack Sleuth fails clearly and tells you which supported version the current build understands.
 
 In the browser, paste a saved dataset JSON blob into the shared workspace and press **Explain trace(s)** to replay the portable artifact directly. The browser will reuse the saved dataset summary, response queue, recurring hotspots, and reusable export text instead of asking for the original portfolio input again. You can also press **Load Casebook Dataset example** to open a saved dataset replay example, and unsupported version or malformed saved dataset JSON will raise a dataset-specific replay error instead of silently falling through.
+
+## Casebook Chronicle
+
+Casebook Chronicle is the saved-artifact sibling of Timeline Radar. Instead of comparing raw traces or noisy logs, it compares several saved Casebook Dataset snapshots across release windows so you can see owner load, recurring hotspot drift, and casebook movement over time without pretending to recover trace-level culprit, support-frame, or blast-radius detail that was never preserved in the artifact.
+
+### Analyze labeled saved datasets from a file
+
+```bash
+node ./bin/stack-sleuth.js --chronicle ./casebook-chronicle.txt
+```
+
+### Analyze labeled saved datasets from stdin in JSON mode
+
+```bash
+cat casebook-chronicle.txt | node ./bin/stack-sleuth.js --chronicle - --json
+```
+
+### Analyze labeled saved datasets in Markdown
+
+```bash
+node ./bin/stack-sleuth.js --chronicle ./casebook-chronicle.txt --markdown
+```
+
+Chronicle snapshots use labeled `=== label ===` blocks whose bodies are saved dataset JSON blobs:
+
+```text
+=== release-a ===
+{
+  "kind": "stack-sleuth-casebook-dataset",
+  "version": 1,
+  "summary": {
+    "packCount": 2,
+    "runnablePackCount": 2,
+    "mergedCaseCount": 1,
+    "ownerCount": 1
+  }
+}
+
+=== release-b ===
+{
+  "kind": "stack-sleuth-casebook-dataset",
+  "version": 1,
+  "summary": {
+    "packCount": 3,
+    "runnablePackCount": 3,
+    "mergedCaseCount": 2,
+    "ownerCount": 2
+  }
+}
+```
+
+Stack Sleuth uses the preserved dataset fields, including the response queue, recurring hotspots, case list, and saved summary counts, to classify owner, hotspot, and case trends as the release windows move. In the browser, paste the chronicle bundle into the shared workspace and press **Explain trace(s)**, or press **Load Casebook Chronicle example** to replay a multi-snapshot saved-dataset story through the same trend cards used by Timeline Radar.
 
 ## Casebook Merge
 

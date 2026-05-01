@@ -25,6 +25,12 @@ import { analyzeTraceDigest, renderDigestTextSummary } from './digest.js';
 import { parseIncidentPack } from './pack.js';
 import { analyzeRegression } from './regression.js';
 import { analyzeTimeline, renderTimelineTextSummary } from './timeline.js';
+import {
+  analyzeCasebookChronicle,
+  describeChronicleInputError,
+  inspectCasebookChronicleInput,
+  renderCasebookChronicleTextSummary,
+} from './chronicle.js';
 import { extractTraceSet } from './extract.js';
 import {
   parseIncidentNotebook,
@@ -44,6 +50,7 @@ const loadPackButton = document.querySelector('#load-pack-button');
 const loadPortfolioButton = document.querySelector('#load-portfolio-button');
 const loadHandoffButton = document.querySelector('#load-handoff-button');
 const loadDatasetButton = document.querySelector('#load-dataset-button');
+const loadChronicleButton = document.querySelector('#load-chronicle-button');
 const loadMergeButton = document.querySelector('#load-merge-button');
 const copyButton = document.querySelector('#copy-button');
 const caption = document.querySelector('#example-caption');
@@ -117,6 +124,7 @@ const incidentPackExample = examples.find((item) => item.label === 'Incident pac
 const portfolioExample = examples.find((item) => item.label === 'Portfolio radar');
 const handoffExample = examples.find((item) => item.label === 'Handoff Briefing');
 const datasetExample = examples.find((item) => item.label === 'Casebook Dataset');
+const chronicleExample = examples.find((item) => item.label === 'Casebook Chronicle');
 const mergeExample = examples.find((item) => item.label === 'Casebook Merge');
 const casebookExample = examples.find((item) => item.label === 'Casebook Radar');
 const regressionExample = examples.find((item) => item.label === 'Regression radar');
@@ -126,6 +134,17 @@ function renderDiagnosis() {
   const traceText = traceInput.value.trim();
   if (!traceText) {
     resetEmptyState();
+    return;
+  }
+
+  const chronicle = inspectCasebookChronicleInput(traceText);
+  if (chronicle.valid) {
+    renderChronicleWorkflow(chronicle);
+    return;
+  }
+
+  if (shouldRenderChronicleError(chronicle)) {
+    renderChronicleError(chronicle);
     return;
   }
 
@@ -641,6 +660,82 @@ function renderCasebookWorkflow() {
     : 'Casebook Radar compared the current batch against your labeled prior incidents.';
 }
 
+function renderChronicleWorkflow(input) {
+  resetPortfolioState();
+  resetForgeState();
+  resetDatasetState();
+  resetMergeState();
+  resetCasebookState();
+  resetRegressionState();
+
+  const report = input?.valid
+    ? analyzeCasebookChronicle(input)
+    : analyzeCasebookChronicle(traceInput.value.trim());
+  const topOwner = report.ownerTrends[0] ?? null;
+  const topHotspot = report.hotspotTrends[0] ?? null;
+  const topCase = report.caseTrends[0] ?? null;
+  const latestSnapshot = report.snapshots.at(-1) ?? null;
+  const latestDataset = latestSnapshot?.dataset ?? null;
+
+  excavationValue.textContent = `Saved chronicle snapshots: ${report.labels.join(' → ')}`;
+  runtimeValue.textContent = 'casebook chronicle';
+  headlineValue.textContent = report.summary.headline;
+  culpritValue.textContent = topHotspot ? `${topHotspot.label} (${topHotspot.trend})` : 'Saved dataset artifact';
+  confidenceValue.textContent = 'saved artifact';
+  tagsValue.textContent = ['chronicle', topOwner?.trend, topHotspot?.trend].filter(Boolean).join(', ');
+  signatureValue.textContent = topCase?.signature ?? `chronicle:${report.summary.latestLabel}`;
+  summaryValue.textContent = `Casebook Chronicle compared ${report.summary.snapshotCount} saved datasets. Latest snapshot ${report.summary.latestLabel} preserves ${report.summary.latestPackCount} packs, ${report.summary.latestOwnerCount} response owner${report.summary.latestOwnerCount === 1 ? '' : 's'}, ${report.summary.latestHotspotCount} recurring hotspot${report.summary.latestHotspotCount === 1 ? '' : 's'}, and ${report.summary.latestCaseCount} casebook case${report.summary.latestCaseCount === 1 ? '' : 's'}.`;
+  blastRadiusValue.textContent = 'Saved chronicle snapshots preserve dataset-level routing, hotspot, and case counts, but not raw trace blast radius, support frames, or culprit-level call stacks.';
+  digestGroupsValue.replaceChildren(...buildListItems(buildChronicleOwnerItems(report.ownerTrends)));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Casebook Chronicle replays saved dataset signals only. Reopen the source trace, portfolio, or timeline input if you need supporting frames.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems(buildChronicleHotspotItems(report.hotspotTrends, latestDataset)));
+  checklistValue.replaceChildren(...buildListItems(buildChronicleChecklist(report)));
+
+  timelineSummaryValue.textContent = `Casebook Chronicle latest snapshot ${report.summary.latestLabel} spans ${report.summary.latestPackCount} packs. Trend mix: ${report.summary.newOwnerCount} new owners, ${report.summary.risingOwnerCount} rising owners, ${report.summary.newHotspotCount} new hotspots, ${report.summary.risingHotspotCount} rising hotspots, ${report.summary.newCaseCount} new cases, ${report.summary.resolvedCaseCount} resolved cases.`;
+  timelineIncidentsValue.replaceChildren(...buildListItems(buildChronicleTrendItems(report)));
+  timelineHotspotsValue.replaceChildren(...buildListItems(buildChronicleHotspotItems(report.hotspotTrends, latestDataset)));
+  caption.textContent = latestSnapshot
+    ? `Chronicle replayed saved datasets through ${latestSnapshot.label}.`
+    : 'Chronicle replayed saved datasets.';
+}
+
+function renderChronicleError(details) {
+  resetPortfolioState();
+  resetForgeState();
+  resetDatasetState();
+  resetMergeState();
+  resetCasebookState();
+  resetRegressionState();
+  resetTimelineState();
+
+  excavationValue.textContent = 'Saved chronicle replay blocked';
+  runtimeValue.textContent = 'casebook chronicle error';
+  headlineValue.textContent = 'Casebook Chronicle could not replay this saved dataset bundle.';
+  culpritValue.textContent = 'Unsupported chronicle artifact';
+  confidenceValue.textContent = '-';
+  tagsValue.textContent = 'chronicle, error';
+  signatureValue.textContent = 'stack-sleuth-casebook-dataset';
+  summaryValue.textContent = describeChronicleInputError(details);
+  blastRadiusValue.textContent = 'No blast radius details are available because Stack Sleuth stopped before replaying the saved chronicle bundle.';
+  digestGroupsValue.replaceChildren(...buildListItems([
+    'Chronicle snapshots must be labeled === release === style blocks containing saved Casebook Dataset JSON.'
+  ]));
+  supportFramesValue.replaceChildren(...buildListItems([
+    'Chronicle replay errors happen before Stack Sleuth reaches any trace-level call stack.'
+  ]));
+  hotspotsValue.replaceChildren(...buildListItems([
+    'Recurring hotspot drift appears here once Stack Sleuth can replay at least two saved dataset snapshots.'
+  ]));
+  checklistValue.replaceChildren(...buildListItems([
+    'Use at least two labeled snapshots like === release-a === and === release-b ===.',
+    'Make sure each snapshot body is saved Casebook Dataset JSON, not raw traces or casebook text.',
+    'If the dataset version is unsupported, replay it with a compatible Stack Sleuth build or regenerate the artifact.',
+  ]));
+  caption.textContent = describeChronicleInputError(details);
+}
+
 function renderTimelineWorkflow() {
   resetPortfolioState();
   resetForgeState();
@@ -876,6 +971,16 @@ function loadDatasetExample(example) {
   renderDiagnosis();
 }
 
+function loadChronicleExample(example) {
+  if (!example) {
+    return;
+  }
+
+  traceInput.value = example.chronicle;
+  caption.textContent = example.caption;
+  renderDiagnosis();
+}
+
 function loadMergeExample(example) {
   if (!example) {
     return;
@@ -920,6 +1025,23 @@ function loadCasebookExample(example) {
 
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
+  const chronicle = inspectCasebookChronicleInput(traceText);
+
+  if (chronicle.valid) {
+    try {
+      await navigator.clipboard.writeText(renderCasebookChronicleTextSummary(analyzeCasebookChronicle(chronicle)));
+      caption.textContent = 'Casebook Chronicle summary copied to clipboard.';
+    } catch {
+      caption.textContent = 'Clipboard copy unavailable here, but the Casebook Chronicle summary is ready to copy manually.';
+    }
+    return;
+  }
+
+  if (shouldRenderChronicleError(chronicle)) {
+    caption.textContent = describeChronicleInputError(chronicle);
+    return;
+  }
+
   const replay = inspectReplayDatasetInput(traceText);
 
   if (replay.valid) {
@@ -1195,6 +1317,18 @@ function buildPortfolioBlastRadiusSummary(topPack, primaryIncident) {
   return `Top pack ${topPack.label} centers on ${culprit}. ${formatBlastRadiusSummary(blastRadius)}`;
 }
 
+function shouldRenderChronicleError(chronicle) {
+  if (!chronicle || chronicle.valid) {
+    return false;
+  }
+
+  if ((chronicle.snapshots?.length ?? 0) < 1) {
+    return false;
+  }
+
+  return chronicle.snapshots.every((snapshot) => String(snapshot.source ?? '').trim().startsWith('{'));
+}
+
 function shouldRenderDatasetReplayError(replay, input) {
   if (replay.reason === 'unsupported-version' || replay.reason === 'wrong-kind' || replay.reason === 'invalid-json') {
     return true;
@@ -1380,6 +1514,40 @@ function buildHotspotItems(hotspots) {
   return hotspots.slice(0, 5).map((hotspot) => (
     `${hotspot.label} scored ${hotspot.score} (${hotspot.culpritCount} culprit, ${hotspot.supportCount} support)`
   ));
+}
+
+function buildChronicleOwnerItems(owners) {
+  return owners.length
+    ? owners.map((entry) => `${entry.trend}: ${entry.owner} ${entry.series.join(' → ')}`)
+    : ['Owner load trends will appear here once the chronicle has valid response-queue snapshots.'];
+}
+
+function buildChronicleHotspotItems(hotspots, latestDataset = null) {
+  if (hotspots.length) {
+    return hotspots.map((entry) => `${entry.trend}: ${entry.label} ${entry.series.join(' → ')}`);
+  }
+
+  if (latestDataset?.recurringHotspots?.length) {
+    return latestDataset.recurringHotspots.map((entry) => `${entry.label}: ${entry.packCount} saved pack${entry.packCount === 1 ? '' : 's'}`);
+  }
+
+  return ['Recurring hotspot drift will appear here once the chronicle preserves hotspot snapshots.'];
+}
+
+function buildChronicleTrendItems(report) {
+  const ownerLines = report.ownerTrends.slice(0, 3).map((entry) => `owner ${entry.trend}: ${entry.owner} ${entry.series.join(' → ')}`);
+  const hotspotLines = report.hotspotTrends.slice(0, 3).map((entry) => `hotspot ${entry.trend}: ${entry.label} ${entry.series.join(' → ')}`);
+  const caseLines = report.caseTrends.slice(0, 3).map((entry) => `case ${entry.trend}: ${entry.signature} ${entry.series.join(' → ')}`);
+  const items = [...ownerLines, ...hotspotLines, ...caseLines];
+  return items.length ? items : ['Chronicle trend calls will appear here after at least two valid saved dataset snapshots.'];
+}
+
+function buildChronicleChecklist(report) {
+  return [
+    `Inspect the latest saved dataset export for ${report.summary.latestLabel} if you need reusable casebook text.`,
+    'Reopen the source portfolio or timeline input if you need trace-level culprit frames or blast radius detail.',
+    'Use the owner and hotspot trend lines to decide which saved release window deserves a deeper replay next.',
+  ];
 }
 
 function buildTimelineIncidentItems(incidents) {
@@ -1585,6 +1753,7 @@ loadPackButton?.addEventListener('click', () => loadIncidentPackExample(incident
 loadPortfolioButton?.addEventListener('click', () => loadPortfolioExample(portfolioExample));
 loadHandoffButton?.addEventListener('click', () => loadPortfolioExample(handoffExample));
 loadDatasetButton?.addEventListener('click', () => loadDatasetExample(datasetExample));
+loadChronicleButton?.addEventListener('click', () => loadChronicleExample(chronicleExample));
 loadMergeButton?.addEventListener('click', () => loadMergeExample(mergeExample));
 loadRegressionButton?.addEventListener('click', () => loadRegressionExample(regressionExample));
 compareButton?.addEventListener('click', renderRegressionWorkflow);

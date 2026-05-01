@@ -34,6 +34,13 @@ test('README documents incident workspace intake for single folders and portfoli
   assert.match(readme, /notebook\.md/);
 });
 
+test('README documents Incident Capsule intake for CLI-first capsule interop', () => {
+  const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /Incident Capsule/i);
+  assert.match(readme, /--capsule/);
+  assert.match(readme, /incident-capsule/i);
+});
+
 test('README documents browser and CLI workflows, including incident digest mode', () => {
   const readme = fs.readFileSync(new URL('../README.md', import.meta.url), 'utf8');
   assert.match(readme, /Incident Digest/i);

@@ -167,6 +167,37 @@ release-review/
 
 This keeps the public CLI opinionated but lightweight. Real folders normalize into the same reusable pack and portfolio engines, so one workspace can move from ad hoc triage to ranking, casebook forging, or casebook merge without a second translation step.
 
+## Incident Capsule
+
+Incident Capsule is the CLI-first portable bridge from `incident-capsule` into Stack Sleuth. Feed Stack Sleuth a raw `incident-capsule` artifact and it will normalize the recognized capsule files into the existing Incident Pack Briefing or Portfolio Radar workflows.
+
+### Analyze a raw incident capsule from a file
+
+```bash
+node ./bin/stack-sleuth.js --capsule ./sample/incident-capsule.json
+```
+
+### Analyze a raw incident capsule from stdin in JSON mode
+
+```bash
+cat sample/incident-capsule.json | node ./bin/stack-sleuth.js --capsule - --json
+```
+
+This repo ships `sample/incident-capsule.json` as a ready-to-run fixture for the bridge.
+
+Stack Sleuth currently recognizes these capsule filenames by deterministic convention:
+
+- `current.log`
+- `history.casebook`
+- `baseline.log`
+- `candidate.log`
+- `timeline.log`
+- `notebook.md`
+
+A capsule with recognized files at the root becomes one incident pack. A capsule with recognized files under `packs/<label>/...` becomes one portfolio pack per label. If both appear, Stack Sleuth keeps the `packs/<label>/...` portfolio view and ignores the root workflow files so the routing stays deterministic.
+
+Notebook-only packs still reuse the existing notebook normalization flow, and duplicate capsule artifact paths resolve deterministically by keeping the last matching artifact for that relative path.
+
 ## Incident Pack Briefing
 
 Incident Pack Briefing is the highest-leverage Stack Sleuth workflow when you already have a few related artifacts from an active incident. Instead of running the current batch, casebook, regression compare, and rollout timeline as separate commands, you can paste one structured pack and get one composed briefing back.

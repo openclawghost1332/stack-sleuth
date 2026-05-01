@@ -78,6 +78,11 @@ import {
 } from '../src/notebook.js';
 import { parseIncidentPack } from '../src/pack.js';
 import { loadIncidentWorkspace } from '../src/workspace.js';
+import {
+  describeCapsuleInputError,
+  inspectCapsuleInput,
+  normalizeCapsuleToWorkflow,
+} from '../src/capsule.js';
 
 const args = process.argv.slice(2);
 const mode = args.includes('--json') ? 'json' : args.includes('--markdown') ? 'markdown' : 'text';
@@ -98,6 +103,7 @@ const replayShelfArgumentError = validateOptionValue(args, '--replay-shelf');
 const historyArgumentError = validateOptionValue(args, '--history');
 const currentArgumentError = validateOptionValue(args, '--current');
 const workspaceArgumentError = validateOptionValue(args, '--workspace');
+const capsuleArgumentError = validateOptionValue(args, '--capsule');
 const baselinePath = readOptionValue(args, '--baseline');
 const candidatePath = readOptionValue(args, '--candidate');
 const packPath = readOptionValue(args, '--pack');
@@ -115,6 +121,7 @@ const replayShelfPath = readOptionValue(args, '--replay-shelf');
 const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
 const workspacePath = readOptionValue(args, '--workspace');
+const capsulePath = readOptionValue(args, '--capsule');
 const workflowArgumentError = validateWorkflowArguments({
   baselinePath,
   candidatePath,
@@ -132,6 +139,7 @@ const workflowArgumentError = validateWorkflowArguments({
   replayShelfPath,
   historyPath,
   workspacePath,
+  capsulePath,
 });
 const filePath = args.find((arg, index) => {
   if (arg.startsWith('--')) {
@@ -157,6 +165,7 @@ const filePath = args.find((arg, index) => {
     '--history',
     '--current',
     '--workspace',
+    '--capsule',
   ].includes(previous);
 }) ?? null;
 
@@ -224,6 +233,10 @@ if (workspaceArgumentError) {
   fail(workspaceArgumentError);
 }
 
+if (capsuleArgumentError) {
+  fail(capsuleArgumentError);
+}
+
 if (currentPath && !historyPath) {
   fail('Casebook Radar requires --history when using --current.');
 }
@@ -272,6 +285,23 @@ try {
     }
 
     writeOutput({ workspace, routed: { mode: 'pack', report } }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary);
+    process.exit(0);
+  }
+
+  if (capsulePath) {
+    const capsuleInput = capsulePath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(capsulePath, 'capsule');
+    const inspection = inspectCapsuleInput(capsuleInput);
+
+    if (!inspection.valid) {
+      fail(describeCapsuleInputError(inspection));
+    }
+
+    const capsule = normalizeCapsuleToWorkflow(inspection.capsule);
+    const routed = capsule.kind === 'portfolio'
+      ? { mode: 'portfolio', report: analyzeIncidentPortfolio(capsule.normalizedText) }
+      : { mode: 'pack', report: analyzeIncidentPack(capsule.normalizedText) };
+
+    writeOutput({ capsule, routed }, mode, renderCapsuleCliTextSummary, renderCapsuleCliMarkdownSummary);
     process.exit(0);
   }
 
@@ -560,6 +590,10 @@ try {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read workspace input: ${error.message}`);
   }
 
+  if (capsulePath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read capsule input: ${error.message}`);
+  }
+
   if (portfolioPath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read portfolio input: ${error.message}`);
   }
@@ -646,9 +680,10 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, datasetPath, replayDatasetPath, shelfPath, replayShelfPath, historyPath, workspacePath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, datasetPath, replayDatasetPath, shelfPath, replayShelfPath, historyPath, workspacePath, capsulePath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
+    capsulePath ? 'capsule' : null,
     portfolioPath ? 'portfolio' : null,
     forgePath ? 'forge' : null,
     handoffPath ? 'handoff' : null,
@@ -666,7 +701,7 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, shelf, replay-shelf, or compare.';
+    return 'Choose one workflow mode at a time: capsule, forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, shelf, replay-shelf, or compare.';
   }
 
   return null;
@@ -728,6 +763,18 @@ function writeOutput(payload, outputMode, textRenderer, markdownRenderer) {
 }
 
 function toSerializablePayload(payload) {
+  if (payload?.capsule && payload?.routed?.report) {
+    const routedPayload = toSerializablePayload(payload.routed.report);
+    return {
+      capsule: serializeCapsule(payload.capsule),
+      routed: {
+        mode: payload.routed.mode,
+        summary: routedPayload.summary ?? null,
+      },
+      ...routedPayload,
+    };
+  }
+
   if (payload?.workspace && payload?.notebook && payload?.routed?.report) {
     const routedPayload = toSerializablePayload(payload.routed.report);
     return {
@@ -1016,6 +1063,22 @@ function serializeWorkspace(workspace) {
   };
 }
 
+function serializeCapsule(capsule) {
+  return {
+    kind: capsule?.kind ?? 'unsupported',
+    recognizedFiles: capsule?.recognizedFiles ?? [],
+    packOrder: capsule?.packOrder ?? [],
+    packs: Array.isArray(capsule?.packs)
+      ? capsule.packs.map((pack) => ({
+        label: pack.label,
+        recognizedFiles: pack.recognizedFiles ?? [],
+      }))
+      : [],
+    omittedPacks: capsule?.omittedPacks ?? [],
+    warnings: capsule?.warnings ?? [],
+  };
+}
+
 function routeNotebookForCli(notebook) {
   return routeIncidentNotebook({
     notebook,
@@ -1051,6 +1114,18 @@ function renderWorkspaceCliMarkdownSummary(payload) {
     return renderNotebookCliMarkdownSummary(payload);
   }
 
+  return payload.routed.mode === 'portfolio'
+    ? renderIncidentPortfolioMarkdownSummary(payload.routed.report)
+    : renderIncidentPackMarkdownSummary(payload.routed.report);
+}
+
+function renderCapsuleCliTextSummary(payload) {
+  return payload.routed.mode === 'portfolio'
+    ? renderIncidentPortfolioTextSummary(payload.routed.report)
+    : renderIncidentPackTextSummary(payload.routed.report);
+}
+
+function renderCapsuleCliMarkdownSummary(payload) {
   return payload.routed.mode === 'portfolio'
     ? renderIncidentPortfolioMarkdownSummary(payload.routed.report)
     : renderIncidentPackMarkdownSummary(payload.routed.report);

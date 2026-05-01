@@ -142,6 +142,17 @@ const notebookUnrunnablePortfolioInput = [
   casebookHistoryInput,
 ].join('\n');
 
+const capsulePortfolioInput = JSON.stringify({
+  kind: 'incident-capsule',
+  version: '1',
+  source: { inputPath: 'fixture' },
+  artifacts: [
+    buildCapsuleArtifact('packs/checkout-prod/current.log', sampleTrace),
+    buildCapsuleArtifact('packs/billing-canary/baseline.log', sampleTrace),
+    buildCapsuleArtifact('packs/billing-canary/candidate.log', comparisonTrace),
+  ],
+}, null, 2);
+
 const noisySingleTraceLog = [
   '2026-04-30T01:50:00Z INFO api boot complete',
   `2026-04-30T01:50:01Z ERROR web ${sampleTrace.split('\n').join('\n2026-04-30T01:50:01Z ERROR web ')}`,
@@ -1015,6 +1026,14 @@ test('CLI notebook portfolio mode exits non-zero when every normalized pack is u
   assert.equal(result.stdout, '');
 });
 
+test('CLI reads a raw incident capsule with --capsule and prints the routed briefing', () => {
+  const result = runCli(['--capsule', '-'], { input: capsulePortfolioInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Portfolio Radar/);
+  assert.match(result.stdout, /billing-canary/);
+});
+
 test('CLI reads --workspace for a single incident folder and prints an incident pack briefing', async (t) => {
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-cli-workspace-'));
   t.after(() => fs.promises.rm(tempDir, { recursive: true, force: true }));
@@ -1086,6 +1105,19 @@ test('CLI exits non-zero when multiple workflow modes are requested together', a
 });
 
 import { buildReleaseGate } from '../src/gate.js';
+
+function buildCapsuleArtifact(relativePath, excerpt) {
+  return {
+    relativePath,
+    kind: relativePath.endsWith('.md') ? 'markdown' : 'log',
+    supported: true,
+    size: excerpt.length,
+    modifiedAt: '2026-05-01T07:14:00.000Z',
+    contentLength: excerpt.length,
+    excerpt,
+    warnings: [],
+  };
+}
 
 function buildChronicleDataset({
   packCount = 2,

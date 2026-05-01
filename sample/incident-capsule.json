@@ -1,0 +1,47 @@
+{
+  "kind": "incident-capsule",
+  "version": "1",
+  "source": {
+    "inputPath": "sample/stack-sleuth-interop"
+  },
+  "artifacts": [
+    {
+      "relativePath": "current.log",
+      "kind": "log",
+      "supported": true,
+      "size": 248,
+      "modifiedAt": "2026-05-01T07:14:00.000Z",
+      "contentLength": 248,
+      "excerpt": "TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "warnings": []
+    },
+    {
+      "relativePath": "baseline.log",
+      "kind": "log",
+      "supported": true,
+      "size": 248,
+      "modifiedAt": "2026-05-01T07:14:00.000Z",
+      "contentLength": 248,
+      "excerpt": "TypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "warnings": []
+    },
+    {
+      "relativePath": "candidate.log",
+      "kind": "log",
+      "supported": true,
+      "size": 251,
+      "modifiedAt": "2026-05-01T07:14:00.000Z",
+      "contentLength": 251,
+      "excerpt": "TypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)",
+      "warnings": []
+    }
+  ],
+  "summary": {
+    "artifactCount": 3,
+    "processedCount": 3,
+    "ignoredCount": 0,
+    "unreadableCount": 0,
+    "warningCount": 0,
+    "malformedCount": 0
+  }
+}

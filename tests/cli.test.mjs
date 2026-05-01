@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { analyzeTrace } from '../src/analyze.js';
+import { analyzeIncidentPortfolio } from '../src/portfolio.js';
+import { buildResponseBundle } from '../src/bundle.js';
 
 const cliPath = new URL('../bin/stack-sleuth.js', import.meta.url);
 const packageJsonPath = new URL('../package.json', import.meta.url);
@@ -562,6 +564,105 @@ test('CLI replays a saved dataset in json mode', () => {
   assert.equal(parsed.version, 1);
   assert.equal(parsed.summary.ownerCount, 1);
   assert.equal(parsed.gate.verdict, 'hold');
+});
+
+test('CLI replays a self-contained response bundle json from stdin', () => {
+  const report = analyzeIncidentPortfolio(portfolioInput);
+  const bundle = buildResponseBundle({ report, sourceMode: 'portfolio', sourceLabel: 'stdin replay fixture' });
+
+  const result = runCli(['--replay-bundle', '-'], { input: bundle.files['response-bundle.json'] });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Response Bundle Replay/);
+  assert.match(result.stdout, /Source workflow: portfolio \(stdin replay fixture\)/i);
+  assert.match(result.stdout, /Response owners: 1/);
+  assert.match(result.stdout, /Saved-artifact note:/i);
+  assert.doesNotMatch(result.stdout, /raw trace recovery/i);
+});
+
+test('CLI replays a self-contained response bundle json file path in markdown mode', async () => {
+  const report = analyzeIncidentPortfolio(portfolioInput);
+  const bundle = buildResponseBundle({ report, sourceMode: 'portfolio', sourceLabel: 'file replay fixture' });
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-replay-bundle-'));
+  const bundlePath = path.join(tempDir, 'response-bundle.json');
+  await fs.promises.writeFile(bundlePath, bundle.files['response-bundle.json'], 'utf8');
+
+  const result = runCli(['--replay-bundle', bundlePath, '--markdown']);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^# Stack Sleuth Response Bundle Replay/m);
+  assert.match(result.stdout, /- \*\*Source workflow:\*\* portfolio \(file replay fixture\)/i);
+  assert.match(result.stdout, /## Bundle inventory/);
+});
+
+test('CLI replays a saved response bundle directory path', async () => {
+  const outputDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-replay-bundle-dir-'));
+  const writeResult = runCli(['--portfolio', '-', '--bundle', outputDir], { input: portfolioInput });
+  assert.equal(writeResult.status, 0, writeResult.stderr);
+
+  const result = runCli(['--replay-bundle', outputDir]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Stack Sleuth Response Bundle Replay/);
+  assert.match(result.stdout, /Bundle files: 8/);
+  assert.match(result.stdout, /casebook-dataset\.json/);
+  assert.match(result.stdout, /response-bundle\.json/);
+});
+
+test('CLI replays a legacy version-1 response bundle directory when manifest and dataset exist', async () => {
+  const report = analyzeIncidentPortfolio(portfolioInput);
+  const bundle = buildResponseBundle({ report, sourceMode: 'portfolio', sourceLabel: 'legacy directory fixture' });
+  const outputDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-replay-bundle-v1-'));
+  const manifest = JSON.parse(bundle.files['manifest.json']);
+  manifest.version = 1;
+  manifest.files = manifest.files.filter((name) => name !== 'response-bundle.json');
+  await fs.promises.writeFile(path.join(outputDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  await fs.promises.writeFile(path.join(outputDir, 'casebook-dataset.json'), bundle.files['casebook-dataset.json'], 'utf8');
+  await fs.promises.writeFile(path.join(outputDir, 'portfolio-summary.md'), bundle.files['portfolio-summary.md'], 'utf8');
+
+  const result = runCli(['--replay-bundle', outputDir, '--json']);
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.kind, 'stack-sleuth-response-bundle');
+  assert.equal(parsed.version, 2);
+  assert.equal(parsed.sourceVersion, 1);
+  assert.equal(parsed.dataset.summary.ownerCount, 1);
+  assert.equal(parsed.summary.fileCount, 7);
+});
+
+test('CLI replay-bundle reports specific errors for wrong kind, unsupported version, malformed input, and missing dataset in saved bundle', async () => {
+  const wrongKind = runCli(['--replay-bundle', '-'], {
+    input: JSON.stringify({ kind: 'stack-sleuth-casebook-dataset', version: 1 }),
+  });
+  assert.equal(wrongKind.status, 1);
+  assert.match(wrongKind.stderr, /Response Bundle replay uses unsupported kind: stack-sleuth-casebook-dataset\./i);
+
+  const unsupportedVersion = runCli(['--replay-bundle', '-'], {
+    input: JSON.stringify({ kind: 'stack-sleuth-response-bundle', version: 99, manifest: { files: [] }, artifacts: {} }),
+  });
+  assert.equal(unsupportedVersion.status, 1);
+  assert.match(unsupportedVersion.stderr, /Response Bundle replay uses unsupported version 99\. Supported versions: 1, 2\./i);
+
+  const malformed = runCli(['--replay-bundle', '-'], {
+    input: '{"kind":"stack-sleuth-response-bundle","version":2',
+  });
+  assert.equal(malformed.status, 1);
+  assert.match(malformed.stderr, /Response Bundle replay could not parse the saved bundle JSON\./i);
+
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-replay-bundle-missing-dataset-'));
+  await fs.promises.writeFile(path.join(tempDir, 'manifest.json'), JSON.stringify({
+    kind: 'stack-sleuth-response-bundle',
+    version: 1,
+    generatedAt: '2026-05-01T00:00:00.000Z',
+    source: { mode: 'portfolio', label: 'missing dataset fixture' },
+    summary: { headline: 'missing dataset' },
+    files: ['manifest.json', 'portfolio-summary.md'],
+  }, null, 2), 'utf8');
+
+  const missingDataset = runCli(['--replay-bundle', tempDir]);
+  assert.equal(missingDataset.status, 1);
+  assert.match(missingDataset.stderr, /Response Bundle replay requires casebook-dataset\.json in saved bundle directories\./i);
 });
 
 test('CLI reads labeled saved datasets with --chronicle and prints a chronicle summary', () => {
@@ -1261,13 +1362,14 @@ async function assertResponseBundle(outputDir, expectedSourceMode) {
     'manifest.json',
     'merge-review.md',
     'portfolio-summary.md',
+    'response-bundle.json',
   ];
   const files = (await fs.promises.readdir(outputDir)).sort();
   assert.deepEqual(files, expectedFiles);
 
   const manifest = JSON.parse(await fs.promises.readFile(path.join(outputDir, 'manifest.json'), 'utf8'));
   assert.equal(manifest.kind, 'stack-sleuth-response-bundle');
-  assert.equal(manifest.version, 1);
+  assert.equal(manifest.version, 2);
   assert.equal(manifest.source.mode, expectedSourceMode);
   assert.deepEqual([...manifest.files].sort(), expectedFiles);
   assert.match(await fs.promises.readFile(path.join(outputDir, 'incident-dossier.html'), 'utf8'), /<!doctype html>/i);

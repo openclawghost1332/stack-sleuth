@@ -18,7 +18,7 @@ Use the built-in example buttons to compare the main workflows:
 - several structured incident packs ranked in Portfolio Radar mode with an owner-aware response queue, explicit routing gaps, runbook gaps, recurring incidents, and shared hotspots
 - Handoff Briefing turning a labeled portfolio into owner-specific handoff packets plus explicit ownership-gap and runbook-gap follow-ups
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
-- Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory
+- Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, then replaying that artifact later in the CLI or browser
 - Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
 - browser copy that includes excavation-aware summaries plus notebook normalization when the input started as a markdown handoff
 
@@ -387,7 +387,21 @@ cat current.log | node ./bin/stack-sleuth.js --history ./casebook-dataset.json
 
 That makes the dataset a durable casebook snapshot instead of a one-time report.
 
-In the browser, Portfolio Radar now surfaces the same dataset summary and reusable export text in dedicated Casebook Dataset cards, so the visible triage view and the saved CLI artifact stay aligned. You can also press **Load Casebook Dataset example** to open the shared portfolio example directly in that dataset-oriented view.
+### Replay a saved dataset directly
+
+```bash
+node ./bin/stack-sleuth.js --replay-dataset ./casebook-dataset.json
+```
+
+### Replay a saved dataset from stdin in Markdown
+
+```bash
+cat casebook-dataset.json | node ./bin/stack-sleuth.js --replay-dataset - --markdown
+```
+
+Replay mode renders the saved dataset itself, so you can reopen the preserved response queue, recurring signals, merged case count, and reusable `exportText` without rebuilding the original labeled portfolio first. If the saved artifact has an unsupported version, Stack Sleuth fails clearly and tells you which supported version the current build understands.
+
+In the browser, paste a saved dataset JSON blob into the shared workspace and press **Explain trace(s)** to replay the portable artifact directly. The browser will reuse the saved dataset summary, response queue, recurring hotspots, and reusable export text instead of asking for the original portfolio input again. You can also press **Load Casebook Dataset example** to open a saved dataset replay example, and unsupported version or malformed saved dataset JSON will raise a dataset-specific replay error instead of silently falling through.
 
 ## Casebook Merge
 

@@ -49,7 +49,13 @@ import {
   renderCasebookMergeTextSummary,
   renderCasebookMergeMarkdownSummary,
 } from '../src/merge.js';
-import { buildCasebookDataset, inspectDatasetHistoryInput } from '../src/dataset.js';
+import {
+  buildCasebookDataset,
+  inspectDatasetHistoryInput,
+  inspectReplayDatasetInput,
+  renderDatasetMarkdownSummary,
+  renderDatasetTextSummary,
+} from '../src/dataset.js';
 import { extractTraceSet, formatExtractionMarkdown, formatExtractionText } from '../src/extract.js';
 import {
   parseIncidentNotebook,
@@ -71,6 +77,7 @@ const notebookArgumentError = validateOptionValue(args, '--notebook');
 const mergeCasebookArgumentError = validateOptionValue(args, '--merge-casebook');
 const timelineArgumentError = validateOptionValue(args, '--timeline');
 const datasetArgumentError = validateOptionValue(args, '--dataset');
+const replayDatasetArgumentError = validateOptionValue(args, '--replay-dataset');
 const historyArgumentError = validateOptionValue(args, '--history');
 const currentArgumentError = validateOptionValue(args, '--current');
 const workspaceArgumentError = validateOptionValue(args, '--workspace');
@@ -84,6 +91,7 @@ const notebookPath = readOptionValue(args, '--notebook');
 const mergeCasebookPath = readOptionValue(args, '--merge-casebook');
 const timelinePath = readOptionValue(args, '--timeline');
 const datasetPath = readOptionValue(args, '--dataset');
+const replayDatasetPath = readOptionValue(args, '--replay-dataset');
 const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
 const workspacePath = readOptionValue(args, '--workspace');
@@ -98,6 +106,7 @@ const workflowArgumentError = validateWorkflowArguments({
   mergeCasebookPath,
   timelinePath,
   datasetPath,
+  replayDatasetPath,
   historyPath,
   workspacePath,
 });
@@ -118,6 +127,7 @@ const filePath = args.find((arg, index) => {
     '--merge-casebook',
     '--timeline',
     '--dataset',
+    '--replay-dataset',
     '--history',
     '--current',
     '--workspace',
@@ -158,6 +168,10 @@ if (timelineArgumentError) {
 
 if (datasetArgumentError) {
   fail(datasetArgumentError);
+}
+
+if (replayDatasetArgumentError) {
+  fail(replayDatasetArgumentError);
 }
 
 if (historyArgumentError) {
@@ -305,7 +319,27 @@ try {
       fail('Casebook Dataset mode requires at least one runnable labeled incident pack. Add at least one pack with @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
     }
 
-    writeOutput(report, mode, renderDatasetCliTextSummary, renderDatasetCliMarkdownSummary);
+    writeOutput(report, mode, renderDatasetTextSummary, renderDatasetMarkdownSummary);
+    process.exit(0);
+  }
+
+  if (replayDatasetPath) {
+    const replayInput = replayDatasetPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(replayDatasetPath, 'dataset replay');
+    const replay = inspectReplayDatasetInput(replayInput);
+
+    if (!replay.valid && replay.reason === 'wrong-kind') {
+      fail(`Casebook Dataset replay uses unsupported kind: ${replay.parsed?.kind ?? 'unknown'}.`);
+    }
+
+    if (!replay.valid && replay.reason === 'unsupported-version') {
+      fail(`Casebook Dataset replay uses unsupported version ${replay.parsed?.version ?? 'unknown'}. Supported version: ${replay.supportedVersion}.`);
+    }
+
+    if (!replay.valid) {
+      fail('Casebook Dataset replay requires saved Stack Sleuth dataset JSON.');
+    }
+
+    writeOutput(replay.dataset, mode, renderDatasetTextSummary, renderDatasetMarkdownSummary);
     process.exit(0);
   }
 
@@ -358,6 +392,10 @@ try {
 
     if (!datasetHistory.valid && datasetHistory.reason === 'wrong-kind') {
       fail(`Casebook Dataset history uses unsupported kind: ${datasetHistory.parsed?.kind ?? 'unknown'}.`);
+    }
+
+    if (!datasetHistory.valid && datasetHistory.reason === 'unsupported-version') {
+      fail(`Casebook Dataset history uses unsupported version ${datasetHistory.parsed?.version ?? 'unknown'}. Supported version: ${datasetHistory.supportedVersion}.`);
     }
 
     const historyBatches = parseCasebookHistoryInput(historyInput);
@@ -469,6 +507,10 @@ try {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read dataset input: ${error.message}`);
   }
 
+  if (replayDatasetPath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read dataset replay input: ${error.message}`);
+  }
+
   if (baselinePath || candidatePath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read compare input: ${error.message}`);
   }
@@ -515,7 +557,7 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, datasetPath, historyPath, workspacePath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, datasetPath, replayDatasetPath, historyPath, workspacePath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     portfolioPath ? 'portfolio' : null,
@@ -527,11 +569,12 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
     packPath ? 'incident-pack' : null,
     timelinePath ? 'timeline' : null,
     datasetPath ? 'dataset' : null,
+    replayDatasetPath ? 'replay-dataset' : null,
     baselinePath || candidatePath ? 'compare' : null,
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, dataset, or compare.';
+    return 'Choose one workflow mode at a time: forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, dataset, replay-dataset, or compare.';
   }
 
   return null;
@@ -947,38 +990,6 @@ function renderMergeCliMarkdownSummary(report) {
   ].join('\n').trim();
 }
 
-function renderDatasetCliTextSummary(report) {
-  return [
-    'Stack Sleuth Casebook Dataset',
-    report.summary.headline,
-    `Portfolio packs: ${report.summary.packCount}`,
-    `Runnable packs: ${report.summary.runnablePackCount}`,
-    `Response owners: ${report.summary.ownerCount}`,
-    `Merged cases: ${report.summary.mergedCaseCount}`,
-    `Conflicts: ${report.summary.conflictCount}`,
-    '',
-    'Reusable casebook export',
-    report.exportText,
-  ].join('\n').trim();
-}
-
-function renderDatasetCliMarkdownSummary(report) {
-  return [
-    '# Stack Sleuth Casebook Dataset',
-    '',
-    `- **Headline:** ${report.summary.headline}`,
-    `- **Portfolio packs:** ${report.summary.packCount}`,
-    `- **Runnable packs:** ${report.summary.runnablePackCount}`,
-    `- **Response owners:** ${report.summary.ownerCount}`,
-    `- **Merged cases:** ${report.summary.mergedCaseCount}`,
-    `- **Conflicts:** ${report.summary.conflictCount}`,
-    '',
-    '## Reusable casebook export',
-    '```text',
-    report.exportText,
-    '```',
-  ].join('\n').trim();
-}
 
 function fail(message) {
   process.stderr.write(`${message}\n`);

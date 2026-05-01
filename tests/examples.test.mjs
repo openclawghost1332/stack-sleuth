@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { analyzeCasebook } from '../src/casebook.js';
 import { analyzeIncidentPack } from '../src/briefing.js';
+import { inspectReplayDatasetInput } from '../src/dataset.js';
 import { analyzeCasebookForge } from '../src/forge.js';
 import { analyzeIncidentPortfolio } from '../src/portfolio.js';
 import { examples } from '../src/examples.js';
@@ -131,9 +132,15 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.match(forge.exportText, /=== profile-js-generic-runtime-error ===/);
 
   const datasetExample = examples.find((item) => item.label === 'Casebook Dataset');
-  assert.match(datasetExample.caption, /portable dataset|dataset handoff|merged casebook export/i);
-  assert.match(datasetExample.portfolio, /@@@ checkout-prod @@@/i);
-  assert.match(datasetExample.portfolio, /@@@ billing-canary @@@/i);
+  assert.match(datasetExample.caption, /replay|saved dataset|dataset handoff/i);
+  assert.equal(typeof datasetExample.dataset, 'string');
+  assert.match(datasetExample.dataset, /"kind": "stack-sleuth-casebook-dataset"/i);
+
+  const replay = inspectReplayDatasetInput(datasetExample.dataset);
+  assert.equal(replay.valid, true);
+  assert.equal(replay.dataset.summary.runnablePackCount, 3);
+  assert.equal(replay.dataset.summary.ownerCount, 1);
+  assert.match(replay.dataset.exportText, /=== profile-js-generic-runtime-error ===/);
 });
 
 test('browser main uses the shared Casebook Radar example instead of a duplicate fixture', () => {

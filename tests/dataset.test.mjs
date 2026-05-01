@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCasebookDataset, parseDatasetHistory } from '../src/dataset.js';
+import {
+  buildCasebookDataset,
+  inspectReplayDatasetInput,
+  parseDatasetHistory,
+  renderDatasetMarkdownSummary,
+  renderDatasetTextSummary,
+} from '../src/dataset.js';
 
 const portfolioInput = `@@@ checkout-prod @@@
 @@ current @@
@@ -40,4 +46,48 @@ test('parseDatasetHistory converts saved dataset json into labeled history batch
   assert.equal(batches[0].label, 'release-2026-04-15');
   assert.equal(batches[0].metadata.owner, 'web-platform');
   assert.match(batches[0].traces, /renderProfile/);
+});
+
+test('inspectReplayDatasetInput validates a saved dataset and returns a normalized replay payload', () => {
+  const dataset = buildCasebookDataset(portfolioInput);
+
+  const result = inspectReplayDatasetInput(JSON.stringify(dataset));
+
+  assert.equal(result.valid, true);
+  assert.equal(result.dataset.kind, 'stack-sleuth-casebook-dataset');
+  assert.equal(result.dataset.version, 1);
+  assert.equal(result.dataset.summary.ownerCount, 1);
+  assert.ok(result.dataset.responseQueue.length >= 1);
+  assert.ok(result.dataset.recurringHotspots.length >= 1);
+  assert.match(result.dataset.exportText, /^=== release-2026-04-15 ===/m);
+});
+
+test('inspectReplayDatasetInput rejects unsupported dataset versions with the supported version number', () => {
+  const dataset = buildCasebookDataset(portfolioInput);
+  dataset.version = 99;
+
+  const result = inspectReplayDatasetInput(dataset);
+
+  assert.equal(result.valid, false);
+  assert.equal(result.reason, 'unsupported-version');
+  assert.equal(result.supportedVersion, 1);
+  assert.equal(result.parsed.version, 99);
+});
+
+test('shared dataset renderers include summary counts and reusable export text', () => {
+  const dataset = buildCasebookDataset(portfolioInput);
+
+  const text = renderDatasetTextSummary(dataset);
+  const markdown = renderDatasetMarkdownSummary(dataset);
+
+  assert.match(text, /Stack Sleuth Casebook Dataset/);
+  assert.match(text, /Response owners: 1/);
+  assert.match(text, /Merged cases:/);
+  assert.match(text, /Reusable casebook export/);
+  assert.match(text, /=== release-2026-04-15 ===/);
+
+  assert.match(markdown, /^# Stack Sleuth Casebook Dataset/m);
+  assert.match(markdown, /- \*\*Response owners:\*\* 1/);
+  assert.match(markdown, /## Reusable casebook export/);
+  assert.match(markdown, /=== release-2026-04-15 ===/);
 });

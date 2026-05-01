@@ -25,6 +25,7 @@ import {
   inspectResponseBundleReplayInput,
   renderResponseBundleTextSummary,
 } from './bundle-replay.js';
+import { buildActionBoard } from './action-board.js';
 import {
   describeShelfInputError,
   inspectReplayShelfInput,
@@ -122,6 +123,8 @@ const portfolioRecurringIncidentsValue = document.querySelector('#portfolio-recu
 const portfolioRecurringHotspotsValue = document.querySelector('#portfolio-recurring-hotspots-value');
 const portfolioResponseQueueValue = document.querySelector('#portfolio-response-queue-value');
 const portfolioRoutingGapsValue = document.querySelector('#portfolio-routing-gaps-value');
+const actionBoardSummaryValue = document.querySelector('#action-board-summary-value');
+const actionBoardCardsValue = document.querySelector('#action-board-cards-value');
 const handoffSummaryValue = document.querySelector('#handoff-summary-value');
 const handoffExportValue = document.querySelector('#handoff-export-value');
 const forgeSummaryValue = document.querySelector('#forge-summary-value');
@@ -344,6 +347,7 @@ function renderDigest(traceText) {
 
 function renderPortfolioWorkflow(input) {
   const report = input?.priorityQueue ? input : analyzeIncidentPortfolio(input);
+  const board = buildActionBoard(report);
   const forge = analyzeCasebookForge(report);
   const dataset = buildCasebookDataset(report);
   const merge = analyzeCasebookMerge(report);
@@ -383,6 +387,8 @@ function renderPortfolioWorkflow(input) {
   portfolioRecurringHotspotsValue.replaceChildren(...buildListItems(buildPortfolioRecurringHotspotItems(report.recurringHotspots)));
   portfolioResponseQueueValue.replaceChildren(...buildListItems(buildPortfolioResponseQueueItems(report.responseQueue)));
   portfolioRoutingGapsValue.replaceChildren(...buildListItems(buildPortfolioRoutingGapItems(report.unownedPacks, report.runbookGaps)));
+  actionBoardSummaryValue.textContent = board.summary.headline;
+  actionBoardCardsValue.replaceChildren(...buildListItems(buildActionBoardItems(board)));
   handoffSummaryValue.textContent = `${handoff.summary.headline} Owner packets carry recalled fixes and runbooks, while gap packets make missing routing explicit.`;
   handoffExportValue.textContent = handoff.exportText || 'No handoff export available yet.';
   forgeSummaryValue.textContent = `${forge.summary.headline} Reusable cases are ready to paste into a labeled history casebook.`;
@@ -401,6 +407,7 @@ function renderPortfolioWorkflow(input) {
 
 function renderResponseBundleWorkflow(bundle) {
   renderDatasetReplayWorkflow(bundle.dataset);
+  const board = buildActionBoard(bundle);
 
   const responseOwnerCount = bundle.dataset.responseQueue?.length ?? 0;
   const mergedCaseCount = bundle.dataset.cases?.length ?? bundle.dataset.summary?.mergedCaseCount ?? 0;
@@ -436,6 +443,8 @@ function renderResponseBundleWorkflow(bundle) {
   portfolioSummaryValue.textContent = `Response bundle replay restored ${responseOwnerCount} owner-routed entr${responseOwnerCount === 1 ? 'y' : 'ies'}, ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'}, and ${stewardActionCount} stewardship action${stewardActionCount === 1 ? '' : 's'} from the portable saved bundle.`;
   portfolioPackCountValue.textContent = `${bundle.dataset.summary.runnablePackCount} / ${bundle.dataset.summary.packCount}`;
   portfolioPriorityValue.replaceChildren(...buildListItems(buildResponseBundleInventoryItems(bundle.manifest?.files)));
+  actionBoardSummaryValue.textContent = board.summary.headline;
+  actionBoardCardsValue.replaceChildren(...buildListItems(buildActionBoardItems(board)));
   datasetSummaryValue.textContent = `Saved bundle replay is using the portable response bundle artifact directly, with the embedded Casebook Dataset ${steward?.preserved === false ? 'reconstructed from older fields for replay' : 'preserved for replay'}. ${stewardHeadline}`;
   caption.textContent = `Response bundle replay restored ${bundle.summary.fileCount} saved bundle file${bundle.summary.fileCount === 1 ? '' : 's'}.`;
 }
@@ -444,6 +453,7 @@ function renderDatasetReplayWorkflow(report) {
   resetCasebookState();
   resetRegressionState();
   resetTimelineState();
+  const board = buildActionBoard(report);
 
   const responseOwnerCount = report.responseQueue?.length ?? 0;
   const recurringIncidentCount = report.recurringIncidents?.length ?? 0;
@@ -482,9 +492,13 @@ function renderDatasetReplayWorkflow(report) {
   portfolioRecurringIncidentsValue.replaceChildren(...buildListItems(buildPortfolioRecurringIncidentItems(report.recurringIncidents ?? [])));
   portfolioRecurringHotspotsValue.replaceChildren(...buildListItems(buildPortfolioRecurringHotspotItems(report.recurringHotspots ?? [])));
   portfolioResponseQueueValue.replaceChildren(...buildListItems(buildPortfolioResponseQueueItems(report.responseQueue ?? [])));
-  portfolioRoutingGapsValue.replaceChildren(...buildListItems([
-    'Saved dataset replay does not preserve explicit routing-gap or runbook-gap packets. Re-run Portfolio Radar or Handoff Briefing on the source portfolio to rebuild them.'
-  ]));
+  portfolioRoutingGapsValue.replaceChildren(...buildListItems(
+    report.routingGaps?.length || report.runbookGaps?.length
+      ? buildPortfolioRoutingGapItems(report.routingGaps ?? [], report.runbookGaps ?? [])
+      : ['Saved dataset replay does not preserve explicit routing-gap or runbook-gap packets. Re-run Portfolio Radar or Handoff Briefing on the source portfolio to rebuild them.']
+  ));
+  actionBoardSummaryValue.textContent = board.summary.headline;
+  actionBoardCardsValue.replaceChildren(...buildListItems(buildActionBoardItems(board)));
 
   handoffSummaryValue.textContent = `Saved dataset replay preserved ${responseOwnerCount} owner-routed response queue entr${responseOwnerCount === 1 ? 'y' : 'ies'}, but not the copy-ready handoff packet export.`;
   handoffExportValue.textContent = 'Handoff packet export is not preserved inside saved Casebook Dataset artifacts.';
@@ -1187,6 +1201,10 @@ function resetPortfolioState() {
   ]));
   portfolioRoutingGapsValue.replaceChildren(...buildListItems([
     'Routing gaps and missing runbooks will appear here after Portfolio Radar runs.'
+  ]));
+  actionBoardSummaryValue.textContent = 'Paste several labeled incident packs or saved replay artifacts to build a deterministic Action Board.';
+  actionBoardCardsValue.replaceChildren(...buildListItems([
+    'Owner work, routing gaps, runbook gaps, and steward backlog cards will appear here after Action Board runs.'
   ]));
   handoffSummaryValue.textContent = 'Paste several labeled incident packs to prepare owner and gap handoff packets.';
   handoffExportValue.textContent = 'Handoff packet export text will appear here after Handoff Briefing runs.';
@@ -1962,6 +1980,15 @@ function buildPortfolioRoutingGapItems(unownedPacks, runbookGaps) {
   }
 
   return items.length ? items : ['No routing gaps or runbook gaps detected across runnable packs.'];
+}
+
+function buildActionBoardItems(board) {
+  const items = board?.lanes?.flatMap((lane) => lane.cards.map((card) => {
+    const labels = card.affectedLabels?.length ? ` (${card.affectedLabels.join(', ')})` : '';
+    return `${lane.title}: ${card.title}${labels}. ${card.ask}`;
+  })) ?? [];
+
+  return items.length ? items : ['No Action Board cards are available for this input yet.'];
 }
 
 function buildCasebookSummary(casebook) {

@@ -84,6 +84,8 @@ test('buildResponseBundle composes a deterministic portfolio response bundle', (
     recurringHotspotCount: report.recurringHotspots.length,
     stewardActionCount: embeddedDataset.steward.summary.actionCount,
     stewardHeadline: embeddedDataset.steward.summary.headline,
+    actionBoardCardCount: embeddedDataset.board.summary.totalCards,
+    actionBoardHeadline: embeddedDataset.board.summary.headline,
   });
 
   const expectedFiles = [
@@ -94,6 +96,7 @@ test('buildResponseBundle composes a deterministic portfolio response bundle', (
     'casebook.txt',
     'casebook-dataset.json',
     'merge-review.md',
+    'action-board.md',
     'response-bundle.json',
   ];
 
@@ -115,12 +118,16 @@ test('buildResponseBundle composes a deterministic portfolio response bundle', (
   assert.match(bundle.files['portfolio-summary.md'], /^# Stack Sleuth Portfolio Radar/m);
   assert.match(bundle.files['handoff.md'], /^# Stack Sleuth Handoff Briefing/m);
   assert.match(bundle.files['merge-review.md'], /^# Stack Sleuth Casebook Merge/m);
+  assert.match(bundle.files['action-board.md'], /^# Stack Sleuth Action Board/m);
   assert.match(bundle.files['casebook.txt'], /^=== release-2026-04-15 ===/m);
   assert.match(bundle.files['casebook.txt'], /^=== billing-outage ===/m);
 
   const dataset = embeddedDataset;
   assert.equal(dataset.kind, 'stack-sleuth-casebook-dataset');
-  assert.equal(dataset.version, 1);
+  assert.equal(dataset.version, 2);
+  assert.ok(Array.isArray(dataset.routingGaps));
+  assert.ok(Array.isArray(dataset.runbookGaps));
+  assert.ok(dataset.board.summary.totalCards >= 1);
   assert.equal(dataset.steward.preserved, true);
   assert.ok(dataset.steward.summary.actionCount >= 1);
   assert.match(dataset.steward.summary.headline, /Casebook Steward found/i);

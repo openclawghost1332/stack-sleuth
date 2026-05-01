@@ -1,6 +1,7 @@
 import { analyzeIncidentPortfolio } from './portfolio.js';
 import { analyzeCasebookMerge } from './merge.js';
 import { parseLabeledTraceBatches } from './labeled.js';
+import { buildActionBoard } from './action-board.js';
 import {
   normalizeReleaseGate,
   renderReleaseGateMarkdown,
@@ -13,13 +14,14 @@ import {
 } from './steward.js';
 
 export const DATASET_KIND = 'stack-sleuth-casebook-dataset';
-export const DATASET_VERSION = 1;
+export const DATASET_VERSION = 2;
+const SUPPORTED_DATASET_VERSIONS = new Set([1, DATASET_VERSION]);
 
 export function buildCasebookDataset(input) {
   const portfolioReport = input?.priorityQueue ? input : analyzeIncidentPortfolio(input);
   const mergeReport = analyzeCasebookMerge(portfolioReport);
 
-  return {
+  const dataset = {
     kind: DATASET_KIND,
     version: DATASET_VERSION,
     summary: buildDatasetSummary(portfolioReport, mergeReport),
@@ -32,6 +34,8 @@ export function buildCasebookDataset(input) {
       packOrder: portfolioReport.portfolio?.packOrder ?? [],
     },
     responseQueue: portfolioReport.responseQueue ?? [],
+    routingGaps: portfolioReport.unownedPacks ?? [],
+    runbookGaps: portfolioReport.runbookGaps ?? [],
     recurringIncidents: portfolioReport.recurringIncidents ?? [],
     recurringHotspots: portfolioReport.recurringHotspots ?? [],
     cases: (mergeReport.cases ?? []).map((entry) => ({
@@ -44,6 +48,9 @@ export function buildCasebookDataset(input) {
     steward: mergeReport.steward,
     exportText: mergeReport.exportText,
   };
+
+  dataset.board = buildActionBoard(dataset);
+  return dataset;
 }
 
 export function parseDatasetHistory(input) {
@@ -85,11 +92,12 @@ export function inspectReplayDatasetInput(input) {
     return { valid: false, reason: 'wrong-kind', parsed };
   }
 
-  if (parsed.version !== DATASET_VERSION) {
+  if (!SUPPORTED_DATASET_VERSIONS.has(parsed.version)) {
     return {
       valid: false,
       reason: 'unsupported-version',
       parsed,
+      supportedVersions: [...SUPPORTED_DATASET_VERSIONS].sort((a, b) => a - b),
       supportedVersion: DATASET_VERSION,
     };
   }
@@ -110,6 +118,7 @@ export function renderDatasetTextSummary(report) {
     `Response owners: ${report.summary.ownerCount}`,
     `Merged cases: ${report.summary.mergedCaseCount}`,
     `Conflicts: ${report.summary.conflictCount}`,
+    `Action Board cards: ${report.board?.summary?.totalCards ?? 0}`,
     '',
     'Release gate',
     ...renderReleaseGateText(report.gate).split('\n'),
@@ -131,6 +140,7 @@ export function renderDatasetMarkdownSummary(report) {
     `- **Response owners:** ${report.summary.ownerCount}`,
     `- **Merged cases:** ${report.summary.mergedCaseCount}`,
     `- **Conflicts:** ${report.summary.conflictCount}`,
+    `- **Action Board cards:** ${report.board?.summary?.totalCards ?? 0}`,
     '',
     '## Release gate',
     renderReleaseGateMarkdown(report.gate),
@@ -204,9 +214,9 @@ function normalizeDataset(parsed) {
     unrunnablePackCount: Math.max(0, toCount(parsed.summary?.packCount) - toCount(parsed.summary?.runnablePackCount)),
   };
 
-  return {
+  const dataset = {
     kind: DATASET_KIND,
-    version: DATASET_VERSION,
+    version: toCount(parsed.version) || 1,
     summary: {
       headline: String(parsed.summary?.headline ?? 'No dataset headline available.'),
       packCount: toCount(parsed.summary?.packCount),
@@ -221,6 +231,8 @@ function normalizeDataset(parsed) {
       packOrder: Array.isArray(parsed.portfolio?.packOrder) ? parsed.portfolio.packOrder : [],
     },
     responseQueue: Array.isArray(parsed.responseQueue) ? parsed.responseQueue : [],
+    routingGaps: Array.isArray(parsed.routingGaps) ? parsed.routingGaps : [],
+    runbookGaps: Array.isArray(parsed.runbookGaps) ? parsed.runbookGaps : [],
     recurringIncidents: Array.isArray(parsed.recurringIncidents) ? parsed.recurringIncidents : [],
     recurringHotspots: Array.isArray(parsed.recurringHotspots) ? parsed.recurringHotspots : [],
     cases: Array.isArray(parsed.cases) ? parsed.cases : [],
@@ -230,6 +242,9 @@ function normalizeDataset(parsed) {
     }),
     exportText: typeof parsed.exportText === 'string' ? parsed.exportText : '',
   };
+
+  dataset.board = buildActionBoard(dataset);
+  return dataset;
 }
 
 function toCount(value) {

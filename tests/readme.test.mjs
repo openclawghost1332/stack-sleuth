@@ -246,14 +246,15 @@ test('sample response bundle artifact is committed with manifest, replay json, a
   const replay = JSON.parse(fs.readFileSync(new URL('../sample/response-bundle/response-bundle.json', import.meta.url), 'utf8'));
 
   assert.equal(manifest.kind, 'stack-sleuth-response-bundle');
-  assert.equal(manifest.version, 2);
+  assert.equal(manifest.version, 3);
   assert.match(dossier, /<!doctype html>/i);
   assert.match(handoff, /Stack Sleuth Handoff Briefing/i);
+  assert.match(manifest.files.join('\n'), /action-board\.md/);
   assert.match(manifest.files.join('\n'), /casebook-dataset\.json/);
   assert.match(manifest.files.join('\n'), /response-bundle\.json/);
   assert.equal(replay.kind, 'stack-sleuth-response-bundle');
-  assert.equal(replay.version, 2);
-  assert.equal(replay.manifest.version, 2);
+  assert.equal(replay.version, 3);
+  assert.equal(replay.manifest.version, 3);
   assert.equal(typeof replay.artifacts['casebook-dataset.json'], 'string');
   assert.equal(replay.artifacts['response-bundle.json'], undefined);
 });

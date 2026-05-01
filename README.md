@@ -15,10 +15,10 @@ Use the built-in example buttons to compare the main workflows:
 - baseline and candidate batches compared in Regression Radar mode with hotspot shifts
 - labeled rollout snapshots analyzed in Timeline Radar mode with trend calls and hotspot movement
 - one structured Incident Pack Briefing that composes current, history, regression, and rollout context in a single pass
-- several structured incident packs ranked in Portfolio Radar mode with an owner-aware response queue, explicit routing gaps, runbook gaps, recurring incidents, and shared hotspots
+- several structured incident packs ranked in Portfolio Radar mode with an owner-aware response queue, explicit routing gaps, runbook gaps, recurring incidents, shared hotspots, and a deterministic Action Board
 - Handoff Briefing turning a labeled portfolio into owner-specific handoff packets plus explicit ownership-gap and runbook-gap follow-ups
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
-- Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, while preserving a deterministic release gate verdict for later replay in the CLI or browser
+- Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, while preserving a deterministic release gate verdict plus Action Board routing lanes for later replay in the CLI or browser
 - Response Bundle replay opening a self-contained `response-bundle.json` artifact or saved bundle directory to restore preserved bundle inventory plus embedded dataset state in the CLI or browser
 - Response Bundle Chronicle replaying several labeled `response-bundle.json` snapshots at once to show release gate drift, source workflow changes, owner load, recurring hotspot drift, casebook movement, bundle inventory drift, and a steward ledger of resurfaced versus resolved backlog items across release windows
 - Casebook Chronicle replaying several saved dataset snapshots at once to show release gate drift, owner load, recurring hotspot drift, casebook movement, and a steward ledger of resurfaced versus resolved backlog items across release windows
@@ -131,7 +131,7 @@ Each response bundle contains:
 node ./bin/stack-sleuth.js --portfolio ./sample/portfolio.txt --bundle ./sample/response-bundle
 ```
 
-The committed sample bundle lives at `sample/response-bundle/`. It is generated from `sample/portfolio.txt` and gives a team one ready-to-share folder with the dossier, handoff packet, reusable casebook export, replayable dataset, merge review, machine-readable manifest, and self-contained `response-bundle.json` replay artifact.
+The committed sample bundle lives at `sample/response-bundle/`. It is generated from `sample/portfolio.txt` and gives a team one ready-to-share folder with the dossier, handoff packet, reusable casebook export, replayable dataset, preserved Action Board routing state, merge review, machine-readable manifest, and self-contained `response-bundle.json` replay artifact.
 
 ### Replay a saved response bundle JSON artifact
 
@@ -443,6 +443,20 @@ Portfolio Radar now adds a deterministic owner-aware response queue on top of th
 
 In the browser, paste the full labeled portfolio into the shared workspace, then press **Explain trace(s)** or **Load portfolio example** to generate one Portfolio Radar summary with the response queue, routing gaps, and runbook gaps.
 
+## Action Board
+
+Action Board is the deterministic coordination layer that sits on top of Portfolio Radar and saved replay artifacts. It turns live portfolios, saved Casebook Datasets, and saved Response Bundles into four compact lanes: owner work, ownership gaps, runbook gaps, and steward backlog.
+
+```bash
+node ./bin/stack-sleuth.js --board ./portfolio.txt
+```
+
+```bash
+cat ./sample/response-bundle/response-bundle.json | node ./bin/stack-sleuth.js --board - --markdown
+```
+
+Saved artifacts preserve Action Board routing gaps and runbook gaps when they were exported from newer schemas. Older datasets still replay, but Stack Sleuth calls out replay limitations explicitly instead of pretending those lanes were preserved.
+
 ## Handoff Briefing
 
 Handoff Briefing turns the same labeled portfolio into copy-ready owner packets and explicit gap packets. Use it when the ranking is no longer enough and you need something you can paste into Slack, a ticket queue, or a shift handoff without rewriting the Portfolio Radar output by hand.
@@ -509,7 +523,7 @@ In the browser, paste the full labeled portfolio into the shared workspace, then
 
 ## Casebook Dataset
 
-Casebook Dataset is the CLI-friendly handoff artifact between Portfolio Radar, Casebook Forge, and later Casebook Radar runs. Feed it the same labeled portfolio and it will package the ranked portfolio signals, the preserved release gate verdict, response queue, recurring hotspots, merged case list, and a reusable casebook export into one saved JSON blob.
+Casebook Dataset is the CLI-friendly handoff artifact between Portfolio Radar, Action Board, Casebook Forge, and later Casebook Radar runs. Feed it the same labeled portfolio and it will package the ranked portfolio signals, preserved release gate verdict, response queue, routing gaps, runbook gaps, recurring hotspots, merged case list, and a reusable casebook export into one saved JSON blob.
 
 ### Build a reusable dataset from a labeled portfolio file
 
@@ -551,7 +565,7 @@ cat casebook-dataset.json | node ./bin/stack-sleuth.js --replay-dataset - --mark
 
 Replay mode renders the saved dataset itself, so you can reopen the preserved release gate verdict, response queue, recurring signals, merged case count, and reusable `exportText` without rebuilding the original labeled portfolio first. If the saved artifact has an unsupported version, Stack Sleuth fails clearly and tells you which supported version the current build understands.
 
-In the browser, paste a saved dataset JSON blob into the shared workspace and press **Explain trace(s)** to replay the portable artifact directly. The browser will reuse the saved dataset summary, preserved release gate verdict, response queue, recurring hotspots, and reusable export text instead of asking for the original portfolio input again. You can also press **Load Casebook Dataset example** to open a saved dataset replay example, and unsupported version or malformed saved dataset JSON will raise a dataset-specific replay error instead of silently falling through.
+In the browser, paste a saved dataset JSON blob into the shared workspace and press **Explain trace(s)** to replay the portable artifact directly. The browser will reuse the saved dataset summary, preserved release gate verdict, Action Board lanes, response queue, recurring hotspots, and reusable export text instead of asking for the original portfolio input again. You can also press **Load Casebook Dataset example** to open a saved dataset replay example, and unsupported version or malformed saved dataset JSON will raise a dataset-specific replay error instead of silently falling through.
 
 ## Casebook Shelf
 

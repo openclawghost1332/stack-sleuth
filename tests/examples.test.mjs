@@ -158,9 +158,9 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
 
   const bundleReplay = inspectResponseBundleReplayInput(responseBundleExample.bundle);
   assert.equal(bundleReplay.valid, true);
-  assert.equal(bundleReplay.bundle.version, 2);
-  assert.equal(bundleReplay.bundle.sourceVersion, 2);
-  assert.equal(bundleReplay.bundle.manifest.version, 2);
+  assert.equal(bundleReplay.bundle.version, 3);
+  assert.equal(bundleReplay.bundle.sourceVersion, 3);
+  assert.equal(bundleReplay.bundle.manifest.version, 3);
   assert.match(bundleReplay.bundle.manifest.files.join('\n'), /response-bundle\.json/);
   assert.equal(bundleReplay.bundle.dataset.gate.verdict, 'hold');
 

@@ -11,3 +11,19 @@
 
 ## Merge review
 - **release-2026-04-15:** label conflict: release-2026-04-15, profile-rewrite
+
+## Casebook Steward
+
+- **Cases:** 3
+- **Conflicts:** 1
+- **Owner-covered:** 2
+- **Fix-covered:** 2
+- **Runbook-covered:** 2
+- **Actions:** 3
+- **Urgent actions:** 2
+- **Headline:** Casebook Steward found 3 actions across 3 cases\.
+
+### Top stewardship actions
+- Resolve 1 merge conflict for release\-2026\-04\-15\.
+- Assign an owner for profile\-js\-generic\-runtime\-error\.
+- Add a runbook for profile\-js\-generic\-runtime\-error\.

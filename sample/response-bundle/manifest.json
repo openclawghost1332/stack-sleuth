@@ -1,7 +1,7 @@
 {
   "kind": "stack-sleuth-response-bundle",
-  "version": 2,
-  "generatedAt": "2026-05-01T11:35:58.129Z",
+  "version": 3,
+  "generatedAt": "2026-05-01T16:37:20.103Z",
   "source": {
     "mode": "portfolio",
     "label": "./sample/portfolio.txt"
@@ -13,7 +13,11 @@
     "runnablePackCount": 3,
     "ownerCount": 1,
     "recurringIncidentCount": 1,
-    "recurringHotspotCount": 2
+    "recurringHotspotCount": 2,
+    "stewardActionCount": 3,
+    "stewardHeadline": "Casebook Steward found 3 actions across 3 cases.",
+    "actionBoardCardCount": 5,
+    "actionBoardHeadline": "Action Board rebuilt 5 coordination cards from a saved Casebook Dataset."
   },
   "files": [
     "manifest.json",
@@ -23,6 +27,7 @@
     "casebook.txt",
     "casebook-dataset.json",
     "merge-review.md",
+    "action-board.md",
     "response-bundle.json"
   ]
 }

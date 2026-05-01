@@ -2,7 +2,7 @@ import { inspectReplayDatasetInput } from './dataset.js';
 import { describeCasebookStewardHeadline } from './steward.js';
 import { RESPONSE_BUNDLE_KIND, RESPONSE_BUNDLE_VERSION } from './bundle.js';
 
-const SUPPORTED_BUNDLE_VERSIONS = new Set([1, RESPONSE_BUNDLE_VERSION]);
+const SUPPORTED_BUNDLE_VERSIONS = new Set([1, 2, RESPONSE_BUNDLE_VERSION]);
 const REPLAY_NOTE = 'Response Bundle replay reuses preserved bundle and dataset fields only. It does not recover raw traces, support frames, or blast radius detail.';
 
 export function inspectResponseBundleReplayInput(input) {
@@ -49,6 +49,7 @@ export function renderResponseBundleTextSummary(bundle) {
     `Response owners: ${bundle.dataset.summary.ownerCount}`,
     `Merged cases: ${bundle.dataset.summary.mergedCaseCount}`,
     `Steward actions: ${bundle.dataset.steward.summary.actionCount}`,
+    `Action Board cards: ${bundle.dataset.board?.summary?.totalCards ?? 0}`,
     `Next steward action: ${bundle.dataset.steward.nextAction}`,
     `Stewardship: ${describeCasebookStewardHeadline(bundle.dataset.steward)}`,
     `Saved-artifact note: ${REPLAY_NOTE}`,
@@ -70,6 +71,7 @@ export function renderResponseBundleMarkdownSummary(bundle) {
     `- **Response owners:** ${bundle.dataset.summary.ownerCount}`,
     `- **Merged cases:** ${bundle.dataset.summary.mergedCaseCount}`,
     `- **Steward actions:** ${bundle.dataset.steward.summary.actionCount}`,
+    `- **Action Board cards:** ${bundle.dataset.board?.summary?.totalCards ?? 0}`,
     `- **Next steward action:** ${escapeMarkdownText(bundle.dataset.steward.nextAction)}`,
     `- **Stewardship:** ${escapeMarkdownText(describeCasebookStewardHeadline(bundle.dataset.steward))}`,
     `- **Saved-artifact note:** ${escapeMarkdownText(REPLAY_NOTE)}`,
@@ -123,6 +125,8 @@ function normalizeManifest(manifest) {
       recurringHotspotCount: toCount(manifest?.summary?.recurringHotspotCount),
       stewardActionCount: toCount(manifest?.summary?.stewardActionCount),
       stewardHeadline: String(manifest?.summary?.stewardHeadline ?? 'No steward summary available.'),
+      actionBoardCardCount: toCount(manifest?.summary?.actionBoardCardCount),
+      actionBoardHeadline: String(manifest?.summary?.actionBoardHeadline ?? 'No Action Board summary available.'),
     },
     files,
   };

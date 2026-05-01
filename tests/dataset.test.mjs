@@ -28,7 +28,7 @@ test('buildCasebookDataset packages merge and portfolio signals into a reusable 
   const dataset = buildCasebookDataset(portfolioInput);
 
   assert.equal(dataset.kind, 'stack-sleuth-casebook-dataset');
-  assert.equal(dataset.version, 1);
+  assert.equal(dataset.version, 2);
   assert.match(dataset.summary.headline, /Casebook Dataset captured/i);
   assert.equal(dataset.summary.packCount, 2);
   assert.equal(dataset.summary.runnablePackCount, 2);
@@ -36,6 +36,9 @@ test('buildCasebookDataset packages merge and portfolio signals into a reusable 
   assert.equal(dataset.summary.conflictCount, 0);
   assert.equal(dataset.gate.verdict, 'hold');
   assert.ok(dataset.responseQueue.length >= 1);
+  assert.ok(Array.isArray(dataset.routingGaps));
+  assert.ok(Array.isArray(dataset.runbookGaps));
+  assert.ok(dataset.board.summary.totalCards >= 1);
   assert.ok(dataset.cases.length >= 1);
   assert.match(dataset.exportText, /^=== release-2026-04-15 ===/m);
 });
@@ -56,12 +59,15 @@ test('inspectReplayDatasetInput validates a saved dataset and returns a normaliz
 
   assert.equal(result.valid, true);
   assert.equal(result.dataset.kind, 'stack-sleuth-casebook-dataset');
-  assert.equal(result.dataset.version, 1);
+  assert.equal(result.dataset.version, 2);
   assert.equal(result.dataset.summary.ownerCount, 1);
   assert.equal(result.dataset.gate.verdict, 'hold');
   assert.equal(result.dataset.steward.preserved, true);
   assert.ok(result.dataset.steward.summary.actionCount >= 0);
   assert.ok(result.dataset.responseQueue.length >= 1);
+  assert.ok(Array.isArray(result.dataset.routingGaps));
+  assert.ok(Array.isArray(result.dataset.runbookGaps));
+  assert.ok(result.dataset.board.summary.totalCards >= 1);
   assert.ok(result.dataset.recurringHotspots.length >= 1);
   assert.match(result.dataset.exportText, /^=== release-2026-04-15 ===/m);
 });
@@ -92,7 +98,8 @@ test('inspectReplayDatasetInput rejects unsupported dataset versions with the su
 
   assert.equal(result.valid, false);
   assert.equal(result.reason, 'unsupported-version');
-  assert.equal(result.supportedVersion, 1);
+  assert.deepEqual(result.supportedVersions, [1, 2]);
+  assert.equal(result.supportedVersion, 2);
   assert.equal(result.parsed.version, 99);
 });
 
@@ -111,6 +118,7 @@ test('shared dataset renderers include summary counts and reusable export text',
   assert.match(text, /Response owners: 1/);
   assert.match(text, /Release gate: hold/i);
   assert.match(text, /Merged cases:/);
+  assert.match(text, /Action Board cards:/i);
   assert.match(text, /Reusable casebook export/);
   assert.match(text, /Casebook Steward/);
   assert.match(text, /=== release-2026-04-15 ===/);
@@ -118,6 +126,7 @@ test('shared dataset renderers include summary counts and reusable export text',
   assert.match(markdown, /^# Stack Sleuth Casebook Dataset/m);
   assert.match(markdown, /- \*\*Release gate:\*\* hold/i);
   assert.match(markdown, /- \*\*Response owners:\*\* 1/);
+  assert.match(markdown, /- \*\*Action Board cards:\*\*/i);
   assert.match(markdown, /## Casebook Steward/);
   assert.match(markdown, /## Reusable casebook export/);
   assert.match(markdown, /=== release-2026-04-15 ===/);

@@ -416,6 +416,7 @@ const requiredIds = [
   'load-portfolio-button',
   'load-handoff-button',
   'load-dataset-button',
+  'load-bundle-chronicle-button',
   'load-chronicle-button',
   'load-shelf-button',
   'load-merge-button',
@@ -467,6 +468,8 @@ const requiredIds = [
   'portfolio-recurring-hotspots-value',
   'portfolio-response-queue-value',
   'portfolio-routing-gaps-value',
+  'action-board-summary-value',
+  'action-board-cards-value',
   'handoff-summary-value',
   'handoff-export-value',
   'forge-summary-value',
@@ -655,6 +658,8 @@ test('browser Casebook Dataset example button loads saved dataset JSON and repla
     assert.match(harness.get('dataset-summary-value').textContent, /Casebook Dataset captured 3 merged cases/i);
     assert.match(harness.get('dataset-summary-value').textContent, /Release Gate HOLD|Release gate: hold/i);
     assert.match(harness.get('portfolio-response-queue-value').children[0].textContent, /web-platform/);
+    assert.match(harness.get('action-board-summary-value').textContent, /saved Casebook Dataset/i);
+    assert.match(harness.get('action-board-cards-value').children[0].textContent, /web-platform|Assign owner|Capture runbook/i);
     assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
     assert.match(harness.get('example-caption').textContent, /saved dataset|replay/i);
   } finally {
@@ -728,6 +733,8 @@ test('browser response bundle replay detection runs before dataset replay and re
     assert.match(harness.get('summary-value').textContent, /stewardship/i);
     assert.match(harness.get('portfolio-summary-value').textContent, /Response bundle replay restored 1 owner-routed entr/i);
     assert.match(harness.get('portfolio-summary-value').textContent, /steward/i);
+    assert.match(harness.get('action-board-summary-value').textContent, /saved response bundle/i);
+    assert.match(harness.get('action-board-cards-value').children[0].textContent, /web-platform|Assign owner|Capture runbook/i);
     assert.match(harness.get('dataset-summary-value').textContent, /Saved bundle replay is using the portable response bundle artifact directly/i);
     assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
     assert.match(harness.get('portfolio-priority-value').children[0].textContent, /saved bundle file: manifest\.json/i);
@@ -890,7 +897,7 @@ test('browser dataset replay reports unsupported dataset versions clearly', asyn
 
     assert.equal(harness.get('runtime-value').textContent, 'dataset replay error');
     assert.match(harness.get('headline-value').textContent, /unsupported version 99/i);
-    assert.match(harness.get('summary-value').textContent, /supported version: 1/i);
+    assert.match(harness.get('summary-value').textContent, /supported version: 2/i);
     assert.match(harness.get('example-caption').textContent, /unsupported version 99/i);
   } finally {
     harness.restore();
@@ -906,7 +913,7 @@ test('browser response bundle replay reports unsupported bundle versions clearly
 
     assert.equal(harness.get('runtime-value').textContent, 'response bundle replay error');
     assert.match(harness.get('headline-value').textContent, /unsupported version 99/i);
-    assert.match(harness.get('summary-value').textContent, /Supported versions: 1, 2/i);
+    assert.match(harness.get('summary-value').textContent, /Supported versions: 1, 2, 3/i);
     assert.match(harness.get('example-caption').textContent, /unsupported version 99/i);
   } finally {
     harness.restore();
@@ -1017,6 +1024,8 @@ test('browser portfolio flow keeps Portfolio Radar as the primary runtime while 
     assert.match(harness.get('portfolio-recurring-hotspots-value').children[0].textContent, /profile\.js/i);
     assert.match(harness.get('portfolio-response-queue-value').children[0].textContent, /web-platform/i);
     assert.match(harness.get('portfolio-routing-gaps-value').children[0].textContent, /billing-canary|checkout-prod/i);
+    assert.match(harness.get('action-board-summary-value').textContent, /Action Board assembled/i);
+    assert.match(harness.get('action-board-cards-value').children[0].textContent, /web-platform|Assign owner|Capture runbook/i);
     assert.match(harness.get('handoff-summary-value').textContent, /Prepared 5 handoff packets/i);
     assert.match(harness.get('handoff-export-value').textContent, /Owner: web-platform/);
     assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
@@ -1063,6 +1072,8 @@ test('browser portfolio Casebook Forge, Dataset, and Merge cards reset when swit
     await harness.click('explain-button');
 
     assert.notEqual(harness.get('runtime-value').textContent, 'casebook merge');
+    assert.equal(harness.get('action-board-summary-value').textContent, 'Paste several labeled incident packs or saved replay artifacts to build a deterministic Action Board.');
+    assert.equal(harness.get('action-board-cards-value').children[0].textContent, 'Owner work, routing gaps, runbook gaps, and steward backlog cards will appear here after Action Board runs.');
     assert.equal(harness.get('handoff-summary-value').textContent, 'Paste several labeled incident packs to prepare owner and gap handoff packets.');
     assert.equal(harness.get('handoff-export-value').textContent, 'Handoff packet export text will appear here after Handoff Briefing runs.');
     assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');
@@ -1084,6 +1095,8 @@ test('browser dedicated radar controls clear stale portfolio, forge, and merge c
     assert.equal(harness.get('portfolio-pack-count-value').textContent, '-');
     assert.equal(harness.get('portfolio-response-queue-value').children[0].textContent, 'Owner-routed response queue entries will appear here after Portfolio Radar runs.');
     assert.equal(harness.get('portfolio-routing-gaps-value').children[0].textContent, 'Routing gaps and missing runbooks will appear here after Portfolio Radar runs.');
+    assert.equal(harness.get('action-board-summary-value').textContent, 'Paste several labeled incident packs or saved replay artifacts to build a deterministic Action Board.');
+    assert.equal(harness.get('action-board-cards-value').children[0].textContent, 'Owner work, routing gaps, runbook gaps, and steward backlog cards will appear here after Action Board runs.');
     assert.equal(harness.get('handoff-summary-value').textContent, 'Paste several labeled incident packs to prepare owner and gap handoff packets.');
     assert.equal(harness.get('handoff-export-value').textContent, 'Handoff packet export text will appear here after Handoff Briefing runs.');
     assert.equal(harness.get('forge-summary-value').textContent, 'Paste several labeled incident packs to forge reusable casebook entries from a portfolio.');

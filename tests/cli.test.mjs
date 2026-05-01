@@ -580,6 +580,23 @@ test('CLI handoff mode exits non-zero when no labeled packs or runnable analyses
   assert.match(unrunnable.stderr, /Handoff mode requires at least one runnable labeled incident pack/i);
 });
 
+test('CLI reads a portfolio with --board and prints a Stack Sleuth Action Board summary', () => {
+  const result = runCli(['--board', '-'], { input: portfolioInput });
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Stack Sleuth Action Board/);
+  assert.match(result.stdout, /Owner work/);
+  assert.match(result.stdout, /Ownership gaps/);
+  assert.match(result.stdout, /Runbook gaps/);
+
+  const jsonResult = runCli(['--board', '-', '--json'], { input: portfolioInput });
+  assert.equal(jsonResult.status, 0);
+  const parsed = JSON.parse(jsonResult.stdout);
+  assert.equal(parsed.kind, 'stack-sleuth-action-board');
+  assert.equal(parsed.summary.sourceKind, 'portfolio');
+  assert.ok(parsed.summary.totalCards >= 1);
+});
+
 test('CLI reads a portfolio with --dataset and prints a Casebook Dataset summary', () => {
   const result = runCli(['--dataset', '-'], { input: portfolioInput });
 
@@ -624,9 +641,26 @@ test('CLI replays a saved dataset in json mode', () => {
   assert.equal(result.status, 0, result.stderr);
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.kind, 'stack-sleuth-casebook-dataset');
-  assert.equal(parsed.version, 1);
+  assert.equal(parsed.version, 2);
   assert.equal(parsed.summary.ownerCount, 1);
   assert.equal(parsed.gate.verdict, 'hold');
+});
+
+test('CLI builds an Action Board directly from a saved response bundle replay artifact', () => {
+  const responseBundle = JSON.parse(buildResponseBundle({
+    report: analyzeIncidentPortfolio(portfolioInput),
+    sourceMode: 'portfolio',
+    sourceLabel: 'cli fixture',
+  }).files['response-bundle.json']);
+
+  const result = runCli(['--board', '-', '--markdown'], {
+    input: JSON.stringify(responseBundle, null, 2),
+  });
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /^# Stack Sleuth Action Board/m);
+  assert.match(result.stdout, /saved response bundle/i);
+  assert.match(result.stdout, /## Steward backlog/m);
 });
 
 test('CLI replays a self-contained response bundle json from stdin', () => {
@@ -667,7 +701,7 @@ test('CLI replays a saved response bundle directory path', async () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Stack Sleuth Response Bundle Replay/);
-  assert.match(result.stdout, /Bundle files: 8/);
+  assert.match(result.stdout, /Bundle files: 9/);
   assert.match(result.stdout, /casebook-dataset\.json/);
   assert.match(result.stdout, /response-bundle\.json/);
 });
@@ -688,10 +722,10 @@ test('CLI replays a legacy version-1 response bundle directory when manifest and
   assert.equal(result.status, 0, result.stderr);
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.kind, 'stack-sleuth-response-bundle');
-  assert.equal(parsed.version, 2);
+  assert.equal(parsed.version, 3);
   assert.equal(parsed.sourceVersion, 1);
   assert.equal(parsed.dataset.summary.ownerCount, 1);
-  assert.equal(parsed.summary.fileCount, 7);
+  assert.equal(parsed.summary.fileCount, 8);
 });
 
 test('CLI replay-bundle reports specific errors for wrong kind, unsupported version, malformed input, and missing dataset in saved bundle', async () => {
@@ -705,7 +739,7 @@ test('CLI replay-bundle reports specific errors for wrong kind, unsupported vers
     input: JSON.stringify({ kind: 'stack-sleuth-response-bundle', version: 99, manifest: { files: [] }, artifacts: {} }),
   });
   assert.equal(unsupportedVersion.status, 1);
-  assert.match(unsupportedVersion.stderr, /Response Bundle replay uses unsupported version 99\. Supported versions: 1, 2\./i);
+  assert.match(unsupportedVersion.stderr, /Response Bundle replay uses unsupported version 99\. Supported versions: 1, 2, 3\./i);
 
   const malformed = runCli(['--replay-bundle', '-'], {
     input: '{"kind":"stack-sleuth-response-bundle","version":2',
@@ -887,7 +921,7 @@ test('CLI chronicle mode reports unsupported dataset versions clearly', () => {
   const result = runCli(['--chronicle', '-'], { input: invalidChronicleInput });
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Casebook Chronicle snapshot release-a uses unsupported dataset version 99\. Supported version: 1\./i);
+  assert.match(result.stderr, /Casebook Chronicle snapshot release-a uses unsupported dataset version 99\. Supported version: 2\./i);
 });
 
 test('CLI bundle chronicle mode reports unsupported bundle versions clearly', () => {
@@ -902,7 +936,7 @@ test('CLI bundle chronicle mode reports unsupported bundle versions clearly', ()
   const result = runCli(['--bundle-chronicle', '-'], { input: invalidChronicleInput });
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Response Bundle Chronicle snapshot release-a uses unsupported bundle version 99\. Supported versions: 1, 2\./i);
+  assert.match(result.stderr, /Response Bundle Chronicle snapshot release-a uses unsupported bundle version 99\. Supported versions: 1, 2, 3\./i);
 });
 
 test('CLI Casebook Radar accepts a saved dataset JSON file through --history', async () => {
@@ -944,7 +978,7 @@ test('CLI replay mode reports unsupported dataset versions clearly', async () =>
   const result = runCli(['--replay-dataset', datasetPath]);
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Casebook Dataset replay uses unsupported version 99\. Supported version: 1\./i);
+  assert.match(result.stderr, /Casebook Dataset replay uses unsupported version 99\. Supported version: 2\./i);
 });
 
 test('CLI Casebook Radar reports unsupported dataset versions clearly', async () => {
@@ -959,7 +993,7 @@ test('CLI Casebook Radar reports unsupported dataset versions clearly', async ()
   const result = runCli(['--history', datasetPath], { input: casebookCurrentInput });
 
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /Casebook Dataset history uses unsupported version 99\. Supported version: 1\./i);
+  assert.match(result.stderr, /Casebook Dataset history uses unsupported version 99\. Supported version: 2\./i);
 });
 
 test('CLI dataset mode supports --json and --markdown output', () => {
@@ -967,7 +1001,7 @@ test('CLI dataset mode supports --json and --markdown output', () => {
   assert.equal(jsonResult.status, 0, jsonResult.stderr);
   const parsed = JSON.parse(jsonResult.stdout);
   assert.equal(parsed.kind, 'stack-sleuth-casebook-dataset');
-  assert.equal(parsed.version, 1);
+  assert.equal(parsed.version, 2);
   assert.equal(parsed.gate.verdict, 'hold');
   assert.equal(parsed.summary.packCount, 3);
   assert.equal(parsed.summary.runnablePackCount, 3);
@@ -1469,6 +1503,7 @@ import { buildReleaseGate } from '../src/gate.js';
 
 async function assertResponseBundle(outputDir, expectedSourceMode) {
   const expectedFiles = [
+    'action-board.md',
     'casebook-dataset.json',
     'casebook.txt',
     'handoff.md',
@@ -1483,9 +1518,10 @@ async function assertResponseBundle(outputDir, expectedSourceMode) {
 
   const manifest = JSON.parse(await fs.promises.readFile(path.join(outputDir, 'manifest.json'), 'utf8'));
   assert.equal(manifest.kind, 'stack-sleuth-response-bundle');
-  assert.equal(manifest.version, 2);
+  assert.equal(manifest.version, 3);
   assert.equal(manifest.source.mode, expectedSourceMode);
   assert.deepEqual([...manifest.files].sort(), expectedFiles);
+  assert.match(await fs.promises.readFile(path.join(outputDir, 'action-board.md'), 'utf8'), /Stack Sleuth Action Board/i);
   assert.match(await fs.promises.readFile(path.join(outputDir, 'incident-dossier.html'), 'utf8'), /<!doctype html>/i);
   assert.match(await fs.promises.readFile(path.join(outputDir, 'portfolio-summary.md'), 'utf8'), /Stack Sleuth Portfolio Radar/i);
   assert.match(await fs.promises.readFile(path.join(outputDir, 'handoff.md'), 'utf8'), /Stack Sleuth Handoff Briefing/i);

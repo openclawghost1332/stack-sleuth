@@ -48,6 +48,11 @@ import {
   renderIncidentPortfolioTextSummary,
   renderIncidentPortfolioMarkdownSummary,
 } from '../src/portfolio.js';
+import {
+  buildActionBoard,
+  renderActionBoardMarkdownSummary,
+  renderActionBoardTextSummary,
+} from '../src/action-board.js';
 import { renderIncidentDossierHtml } from '../src/report.js';
 import { buildResponseBundle } from '../src/bundle.js';
 import {
@@ -111,6 +116,7 @@ const wantsDigest = args.includes('--digest');
 const compareArgumentError = validateCompareArguments(args);
 const packArgumentError = validateOptionValue(args, '--pack');
 const portfolioArgumentError = validateOptionValue(args, '--portfolio');
+const boardArgumentError = validateOptionValue(args, '--board');
 const forgeArgumentError = validateOptionValue(args, '--forge');
 const handoffArgumentError = validateOptionValue(args, '--handoff');
 const notebookArgumentError = validateOptionValue(args, '--notebook');
@@ -132,6 +138,7 @@ const baselinePath = readOptionValue(args, '--baseline');
 const candidatePath = readOptionValue(args, '--candidate');
 const packPath = readOptionValue(args, '--pack');
 const portfolioPath = readOptionValue(args, '--portfolio');
+const boardPath = readOptionValue(args, '--board');
 const forgePath = readOptionValue(args, '--forge');
 const handoffPath = readOptionValue(args, '--handoff');
 const notebookPath = readOptionValue(args, '--notebook');
@@ -154,6 +161,7 @@ const workflowArgumentError = validateWorkflowArguments({
   candidatePath,
   packPath,
   portfolioPath,
+  boardPath,
   forgePath,
   handoffPath,
   notebookPath,
@@ -198,6 +206,7 @@ const filePath = args.find((arg, index) => {
     '--candidate',
     '--pack',
     '--portfolio',
+    '--board',
     '--forge',
     '--handoff',
     '--notebook',
@@ -232,6 +241,10 @@ if (packArgumentError) {
 
 if (portfolioArgumentError) {
   fail(portfolioArgumentError);
+}
+
+if (boardArgumentError) {
+  fail(boardArgumentError);
 }
 
 if (forgeArgumentError) {
@@ -473,6 +486,18 @@ try {
     }
 
     writeOutput(report, mode, renderMergeCliTextSummary, renderMergeCliMarkdownSummary);
+    process.exit(0);
+  }
+
+  if (boardPath) {
+    const boardInput = boardPath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(boardPath, 'action board');
+    const board = buildActionBoard(boardInput);
+
+    if (board.summary.sourceKind === 'unknown') {
+      fail('Action Board requires a labeled portfolio or saved Stack Sleuth replay artifact.');
+    }
+
+    writeOutput(board, mode, renderActionBoardTextSummary, renderActionBoardMarkdownSummary);
     process.exit(0);
   }
 
@@ -745,6 +770,10 @@ try {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read portfolio input: ${error.message}`);
   }
 
+  if (boardPath) {
+    fail(error.message.startsWith('Could not read') ? error.message : `Could not read Action Board input: ${error.message}`);
+  }
+
   if (forgePath) {
     fail(error.message.startsWith('Could not read') ? error.message : `Could not read forge input: ${error.message}`);
   }
@@ -852,11 +881,12 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, bundleChroniclePath, datasetPath, replayDatasetPath, replayBundlePath, shelfPath, replayShelfPath, historyPath, workspacePath, capsulePath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, boardPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, bundleChroniclePath, datasetPath, replayDatasetPath, replayBundlePath, shelfPath, replayShelfPath, historyPath, workspacePath, capsulePath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     capsulePath ? 'capsule' : null,
     portfolioPath ? 'portfolio' : null,
+    boardPath ? 'board' : null,
     forgePath ? 'forge' : null,
     handoffPath ? 'handoff' : null,
     notebookPath ? 'notebook' : null,
@@ -875,7 +905,7 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
   ].filter(Boolean);
 
   if (activeModes.length > 1) {
-    return 'Choose one workflow mode at a time: capsule, forge, handoff, merge-casebook, portfolio, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, replay-bundle, shelf, replay-shelf, or compare.';
+    return 'Choose one workflow mode at a time: capsule, forge, handoff, merge-casebook, portfolio, board, notebook, workspace, incident-pack, casebook, timeline, chronicle, dataset, replay-dataset, replay-bundle, shelf, replay-shelf, or compare.';
   }
 
   return null;
@@ -1117,6 +1147,48 @@ function toSerializablePayload(payload) {
         }),
       invalidSnapshots: payload.invalidSnapshots ?? [],
       chronicle: payload.chronicle ? toSerializablePayload(payload.chronicle) : null,
+    };
+  }
+
+  if (Array.isArray(payload?.snapshots) && Array.isArray(payload?.inventoryTrends) && payload?.summary?.latestSourceMode !== undefined) {
+    return {
+      snapshots: payload.snapshots.map((snapshot) => ({
+        label: snapshot.label,
+        bundle: snapshot.bundle ? {
+          kind: snapshot.bundle.kind,
+          version: snapshot.bundle.version,
+          sourceVersion: snapshot.bundle.sourceVersion,
+          summary: snapshot.bundle.summary,
+          manifest: {
+            source: snapshot.bundle.manifest?.source ?? null,
+            summary: snapshot.bundle.manifest?.summary ?? null,
+            files: snapshot.bundle.manifest?.files ?? [],
+          },
+          dataset: snapshot.bundle.dataset ? toSerializablePayload(snapshot.bundle.dataset) : null,
+        } : null,
+      })),
+      labels: payload.labels ?? [],
+      ownerTrends: payload.ownerTrends ?? [],
+      hotspotTrends: payload.hotspotTrends ?? [],
+      caseTrends: payload.caseTrends ?? [],
+      inventoryTrends: payload.inventoryTrends ?? [],
+      stewardLedger: payload.stewardLedger ?? null,
+      summary: payload.summary,
+    };
+  }
+
+  if (Array.isArray(payload?.snapshots) && Array.isArray(payload?.ownerTrends) && payload?.summary?.latestGateVerdict !== undefined) {
+    return {
+      snapshots: payload.snapshots.map((snapshot) => ({
+        label: snapshot.label,
+        dataset: snapshot.dataset ? toSerializablePayload(snapshot.dataset) : null,
+      })),
+      labels: payload.labels ?? [],
+      ownerTrends: payload.ownerTrends ?? [],
+      hotspotTrends: payload.hotspotTrends ?? [],
+      caseTrends: payload.caseTrends ?? [],
+      stewardLedger: payload.stewardLedger ?? null,
+      summary: payload.summary,
     };
   }
 

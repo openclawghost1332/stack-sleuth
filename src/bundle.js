@@ -3,9 +3,10 @@ import { renderIncidentPortfolioMarkdownSummary } from './portfolio.js';
 import { renderIncidentDossierHtml } from './report.js';
 import { buildCasebookDataset } from './dataset.js';
 import { analyzeCasebookMerge, renderCasebookMergeMarkdownSummary } from './merge.js';
+import { renderActionBoardMarkdownSummary } from './action-board.js';
 
 export const RESPONSE_BUNDLE_KIND = 'stack-sleuth-response-bundle';
-export const RESPONSE_BUNDLE_VERSION = 2;
+export const RESPONSE_BUNDLE_VERSION = 3;
 
 const RESPONSE_BUNDLE_FILENAMES = [
   'manifest.json',
@@ -15,6 +16,7 @@ const RESPONSE_BUNDLE_FILENAMES = [
   'casebook.txt',
   'casebook-dataset.json',
   'merge-review.md',
+  'action-board.md',
   'response-bundle.json',
 ];
 
@@ -46,6 +48,8 @@ export function buildResponseBundle({ report, sourceMode = 'portfolio', sourceLa
       recurringHotspotCount: report.recurringHotspots?.length ?? 0,
       stewardActionCount: dataset.steward?.summary?.actionCount ?? 0,
       stewardHeadline: dataset.steward?.summary?.headline ?? 'No steward summary available.',
+      actionBoardCardCount: dataset.board?.summary?.totalCards ?? 0,
+      actionBoardHeadline: dataset.board?.summary?.headline ?? 'No Action Board summary available.',
     },
     files: RESPONSE_BUNDLE_FILENAMES,
   };
@@ -62,6 +66,7 @@ export function buildResponseBundle({ report, sourceMode = 'portfolio', sourceLa
     'casebook.txt': dataset.exportText,
     'casebook-dataset.json': `${JSON.stringify(dataset, null, 2)}\n`,
     'merge-review.md': renderCasebookMergeMarkdownSummary(merge),
+    'action-board.md': renderActionBoardMarkdownSummary(dataset.board),
   };
 
   const files = {

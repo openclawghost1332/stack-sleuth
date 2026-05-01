@@ -1,6 +1,6 @@
 {
   "kind": "stack-sleuth-casebook-dataset",
-  "version": 1,
+  "version": 2,
   "summary": {
     "headline": "Casebook Dataset captured 3 merged cases from 3 packs.",
     "packCount": 3,
@@ -107,6 +107,48 @@
       "packCount": 1
     }
   ],
+  "routingGaps": [
+    {
+      "label": "billing-canary",
+      "priorityScore": 526,
+      "priorityReasons": [
+        "it introduces 1 new regression incident",
+        "it shows 1 volume-up regression incident"
+      ],
+      "novelCount": 0,
+      "queueIndex": 1
+    },
+    {
+      "label": "checkout-prod",
+      "priorityScore": 46,
+      "priorityReasons": [
+        "its current digest has 1 incident group across 2 traces"
+      ],
+      "novelCount": 0,
+      "queueIndex": 2
+    }
+  ],
+  "runbookGaps": [
+    {
+      "label": "billing-canary",
+      "priorityScore": 526,
+      "priorityReasons": [
+        "it introduces 1 new regression incident",
+        "it shows 1 volume-up regression incident"
+      ],
+      "novelCount": 0,
+      "queueIndex": 1
+    },
+    {
+      "label": "checkout-prod",
+      "priorityScore": 46,
+      "priorityReasons": [
+        "its current digest has 1 incident group across 2 traces"
+      ],
+      "novelCount": 0,
+      "queueIndex": 2
+    }
+  ],
   "recurringIncidents": [
     {
       "signature": "javascript|TypeError|app/src/profile.js:88|nullish-data,undefined-property-access",
@@ -190,5 +232,248 @@
       "conflicts": []
     }
   ],
-  "exportText": "=== release-2026-04-15 ===\n>>> summary: Checkout profile payload dropped account metadata before render\n>>> fix: Guard renderProfile before reading account.name\n>>> owner: web-platform\n>>> runbook: https://example.com/runbooks/profile-null\n>>> seen-count: 3\n>>> source-packs: checkout-prod, profile-rollout, billing-canary\nTypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n\n=== release-2026-04-15-2 ===\n>>> summary: Checkout profile payload dropped account metadata before render\n>>> fix: Guard renderProfile before reading account.name\n>>> owner: web-platform\n>>> runbook: https://example.com/runbooks/profile-null\n>>> seen-count: 1\n>>> source-packs: billing-canary\nTypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n\n=== profile-js-generic-runtime-error ===\n>>> summary: No specific pattern matched, so focus on the failing inputs and recent changes around renderProfileState (/app/src/profile.js:102).\n>>> seen-count: 1\n>>> source-packs: profile-rollout\nProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)"
+  "steward": {
+    "preserved": true,
+    "cases": [
+      {
+        "label": "release-2026-04-15",
+        "signature": "javascript|TypeError|app/src/profile.js:88|nullish-data,undefined-property-access",
+        "sourcePacks": [
+          "checkout-prod",
+          "profile-rollout",
+          "billing-canary"
+        ],
+        "seenCount": 3,
+        "metadata": {
+          "summary": "Checkout profile payload dropped account metadata before render",
+          "fix": "Guard renderProfile before reading account.name",
+          "owner": "web-platform",
+          "runbook": "https://example.com/runbooks/profile-null"
+        },
+        "conflicts": [
+          "label conflict: release-2026-04-15, profile-rewrite"
+        ]
+      },
+      {
+        "label": "release-2026-04-15-2",
+        "signature": "javascript|TypeError|app/src/invoice.js:19|nullish-data,undefined-property-access",
+        "sourcePacks": [
+          "billing-canary"
+        ],
+        "seenCount": 1,
+        "metadata": {
+          "summary": "Checkout profile payload dropped account metadata before render",
+          "fix": "Guard renderProfile before reading account.name",
+          "owner": "web-platform",
+          "runbook": "https://example.com/runbooks/profile-null"
+        },
+        "conflicts": []
+      },
+      {
+        "label": "profile-js-generic-runtime-error",
+        "signature": "javascript|ProfileHydrationError|app/src/profile.js:102|generic-runtime-error",
+        "sourcePacks": [
+          "profile-rollout"
+        ],
+        "seenCount": 1,
+        "metadata": {
+          "summary": "No specific pattern matched, so focus on the failing inputs and recent changes around renderProfileState (/app/src/profile.js:102).",
+          "fix": "",
+          "owner": "",
+          "runbook": ""
+        },
+        "conflicts": []
+      }
+    ],
+    "actions": [
+      {
+        "kind": "conflict",
+        "label": "release-2026-04-15",
+        "signature": "javascript|TypeError|app/src/profile.js:88|nullish-data,undefined-property-access",
+        "seenCount": 3,
+        "sourcePacks": [
+          "checkout-prod",
+          "profile-rollout",
+          "billing-canary"
+        ],
+        "priority": 10003,
+        "headline": "Resolve 1 merge conflict for release-2026-04-15.",
+        "ask": "Review release-2026-04-15 and reconcile the conflicting casebook guidance before the next saved export."
+      },
+      {
+        "kind": "missing-owner",
+        "label": "profile-js-generic-runtime-error",
+        "signature": "javascript|ProfileHydrationError|app/src/profile.js:102|generic-runtime-error",
+        "seenCount": 1,
+        "sourcePacks": [
+          "profile-rollout"
+        ],
+        "priority": 9001,
+        "headline": "Assign an owner for profile-js-generic-runtime-error.",
+        "ask": "Capture an owner for profile-js-generic-runtime-error so future incidents route cleanly."
+      },
+      {
+        "kind": "missing-runbook",
+        "label": "profile-js-generic-runtime-error",
+        "signature": "javascript|ProfileHydrationError|app/src/profile.js:102|generic-runtime-error",
+        "seenCount": 1,
+        "sourcePacks": [
+          "profile-rollout"
+        ],
+        "priority": 8001,
+        "headline": "Add a runbook for profile-js-generic-runtime-error.",
+        "ask": "Capture or link a runbook for profile-js-generic-runtime-error so responders have a playbook."
+      }
+    ],
+    "summary": {
+      "caseCount": 3,
+      "conflictCount": 1,
+      "ownerCoveredCount": 2,
+      "fixCoveredCount": 2,
+      "runbookCoveredCount": 2,
+      "actionCount": 3,
+      "urgentActionCount": 2,
+      "headline": "Casebook Steward found 3 actions across 3 cases."
+    },
+    "nextAction": "Review release-2026-04-15 and reconcile the conflicting casebook guidance before the next saved export."
+  },
+  "exportText": "=== release-2026-04-15 ===\n>>> summary: Checkout profile payload dropped account metadata before render\n>>> fix: Guard renderProfile before reading account.name\n>>> owner: web-platform\n>>> runbook: https://example.com/runbooks/profile-null\n>>> seen-count: 3\n>>> source-packs: checkout-prod, profile-rollout, billing-canary\nTypeError: Cannot read properties of undefined (reading 'name')\n    at renderProfile (/app/src/profile.js:88:17)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n\n=== release-2026-04-15-2 ===\n>>> summary: Checkout profile payload dropped account metadata before render\n>>> fix: Guard renderProfile before reading account.name\n>>> owner: web-platform\n>>> runbook: https://example.com/runbooks/profile-null\n>>> seen-count: 1\n>>> source-packs: billing-canary\nTypeError: Cannot read properties of undefined (reading 'email')\n    at renderInvoice (/app/src/invoice.js:19:7)\n    at refreshBilling (/app/src/billing.js:57:3)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n\n=== profile-js-generic-runtime-error ===\n>>> summary: No specific pattern matched, so focus on the failing inputs and recent changes around renderProfileState (/app/src/profile.js:102).\n>>> seen-count: 1\n>>> source-packs: profile-rollout\nProfileHydrationError: Profile payload missing account metadata\n    at renderProfileState (/app/src/profile.js:102:9)\n    at updateView (/app/src/view.js:42:5)\n    at processTicksAndRejections (node:internal/process/task_queues:95:5)",
+  "board": {
+    "kind": "stack-sleuth-action-board",
+    "version": 1,
+    "source": {
+      "kind": "dataset",
+      "label": "Casebook Dataset captured 3 merged cases from 3 packs.",
+      "version": 2
+    },
+    "summary": {
+      "sourceKind": "dataset",
+      "headline": "Action Board rebuilt 5 coordination cards from a saved Casebook Dataset.",
+      "totalCards": 5,
+      "totalLabels": 3,
+      "totalLanes": 4,
+      "hasReplayLimitations": false,
+      "replayNotes": [],
+      "laneCounts": {
+        "owner-work": 1,
+        "ownership-gaps": 1,
+        "runbook-gaps": 2,
+        "steward-backlog": 1
+      }
+    },
+    "lanes": [
+      {
+        "key": "owner-work",
+        "title": "Owner work",
+        "cards": [
+          {
+            "lane": "owner-work",
+            "title": "web-platform owns 1 pack",
+            "owner": "web-platform",
+            "affectedLabels": [
+              "profile-rollout"
+            ],
+            "whyNow": [
+              "1 novel incident need context.",
+              "1 pack route to this owner."
+            ],
+            "guidance": [
+              {
+                "label": "release-2026-04-15",
+                "summary": "Checkout profile payload dropped account metadata before render",
+                "fix": "Guard renderProfile before reading account.name",
+                "owner": "web-platform",
+                "runbook": "https://example.com/runbooks/profile-null"
+              }
+            ],
+            "ask": "Route web-platform the preserved incident context for profile-rollout.",
+            "replayNote": "",
+            "sortKey": 0
+          }
+        ]
+      },
+      {
+        "key": "ownership-gaps",
+        "title": "Ownership gaps",
+        "cards": [
+          {
+            "lane": "ownership-gaps",
+            "title": "Ownership gaps across 2 packs",
+            "affectedLabels": [
+              "billing-canary",
+              "checkout-prod"
+            ],
+            "whyNow": [
+              "it introduces 1 new regression incident",
+              "it shows 1 volume-up regression incident",
+              "its current digest has 1 incident group across 2 traces"
+            ],
+            "guidance": [],
+            "ask": "Assign an owner for billing-canary, checkout-prod so future incidents route cleanly.",
+            "replayNote": "",
+            "sortKey": 0
+          }
+        ]
+      },
+      {
+        "key": "runbook-gaps",
+        "title": "Runbook gaps",
+        "cards": [
+          {
+            "lane": "runbook-gaps",
+            "title": "Runbook gap: billing-canary",
+            "affectedLabels": [
+              "billing-canary"
+            ],
+            "whyNow": [
+              "it introduces 1 new regression incident",
+              "it shows 1 volume-up regression incident"
+            ],
+            "guidance": [],
+            "ask": "Capture or link a runbook for billing-canary so responders have a playbook.",
+            "replayNote": "",
+            "sortKey": 0
+          },
+          {
+            "lane": "runbook-gaps",
+            "title": "Runbook gap: checkout-prod",
+            "affectedLabels": [
+              "checkout-prod"
+            ],
+            "whyNow": [
+              "its current digest has 1 incident group across 2 traces"
+            ],
+            "guidance": [],
+            "ask": "Capture or link a runbook for checkout-prod so responders have a playbook.",
+            "replayNote": "",
+            "sortKey": 1
+          }
+        ]
+      },
+      {
+        "key": "steward-backlog",
+        "title": "Steward backlog",
+        "cards": [
+          {
+            "lane": "steward-backlog",
+            "title": "Casebook Steward found 3 actions across 3 cases.",
+            "affectedLabels": [
+              "checkout-prod",
+              "profile-rollout",
+              "billing-canary"
+            ],
+            "whyNow": [
+              "Resolve 1 merge conflict for release-2026-04-15.",
+              "Assign an owner for profile-js-generic-runtime-error.",
+              "Add a runbook for profile-js-generic-runtime-error."
+            ],
+            "guidance": [],
+            "ask": "Review release-2026-04-15 and reconcile the conflicting casebook guidance before the next saved export.",
+            "replayNote": "",
+            "sortKey": 0
+          }
+        ]
+      }
+    ]
+  }
 }

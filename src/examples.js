@@ -301,7 +301,7 @@ export const examples = [
   },
   {
     label: 'Portfolio radar',
-    caption: 'Several labeled incident packs roll up into one owner-aware Portfolio Radar queue, surfacing a deterministic release gate verdict alongside recalled owners, runbook gaps, routing gaps, recurring incidents, shared hotspots, and copy-ready handoff packets in one release-level view.',
+    caption: 'Several labeled incident packs roll up into one owner-aware Portfolio Radar queue plus a deterministic Action Board, surfacing a release gate verdict alongside recalled owners, runbook gaps, routing gaps, recurring incidents, shared hotspots, and copy-ready handoff packets in one release-level view.',
     portfolio: portfolioTrace,
   },
   {
@@ -316,12 +316,12 @@ export const examples = [
   },
   {
     label: 'Casebook Dataset',
-    caption: 'A saved Casebook Dataset JSON artifact replays the preserved release gate verdict, routing, recurring hotspot, and reusable casebook export story without needing the original portfolio input.',
+    caption: 'A saved Casebook Dataset JSON artifact replays the preserved release gate verdict, Action Board routing and runbook gaps, recurring hotspot drift, and reusable casebook export story without needing the original portfolio input.',
     dataset: datasetReplay,
   },
   {
     label: 'Response Bundle replay',
-    caption: 'A self-contained response-bundle.json artifact replays preserved bundle inventory plus embedded dataset fields for saved incident handoff, while staying honest that replay does not recover raw traces, support frames, or blast radius detail.',
+    caption: 'A self-contained response-bundle.json artifact replays preserved bundle inventory plus embedded dataset fields for saved incident handoff and Action Board lanes, while staying honest that replay does not recover raw traces, support frames, or blast radius detail.',
     bundle: responseBundleReplay,
   },
   {

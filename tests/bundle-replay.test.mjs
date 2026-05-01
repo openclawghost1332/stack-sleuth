@@ -70,13 +70,16 @@ test('inspectResponseBundleReplayInput recognizes a self-contained replay artifa
 
   assert.equal(replay.valid, true);
   assert.equal(replay.bundle.kind, 'stack-sleuth-response-bundle');
-  assert.equal(replay.bundle.version, 2);
-  assert.equal(replay.bundle.sourceVersion, 2);
+  assert.equal(replay.bundle.version, 3);
+  assert.equal(replay.bundle.sourceVersion, 3);
   assert.equal(replay.bundle.manifest.summary.releaseGateVerdict, report.gate.verdict);
   assert.equal(replay.bundle.dataset.gate.verdict, report.gate.verdict);
   assert.equal(replay.bundle.dataset.summary.ownerCount, report.responseQueue.length);
   assert.equal(replay.bundle.dataset.steward.preserved, true);
   assert.ok(replay.bundle.dataset.steward.summary.actionCount >= 1);
+  assert.ok(Array.isArray(replay.bundle.dataset.routingGaps));
+  assert.ok(Array.isArray(replay.bundle.dataset.runbookGaps));
+  assert.ok(replay.bundle.dataset.board.summary.totalCards >= 1);
   assert.deepEqual(replay.bundle.manifest.source, {
     mode: 'portfolio',
     label: 'Portfolio Radar',
@@ -92,6 +95,7 @@ test('inspectResponseBundleReplayInput recognizes a self-contained replay artifa
   assert.match(text, /Release gate: hold/i);
   assert.match(text, /Response owners: 1/);
   assert.match(text, /Steward actions: [1-9]/);
+  assert.match(text, /Action Board cards: [1-9]/);
   assert.match(text, /Next steward action: /);
   assert.match(text, /Saved-artifact note:/i);
   assert.match(text, /response-bundle\.json/);
@@ -102,6 +106,7 @@ test('inspectResponseBundleReplayInput recognizes a self-contained replay artifa
   assert.match(markdown, /- \*\*Source workflow:\*\* portfolio \(Portfolio Radar\)/i);
   assert.match(markdown, /- \*\*Release gate:\*\* hold/i);
   assert.match(markdown, /- \*\*Steward actions:\*\* [1-9]/i);
+  assert.match(markdown, /- \*\*Action Board cards:\*\* [1-9]/i);
   assert.match(markdown, /- \*\*Next steward action:\*\*/i);
   assert.match(markdown, /## Bundle inventory/);
   assert.match(markdown, /response-bundle\.json/);
@@ -132,10 +137,10 @@ test('inspectResponseBundleReplayInput normalizes legacy version-1 bundle payloa
   const replay = inspectResponseBundleReplayInput(JSON.stringify(legacyBundle));
 
   assert.equal(replay.valid, true);
-  assert.equal(replay.bundle.version, 2);
+  assert.equal(replay.bundle.version, 3);
   assert.equal(replay.bundle.sourceVersion, 1);
   assert.equal(replay.bundle.manifest.version, 1);
-  assert.equal(replay.bundle.summary.fileCount, 7);
+  assert.equal(replay.bundle.summary.fileCount, 8);
   assert.equal(replay.bundle.dataset.summary.ownerCount, report.responseQueue.length);
   assert.equal(replay.bundle.dataset.gate.verdict, report.gate.verdict);
   assert.equal(replay.bundle.dataset.steward.preserved, true);

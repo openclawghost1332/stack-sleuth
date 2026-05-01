@@ -36,6 +36,13 @@ import {
   renderCasebookChronicleMarkdownSummary,
 } from '../src/chronicle.js';
 import {
+  analyzeResponseBundleChronicle,
+  describeResponseBundleChronicleInputError,
+  inspectResponseBundleChronicleInput,
+  renderResponseBundleChronicleTextSummary,
+  renderResponseBundleChronicleMarkdownSummary,
+} from '../src/bundle-chronicle.js';
+import {
   analyzeIncidentPortfolio,
   parseIncidentPortfolio,
   renderIncidentPortfolioTextSummary,
@@ -110,6 +117,7 @@ const notebookArgumentError = validateOptionValue(args, '--notebook');
 const mergeCasebookArgumentError = validateOptionValue(args, '--merge-casebook');
 const timelineArgumentError = validateOptionValue(args, '--timeline');
 const chronicleArgumentError = validateOptionValue(args, '--chronicle');
+const bundleChronicleArgumentError = validateOptionValue(args, '--bundle-chronicle');
 const datasetArgumentError = validateOptionValue(args, '--dataset');
 const replayDatasetArgumentError = validateOptionValue(args, '--replay-dataset');
 const replayBundleArgumentError = validateOptionValue(args, '--replay-bundle');
@@ -130,6 +138,7 @@ const notebookPath = readOptionValue(args, '--notebook');
 const mergeCasebookPath = readOptionValue(args, '--merge-casebook');
 const timelinePath = readOptionValue(args, '--timeline');
 const chroniclePath = readOptionValue(args, '--chronicle');
+const bundleChroniclePath = readOptionValue(args, '--bundle-chronicle');
 const datasetPath = readOptionValue(args, '--dataset');
 const replayDatasetPath = readOptionValue(args, '--replay-dataset');
 const replayBundlePath = readOptionValue(args, '--replay-bundle');
@@ -151,6 +160,7 @@ const workflowArgumentError = validateWorkflowArguments({
   mergeCasebookPath,
   timelinePath,
   chroniclePath,
+  bundleChroniclePath,
   datasetPath,
   replayDatasetPath,
   replayBundlePath,
@@ -194,6 +204,7 @@ const filePath = args.find((arg, index) => {
     '--merge-casebook',
     '--timeline',
     '--chronicle',
+    '--bundle-chronicle',
     '--dataset',
     '--replay-dataset',
     '--replay-bundle',
@@ -245,6 +256,10 @@ if (timelineArgumentError) {
 
 if (chronicleArgumentError) {
   fail(chronicleArgumentError);
+}
+
+if (bundleChronicleArgumentError) {
+  fail(bundleChronicleArgumentError);
 }
 
 if (datasetArgumentError) {
@@ -658,6 +673,19 @@ try {
     process.exit(0);
   }
 
+  if (bundleChroniclePath) {
+    const chronicleInput = bundleChroniclePath === '-' ? fs.readFileSync(0, 'utf8') : readNamedInput(bundleChroniclePath, 'response bundle chronicle');
+    const chronicleInspection = inspectResponseBundleChronicleInput(chronicleInput);
+
+    if (!chronicleInspection.valid) {
+      fail(describeResponseBundleChronicleInputError(chronicleInspection));
+    }
+
+    const chronicle = analyzeResponseBundleChronicle(chronicleInspection);
+    writeOutput(chronicle, mode, renderResponseBundleChronicleTextSummary, renderResponseBundleChronicleMarkdownSummary);
+    process.exit(0);
+  }
+
   if (baselinePath || candidatePath) {
     if (!baselinePath || !candidatePath) {
       fail('Compare mode requires both --baseline and --candidate inputs.');
@@ -824,7 +852,7 @@ function validateOptionValue(list, flag) {
   return null;
 }
 
-function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, datasetPath, replayDatasetPath, replayBundlePath, shelfPath, replayShelfPath, historyPath, workspacePath, capsulePath }) {
+function validateWorkflowArguments({ baselinePath, candidatePath, packPath, portfolioPath, forgePath, handoffPath, notebookPath, mergeCasebookPath, timelinePath, chroniclePath, bundleChroniclePath, datasetPath, replayDatasetPath, replayBundlePath, shelfPath, replayShelfPath, historyPath, workspacePath, capsulePath }) {
   const activeModes = [
     historyPath ? 'casebook' : null,
     capsulePath ? 'capsule' : null,
@@ -837,6 +865,7 @@ function validateWorkflowArguments({ baselinePath, candidatePath, packPath, port
     packPath ? 'incident-pack' : null,
     timelinePath ? 'timeline' : null,
     chroniclePath ? 'chronicle' : null,
+    bundleChroniclePath ? 'bundle-chronicle' : null,
     datasetPath ? 'dataset' : null,
     replayDatasetPath ? 'replay-dataset' : null,
     replayBundlePath ? 'replay-bundle' : null,

@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { buildCasebookDataset } from '../src/dataset.js';
 import { analyzeIncidentPortfolio } from '../src/portfolio.js';
+import { buildCasebookDataset } from '../src/dataset.js';
 import { buildResponseBundle } from '../src/bundle.js';
 
 const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -192,6 +192,45 @@ const chronicleInput = [
     hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
     cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
   }), null, 2),
+].join('\n');
+
+const responseBundleChronicleInput = [
+  '=== release-a ===',
+  buildChronicleBundle({
+    sourceMode: 'portfolio',
+    sourceLabel: 'browser release-a fixture',
+    dataset: buildChronicleDataset({
+      packCount: 2,
+      owners: [{ owner: 'web-platform', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+    }),
+    files: ['manifest.json', 'incident-dossier.html', 'portfolio-summary.md', 'handoff.md', 'casebook.txt', 'casebook-dataset.json', 'merge-review.md'],
+  }),
+  '',
+  '=== release-b ===',
+  buildChronicleBundle({
+    sourceMode: 'portfolio',
+    sourceLabel: 'browser release-b fixture',
+    dataset: buildChronicleDataset({
+      packCount: 3,
+      owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
+      hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    }),
+  }),
+  '',
+  '=== release-c ===',
+  buildChronicleBundle({
+    sourceMode: 'workspace',
+    sourceLabel: 'browser release-c fixture',
+    dataset: buildChronicleDataset({
+      packCount: 4,
+      owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
+      hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
+      cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    }),
+  }),
 ].join('\n');
 const shelfReplayInput = JSON.stringify({
   kind: 'stack-sleuth-casebook-shelf',
@@ -682,6 +721,39 @@ test('browser response bundle replay copy support writes the saved bundle summar
   }
 });
 
+test('browser response bundle chronicle detection runs before single-bundle replay and renders a saved bundle trend surface', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', responseBundleChronicleInput);
+    await harness.click('explain-button');
+
+    assert.equal(harness.get('runtime-value').textContent, 'response bundle chronicle');
+    assert.match(harness.get('headline-value').textContent, /Bundle Chronicle compared 3 saved response bundles/i);
+    assert.match(harness.get('summary-value').textContent, /Release Gate HOLD|release gate hold/i);
+    assert.match(harness.get('timeline-summary-value').textContent, /workspace/i);
+    assert.match(harness.get('timeline-hotspots-value').children[0].textContent, /saved bundle file|bundle inventory/i);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('browser response bundle chronicle copy support writes the saved bundle trend summary to the clipboard', async () => {
+  const harness = await loadBrowserHarness();
+
+  try {
+    await harness.input('trace-input', responseBundleChronicleInput);
+    await harness.click('copy-button');
+
+    assert.match(harness.clipboard.text, /Stack Sleuth Response Bundle Chronicle/);
+    assert.match(harness.clipboard.text, /Latest source workflow: workspace/i);
+    assert.match(harness.clipboard.text, /Bundle inventory trends/);
+    assert.equal(harness.get('example-caption').textContent, 'Response Bundle Chronicle summary copied to clipboard.');
+  } finally {
+    harness.restore();
+  }
+});
+
 test('browser Casebook Chronicle example button loads labeled saved datasets and reuses the trend cards', async () => {
   const harness = await loadBrowserHarness();
 
@@ -1165,4 +1237,33 @@ function buildChronicleDataset({
     })),
     exportText: '=== saved-case ===\nTypeError: replay me',
   };
+}
+
+function buildChronicleBundle({
+  dataset = buildChronicleDataset({ packCount: 2 }),
+  sourceMode = 'portfolio',
+  sourceLabel = 'browser bundle chronicle fixture',
+  files = null,
+  version = 2,
+} = {}) {
+  const baseBundle = JSON.parse(buildResponseBundle({
+    report: analyzeIncidentPortfolio(portfolioInput),
+    sourceMode,
+    sourceLabel,
+  }).files['response-bundle.json']);
+
+  baseBundle.version = version;
+  baseBundle.manifest.version = version === 1 ? 1 : 2;
+  baseBundle.manifest.source = { mode: sourceMode, label: sourceLabel };
+  baseBundle.manifest.summary.headline = dataset.summary.headline;
+  baseBundle.manifest.summary.releaseGateVerdict = dataset.gate.verdict;
+  baseBundle.manifest.summary.packCount = dataset.summary.packCount;
+  baseBundle.manifest.summary.runnablePackCount = dataset.summary.runnablePackCount;
+  baseBundle.manifest.summary.ownerCount = dataset.summary.ownerCount;
+  baseBundle.manifest.summary.recurringHotspotCount = dataset.recurringHotspots.length;
+  baseBundle.manifest.summary.recurringIncidentCount = dataset.recurringIncidents.length;
+  baseBundle.manifest.files = files ?? baseBundle.manifest.files;
+  baseBundle.artifacts['casebook-dataset.json'] = JSON.stringify(dataset, null, 2);
+
+  return JSON.stringify(baseBundle, null, 2);
 }

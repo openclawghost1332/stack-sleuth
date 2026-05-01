@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { analyzeResponseBundleChronicle, inspectResponseBundleChronicleInput } from '../src/bundle-chronicle.js';
 import { analyzeCasebook } from '../src/casebook.js';
 import { analyzeCasebookChronicle, inspectCasebookChronicleInput } from '../src/chronicle.js';
 import { analyzeIncidentPack } from '../src/briefing.js';
@@ -34,6 +35,7 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.ok(labels.includes('Casebook Forge'));
   assert.ok(labels.includes('Casebook Dataset'));
   assert.ok(labels.includes('Response Bundle replay'));
+  assert.ok(labels.includes('Response Bundle Chronicle'));
   assert.ok(labels.includes('Casebook Chronicle'));
   assert.ok(labels.includes('Casebook Shelf'));
 
@@ -161,6 +163,22 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(bundleReplay.bundle.manifest.version, 2);
   assert.match(bundleReplay.bundle.manifest.files.join('\n'), /response-bundle\.json/);
   assert.equal(bundleReplay.bundle.dataset.gate.verdict, 'hold');
+
+  const bundleChronicleExample = examples.find((item) => item.label === 'Response Bundle Chronicle');
+  assert.match(bundleChronicleExample.caption, /saved response bundles|bundle inventory|release windows|chronicle/i);
+  assert.equal(typeof bundleChronicleExample.bundleChronicle, 'string');
+  assert.match(bundleChronicleExample.bundleChronicle, /=== release-a ===/i);
+  assert.match(bundleChronicleExample.bundleChronicle, /"kind": "stack-sleuth-response-bundle"/i);
+
+  const bundleChronicleInspection = inspectResponseBundleChronicleInput(bundleChronicleExample.bundleChronicle);
+  assert.equal(bundleChronicleInspection.valid, true);
+  const bundleChronicle = analyzeResponseBundleChronicle(bundleChronicleInspection);
+  assert.equal(bundleChronicle.summary.snapshotCount, 3);
+  assert.equal(bundleChronicle.summary.latestLabel, 'release-c');
+  assert.equal(bundleChronicle.summary.latestGateVerdict, 'hold');
+  assert.equal(bundleChronicle.summary.latestSourceMode, 'workspace');
+  assert.equal(bundleChronicle.summary.gateDrift.direction, 'regressed');
+  assert.ok(bundleChronicle.inventoryTrends.length >= 1);
 
   const chronicleExample = examples.find((item) => item.label === 'Casebook Chronicle');
   assert.match(chronicleExample.caption, /saved datasets|release windows|drift|chronicle/i);

@@ -186,6 +186,10 @@ const chronicleInput = [
     owners: [{ owner: 'web-platform', packCount: 1 }],
     hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
     cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+    stewardActions: [
+      buildStewardAction('missing-runbook', 'profile-js', 'sig-profile-js', 'Add a runbook for profile-js.', 'Capture a runbook for profile-js.'),
+      buildStewardAction('missing-owner', 'billing-js', 'sig-billing-js', 'Assign an owner for billing-js.', 'Capture an owner for billing-js.'),
+    ],
   }), null, 2),
   '',
   '=== release-b ===',
@@ -194,6 +198,10 @@ const chronicleInput = [
     owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
     hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
     cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    stewardActions: [
+      buildStewardAction('missing-runbook', 'profile-js', 'sig-profile-js', 'Add a runbook for profile-js.', 'Capture a runbook for profile-js.'),
+      buildStewardAction('missing-fix', 'search-js', 'sig-search-js', 'Document the fix for search-js.', 'Capture the fix for search-js.'),
+    ],
   }), null, 2),
   '',
   '=== release-c ===',
@@ -202,6 +210,10 @@ const chronicleInput = [
     owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
     hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
     cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    stewardActions: [
+      buildStewardAction('missing-owner', 'billing-js', 'sig-billing-js', 'Assign an owner for billing-js.', 'Capture an owner for billing-js.'),
+      buildStewardAction('missing-fix', 'search-js', 'sig-search-js', 'Document the fix for search-js.', 'Capture the fix for search-js.'),
+    ],
   }), null, 2),
 ].join('\n');
 
@@ -215,6 +227,10 @@ const bundleChronicleInput = [
       owners: [{ owner: 'web-platform', packCount: 1 }],
       hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
       cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+      stewardActions: [
+        buildStewardAction('missing-runbook', 'profile-js', 'sig-profile-js', 'Add a runbook for profile-js.', 'Capture a runbook for profile-js.'),
+        buildStewardAction('missing-owner', 'billing-js', 'sig-billing-js', 'Assign an owner for billing-js.', 'Capture an owner for billing-js.'),
+      ],
     }),
     files: ['manifest.json', 'incident-dossier.html', 'portfolio-summary.md', 'handoff.md', 'casebook.txt', 'casebook-dataset.json', 'merge-review.md'],
   }),
@@ -228,6 +244,10 @@ const bundleChronicleInput = [
       owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
       hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
       cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+      stewardActions: [
+        buildStewardAction('missing-runbook', 'profile-js', 'sig-profile-js', 'Add a runbook for profile-js.', 'Capture a runbook for profile-js.'),
+        buildStewardAction('missing-fix', 'search-js', 'sig-search-js', 'Document the fix for search-js.', 'Capture the fix for search-js.'),
+      ],
     }),
   }),
   '',
@@ -240,6 +260,10 @@ const bundleChronicleInput = [
       owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
       hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
       cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+      stewardActions: [
+        buildStewardAction('missing-owner', 'billing-js', 'sig-billing-js', 'Assign an owner for billing-js.', 'Capture an owner for billing-js.'),
+        buildStewardAction('missing-fix', 'search-js', 'sig-search-js', 'Document the fix for search-js.', 'Capture the fix for search-js.'),
+      ],
     }),
   }),
 ].join('\n');
@@ -711,6 +735,8 @@ test('CLI reads labeled saved datasets with --chronicle and prints a chronicle s
   assert.match(result.stdout, /Stack Sleuth Casebook Chronicle/);
   assert.match(result.stdout, /Release gate: hold/i);
   assert.match(result.stdout, /Latest snapshot: release-c/i);
+  assert.match(result.stdout, /Stack Sleuth Steward Ledger/);
+  assert.match(result.stdout, /Current stewardship backlog/i);
   assert.match(result.stdout, /Owner trends/);
 });
 
@@ -721,6 +747,7 @@ test('CLI reads labeled saved response bundles with --bundle-chronicle and print
   assert.match(result.stdout, /Stack Sleuth Response Bundle Chronicle/);
   assert.match(result.stdout, /Release gate: hold/i);
   assert.match(result.stdout, /Latest source workflow: workspace/i);
+  assert.match(result.stdout, /Stack Sleuth Steward Ledger/);
   assert.match(result.stdout, /Bundle inventory trends/i);
 });
 
@@ -733,10 +760,13 @@ test('CLI chronicle mode supports --json and --markdown output', () => {
   assert.equal(parsed.summary.latestGateVerdict, 'hold');
   assert.equal(parsed.summary.gateDrift.direction, 'regressed');
   assert.equal(parsed.summary.risingOwnerCount, 2);
+  assert.equal(parsed.stewardLedger.summary.activeActionCount, 2);
+  assert.equal(parsed.stewardLedger.summary.resurfacedActionCount, 1);
 
   const markdownResult = runCli(['--chronicle', '-', '--markdown'], { input: chronicleInput });
   assert.equal(markdownResult.status, 0, markdownResult.stderr);
   assert.match(markdownResult.stdout, /^# Stack Sleuth Casebook Chronicle/m);
+  assert.match(markdownResult.stdout, /## Steward Ledger/);
   assert.match(markdownResult.stdout, /## Owner trends/);
 });
 
@@ -749,11 +779,14 @@ test('CLI bundle chronicle mode supports --json and --markdown output', () => {
   assert.equal(parsed.summary.latestGateVerdict, 'hold');
   assert.equal(parsed.summary.latestSourceMode, 'workspace');
   assert.equal(parsed.summary.gateDrift.direction, 'regressed');
+  assert.equal(parsed.stewardLedger.summary.activeActionCount, 2);
+  assert.equal(parsed.stewardLedger.summary.resurfacedActionCount, 1);
   assert.ok(parsed.inventoryTrends.length >= 1);
 
   const markdownResult = runCli(['--bundle-chronicle', '-', '--markdown'], { input: bundleChronicleInput });
   assert.equal(markdownResult.status, 0, markdownResult.stderr);
   assert.match(markdownResult.stdout, /^# Stack Sleuth Response Bundle Chronicle/m);
+  assert.match(markdownResult.stdout, /## Steward Ledger/);
   assert.match(markdownResult.stdout, /## Bundle inventory trends/);
 });
 
@@ -1492,6 +1525,9 @@ function buildChronicleDataset({
   owners = [],
   hotspots = [],
   cases = [],
+  stewardActionCount = Math.max(0, 4 - packCount),
+  stewardPreserved = true,
+  stewardActions = null,
 } = {}) {
   return {
     kind: 'stack-sleuth-casebook-dataset',
@@ -1539,6 +1575,39 @@ function buildChronicleDataset({
       metadata: {},
       conflicts: [],
     })),
+    steward: {
+      preserved: stewardPreserved,
+      cases: cases.map((entry) => ({
+        label: entry.label,
+        signature: entry.signature,
+        sourcePacks: ['pack-1'],
+        metadata: {},
+        conflicts: [],
+      })),
+      actions: stewardActions ?? Array.from({ length: stewardActionCount }, (_, index) => ({
+        kind: index === 0 ? 'missing-owner' : 'missing-runbook',
+        label: cases[index]?.label ?? `case-${index + 1}`,
+        signature: cases[index]?.signature ?? `sig-${index + 1}`,
+        seenCount: 1,
+        sourcePacks: ['pack-1'],
+        priority: 1000 - index,
+        headline: `Do steward action ${index + 1}`,
+        ask: `Handle steward action ${index + 1}`,
+      })),
+      summary: {
+        caseCount: cases.length,
+        conflictCount: 0,
+        ownerCoveredCount: 0,
+        fixCoveredCount: 0,
+        runbookCoveredCount: 0,
+        actionCount: stewardActions?.length ?? stewardActionCount,
+        urgentActionCount: stewardActions
+          ? stewardActions.filter((entry) => entry.kind === 'conflict' || entry.kind === 'missing-owner').length
+          : stewardActionCount ? 1 : 0,
+        headline: `Casebook Steward found ${(stewardActions?.length ?? stewardActionCount)} action${(stewardActions?.length ?? stewardActionCount) === 1 ? '' : 's'} across ${cases.length} case${cases.length === 1 ? '' : 's'}.`,
+      },
+      nextAction: stewardActions?.[0]?.ask ?? (stewardActionCount ? 'Handle steward action 1' : 'No stewardship gaps detected in the current casebook state.'),
+    },
     exportText: '=== saved-case ===\nTypeError: replay me',
   };
 }
@@ -1566,8 +1635,23 @@ function buildChronicleBundle({
   baseBundle.manifest.summary.ownerCount = dataset.summary.ownerCount;
   baseBundle.manifest.summary.recurringHotspotCount = dataset.recurringHotspots.length;
   baseBundle.manifest.summary.recurringIncidentCount = dataset.recurringIncidents.length;
+  baseBundle.manifest.summary.stewardActionCount = dataset.steward?.summary?.actionCount ?? 0;
+  baseBundle.manifest.summary.stewardHeadline = dataset.steward?.summary?.headline ?? 'No steward summary available.';
   baseBundle.manifest.files = files ?? baseBundle.manifest.files;
   baseBundle.artifacts['casebook-dataset.json'] = JSON.stringify(dataset, null, 2);
 
   return JSON.stringify(baseBundle, null, 2);
+}
+
+function buildStewardAction(kind, label, signature, headline, ask) {
+  return {
+    kind,
+    label,
+    signature,
+    seenCount: 1,
+    sourcePacks: ['pack-1'],
+    priority: 1000,
+    headline,
+    ask,
+  };
 }

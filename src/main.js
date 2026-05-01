@@ -933,7 +933,7 @@ function renderChronicleWorkflow(input) {
   confidenceValue.textContent = 'saved artifact';
   tagsValue.textContent = ['chronicle', topOwner?.trend, topHotspot?.trend].filter(Boolean).join(', ');
   signatureValue.textContent = topCase?.signature ?? `chronicle:${report.summary.latestLabel}`;
-  summaryValue.textContent = `Casebook Chronicle compared ${report.summary.snapshotCount} saved datasets. Latest snapshot ${report.summary.latestLabel} preserves ${report.summary.latestPackCount} packs, ${report.summary.latestOwnerCount} response owner${report.summary.latestOwnerCount === 1 ? '' : 's'}, ${report.summary.latestHotspotCount} recurring hotspot${report.summary.latestHotspotCount === 1 ? '' : 's'}, ${report.summary.latestCaseCount} casebook case${report.summary.latestCaseCount === 1 ? '' : 's'}, and Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}.`;
+  summaryValue.textContent = `Casebook Chronicle compared ${report.summary.snapshotCount} saved datasets. Latest snapshot ${report.summary.latestLabel} preserves ${report.summary.latestPackCount} packs, ${report.summary.latestOwnerCount} response owner${report.summary.latestOwnerCount === 1 ? '' : 's'}, ${report.summary.latestHotspotCount} recurring hotspot${report.summary.latestHotspotCount === 1 ? '' : 's'}, ${report.summary.latestCaseCount} casebook case${report.summary.latestCaseCount === 1 ? '' : 's'}, keeps ${report.stewardLedger.summary.activeActionCount} unresolved steward action${report.stewardLedger.summary.activeActionCount === 1 ? '' : 's'} visible with ${report.stewardLedger.summary.resurfacedActionCount} resurfaced, and preserves Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}.`;
   blastRadiusValue.textContent = 'Saved chronicle snapshots preserve dataset-level routing, hotspot, and case counts, but not raw trace blast radius, support frames, or culprit-level call stacks.';
   digestGroupsValue.replaceChildren(...buildListItems(buildChronicleOwnerItems(report.ownerTrends)));
   supportFramesValue.replaceChildren(...buildListItems([
@@ -942,7 +942,7 @@ function renderChronicleWorkflow(input) {
   hotspotsValue.replaceChildren(...buildListItems(buildChronicleHotspotItems(report.hotspotTrends, latestDataset)));
   checklistValue.replaceChildren(...buildListItems(buildChronicleChecklist(report)));
 
-  timelineSummaryValue.textContent = `Casebook Chronicle latest snapshot ${report.summary.latestLabel} spans ${report.summary.latestPackCount} packs. Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()} and ${report.summary.gateDrift.summary} Trend mix: ${report.summary.newOwnerCount} new owners, ${report.summary.risingOwnerCount} rising owners, ${report.summary.newHotspotCount} new hotspots, ${report.summary.risingHotspotCount} rising hotspots, ${report.summary.newCaseCount} new cases, ${report.summary.resolvedCaseCount} resolved cases.`;
+  timelineSummaryValue.textContent = `Casebook Chronicle latest snapshot ${report.summary.latestLabel} spans ${report.summary.latestPackCount} packs. Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()} and ${report.summary.gateDrift.summary} Steward ledger keeps ${report.stewardLedger.summary.activeActionCount} unresolved actions active, including ${report.stewardLedger.summary.resurfacedActionCount} resurfaced and ${report.stewardLedger.summary.resolvedActionCount} recently resolved. Trend mix: ${report.summary.newOwnerCount} new owners, ${report.summary.risingOwnerCount} rising owners, ${report.summary.newHotspotCount} new hotspots, ${report.summary.risingHotspotCount} rising hotspots, ${report.summary.newCaseCount} new cases, ${report.summary.resolvedCaseCount} resolved cases.`;
   timelineIncidentsValue.replaceChildren(...buildListItems(buildChronicleTrendItems(report)));
   timelineHotspotsValue.replaceChildren(...buildListItems(buildChronicleHotspotItems(report.hotspotTrends, latestDataset)));
   caption.textContent = latestSnapshot
@@ -973,20 +973,16 @@ function renderResponseBundleChronicleWorkflow(input) {
   confidenceValue.textContent = 'saved artifact';
   tagsValue.textContent = ['bundle-chronicle', topOwner?.trend, topHotspot?.trend].filter(Boolean).join(', ');
   signatureValue.textContent = `bundle-chronicle:${report.summary.latestLabel}`;
-  summaryValue.textContent = `Bundle Chronicle compared ${report.summary.snapshotCount} saved response bundles. Latest snapshot ${report.summary.latestLabel} preserves ${report.summary.latestPackCount} packs, ${report.summary.latestOwnerCount} response owner${report.summary.latestOwnerCount === 1 ? '' : 's'}, ${report.summary.latestHotspotCount} recurring hotspot${report.summary.latestHotspotCount === 1 ? '' : 's'}, ${report.summary.latestCaseCount} casebook case${report.summary.latestCaseCount === 1 ? '' : 's'}, ${report.summary.latestFileCount} bundle file${report.summary.latestFileCount === 1 ? '' : 's'}, steward drift ${report.summary.stewardDrift.direction}, and Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}.`;
+  summaryValue.textContent = `Bundle Chronicle compared ${report.summary.snapshotCount} saved response bundles. Latest snapshot ${report.summary.latestLabel} preserves ${report.summary.latestPackCount} packs, ${report.summary.latestOwnerCount} response owner${report.summary.latestOwnerCount === 1 ? '' : 's'}, ${report.summary.latestHotspotCount} recurring hotspot${report.summary.latestHotspotCount === 1 ? '' : 's'}, ${report.summary.latestCaseCount} casebook case${report.summary.latestCaseCount === 1 ? '' : 's'}, ${report.summary.latestFileCount} bundle file${report.summary.latestFileCount === 1 ? '' : 's'}, keeps ${report.stewardLedger.summary.activeActionCount} unresolved steward action${report.stewardLedger.summary.activeActionCount === 1 ? '' : 's'} visible with ${report.stewardLedger.summary.resurfacedActionCount} resurfaced, and preserves Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}.`;
   blastRadiusValue.textContent = 'Saved response bundle chronicle snapshots preserve bundle inventory plus embedded dataset routing, hotspot, case, and stewardship signals, but not raw trace blast radius, support frames, or culprit-level call stacks.';
   digestGroupsValue.replaceChildren(...buildListItems(buildChronicleOwnerItems(report.ownerTrends)));
   supportFramesValue.replaceChildren(...buildListItems([
     'Response Bundle Chronicle replays saved bundle and dataset signals only. Reopen the original portfolio or traces if you need supporting frames.'
   ]));
   hotspotsValue.replaceChildren(...buildListItems(buildChronicleHotspotItems(report.hotspotTrends, latestDataset)));
-  checklistValue.replaceChildren(...buildListItems([
-    `Latest source workflow: ${report.summary.latestSourceMode}${report.summary.latestSourceLabel ? ` (${report.summary.latestSourceLabel})` : ''}.`,
-    `Steward drift: ${report.summary.stewardDrift.summary}`,
-    'Saved-artifact note: response bundle chronicle uses preserved bundle inventory and embedded dataset fields only.',
-  ]));
+  checklistValue.replaceChildren(...buildListItems(buildBundleChronicleChecklist(report)));
 
-  timelineSummaryValue.textContent = `Response Bundle Chronicle latest snapshot ${report.summary.latestLabel} came from ${report.summary.latestSourceMode}. Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}, ${report.summary.gateDrift.summary}, and steward view ${report.summary.latestStewardHeadline}. Inventory drift: ${report.summary.newInventoryCount} new files, ${report.summary.resolvedInventoryCount} resolved files.`;
+  timelineSummaryValue.textContent = `Response Bundle Chronicle latest snapshot ${report.summary.latestLabel} came from ${report.summary.latestSourceMode}. Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}, ${report.summary.gateDrift.summary}, steward view ${report.summary.latestStewardHeadline}, and steward ledger keeps ${report.stewardLedger.summary.activeActionCount} unresolved actions active with ${report.stewardLedger.summary.resurfacedActionCount} resurfaced. Inventory drift: ${report.summary.newInventoryCount} new files, ${report.summary.resolvedInventoryCount} resolved files.`;
   timelineIncidentsValue.replaceChildren(...buildListItems(buildChronicleTrendItems(report)));
   timelineHotspotsValue.replaceChildren(...buildListItems(buildBundleChronicleInventoryItems(report.inventoryTrends)));
   caption.textContent = latestSnapshot
@@ -2061,12 +2057,42 @@ function buildChronicleTrendItems(report) {
 }
 
 function buildChronicleChecklist(report) {
-  return [
-    `Inspect the latest saved dataset export for ${report.summary.latestLabel} if you need reusable casebook text.`,
+  const items = [
+    `Next steward action: ${report.stewardLedger.summary.nextAction}`,
+  ];
+
+  if (report.stewardLedger.summary.hasReconstructedSnapshot) {
+    items.push('Steward ledger confidence is limited because one of the compared snapshots had to reconstruct stewardship detail from older dataset fields.');
+  }
+
+  items.push(
+    `Steward ledger: ${report.stewardLedger.summary.activeActionCount} unresolved, ${report.stewardLedger.summary.resurfacedActionCount} resurfaced, ${report.stewardLedger.summary.resolvedActionCount} recently resolved.`,
     `Review Release Gate movement next: ${report.summary.gateDrift.summary}`,
     'Reopen the source portfolio or timeline input if you need trace-level culprit frames or blast radius detail.',
-    'Use the owner and hotspot trend lines to decide which saved release window deserves a deeper replay next.',
+    `Inspect the latest saved dataset export for ${report.summary.latestLabel} if you need reusable casebook text.`,
+  );
+
+  return items;
+}
+
+function buildBundleChronicleChecklist(report) {
+  const items = [
+    `Next steward action: ${report.stewardLedger.summary.nextAction}`,
   ];
+
+  if (report.stewardLedger.summary.hasReconstructedSnapshot) {
+    items.push('Steward ledger confidence is limited because one of the compared snapshots had to reconstruct stewardship detail from older dataset fields.');
+  } else {
+    items.push(`Steward ledger: ${report.stewardLedger.summary.activeActionCount} unresolved, ${report.stewardLedger.summary.resurfacedActionCount} resurfaced, ${report.stewardLedger.summary.resolvedActionCount} recently resolved.`);
+  }
+
+  items.push(
+    `Latest source workflow: ${report.summary.latestSourceMode}${report.summary.latestSourceLabel ? ` (${report.summary.latestSourceLabel})` : ''}.`,
+    `Steward drift: ${report.summary.stewardDrift.summary}`,
+    'Saved-artifact note: response bundle chronicle uses preserved bundle inventory and embedded dataset fields only.',
+  );
+
+  return items;
 }
 
 function buildBundleChronicleInventoryItems(items) {

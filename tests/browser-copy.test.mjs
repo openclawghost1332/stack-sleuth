@@ -797,8 +797,10 @@ test('browser response bundle chronicle detection runs before single-bundle repl
     assert.equal(harness.get('runtime-value').textContent, 'response bundle chronicle');
     assert.match(harness.get('headline-value').textContent, /Bundle Chronicle compared 3 saved response bundles/i);
     assert.match(harness.get('summary-value').textContent, /Release Gate HOLD|release gate hold/i);
+    assert.match(harness.get('summary-value').textContent, /unresolved steward action|resurfaced/i);
     assert.match(harness.get('summary-value').textContent, /steward/i);
     assert.match(harness.get('timeline-summary-value').textContent, /workspace/i);
+    assert.match(harness.get('checklist-value').children[0].textContent, /Next steward action|Capture/i);
     assert.match(harness.get('checklist-value').children[1].textContent, /steward/i);
     assert.match(harness.get('timeline-hotspots-value').children[0].textContent, /saved bundle file|bundle inventory/i);
   } finally {
@@ -817,6 +819,7 @@ test('browser response bundle chronicle copy support writes the saved bundle tre
     assert.match(harness.clipboard.text, /Latest source workflow: workspace/i);
     assert.match(harness.clipboard.text, /Steward drift:/i);
     assert.match(harness.clipboard.text, /Latest steward:/i);
+    assert.match(harness.clipboard.text, /Stack Sleuth Steward Ledger/);
     assert.match(harness.clipboard.text, /Bundle inventory trends/);
     assert.equal(harness.get('example-caption').textContent, 'Response Bundle Chronicle summary copied to clipboard.');
   } finally {
@@ -849,6 +852,8 @@ test('browser Casebook Chronicle example button loads labeled saved datasets and
     assert.equal(harness.get('runtime-value').textContent, 'casebook chronicle');
     assert.match(harness.get('headline-value').textContent, /Chronicle compared 3 saved datasets/i);
     assert.match(harness.get('summary-value').textContent, /Release Gate HOLD|release gate hold/i);
+    assert.match(harness.get('summary-value').textContent, /unresolved steward action|resurfaced/i);
+    assert.match(harness.get('checklist-value').children[0].textContent, /Next steward action|Capture/i);
     assert.match(harness.get('timeline-summary-value').textContent, /release-c/i);
     assert.match(harness.get('timeline-summary-value').textContent, /Regressed from watch to hold|gate drift/i);
     assert.match(harness.get('timeline-incidents-value').children[0].textContent, /owner|case|hotspot/i);
@@ -868,6 +873,7 @@ test('browser chronicle copy support writes the saved dataset trend summary to t
     assert.match(harness.clipboard.text, /Stack Sleuth Casebook Chronicle/);
     assert.match(harness.clipboard.text, /Release gate: hold/i);
     assert.match(harness.clipboard.text, /Saved-artifact note:/);
+    assert.match(harness.clipboard.text, /Stack Sleuth Steward Ledger/);
     assert.match(harness.clipboard.text, /Owner trends/);
     assert.equal(harness.get('example-caption').textContent, 'Casebook Chronicle summary copied to clipboard.');
   } finally {

@@ -178,6 +178,8 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(bundleChronicle.summary.latestGateVerdict, 'hold');
   assert.equal(bundleChronicle.summary.latestSourceMode, 'workspace');
   assert.equal(bundleChronicle.summary.gateDrift.direction, 'regressed');
+  assert.equal(bundleChronicle.stewardLedger.summary.activeActionCount, 2);
+  assert.equal(bundleChronicle.stewardLedger.summary.resurfacedActionCount, 1);
   assert.ok(bundleChronicle.inventoryTrends.length >= 1);
 
   const chronicleExample = examples.find((item) => item.label === 'Casebook Chronicle');
@@ -193,6 +195,8 @@ test('examples expose distinct single-trace, digest, casebook, regression, and t
   assert.equal(chronicle.summary.latestLabel, 'release-c');
   assert.equal(chronicle.summary.latestGateVerdict, 'hold');
   assert.equal(chronicle.summary.gateDrift.direction, 'regressed');
+  assert.equal(chronicle.stewardLedger.summary.activeActionCount, 2);
+  assert.equal(chronicle.stewardLedger.summary.resurfacedActionCount, 1);
   assert.ok(chronicle.ownerTrends.length >= 1);
   assert.ok(chronicle.hotspotTrends.length >= 1);
 

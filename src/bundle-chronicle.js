@@ -1,6 +1,11 @@
 import { inspectResponseBundleReplayInput } from './bundle-replay.js';
 import { compareGateSnapshots } from './gate.js';
 import { compareStewardSnapshots, describeCasebookStewardHeadline } from './steward.js';
+import {
+  analyzeStewardLedger,
+  renderStewardLedgerMarkdown,
+  renderStewardLedgerText,
+} from './steward-ledger.js';
 
 const LABEL_MARKER = /^===\s*(.+?)\s*===$/gm;
 const TREND_PRIORITY = {
@@ -91,6 +96,10 @@ export function analyzeResponseBundleChronicle(input) {
   const hotspotTrends = buildHotspotTrends(snapshots);
   const caseTrends = buildCaseTrends(snapshots);
   const inventoryTrends = buildInventoryTrends(snapshots);
+  const stewardLedger = analyzeStewardLedger(snapshots.map((snapshot) => ({
+    label: snapshot.label,
+    steward: snapshot.dataset?.steward,
+  })));
   const summary = summarizeBundleChronicle(snapshots, ownerTrends, hotspotTrends, caseTrends, inventoryTrends);
 
   return {
@@ -100,6 +109,7 @@ export function analyzeResponseBundleChronicle(input) {
     hotspotTrends,
     caseTrends,
     inventoryTrends,
+    stewardLedger,
     summary,
   };
 }
@@ -122,6 +132,8 @@ export function renderResponseBundleChronicleTextSummary(report) {
     `Case movement: new ${summary.newCaseCount}, rising ${summary.risingCaseCount}, flapping ${summary.flappingCaseCount}, steady ${summary.steadyCaseCount}, falling ${summary.fallingCaseCount}, resolved ${summary.resolvedCaseCount}`,
     `Bundle inventory movement: new ${summary.newInventoryCount}, rising ${summary.risingInventoryCount}, flapping ${summary.flappingInventoryCount}, steady ${summary.steadyInventoryCount}, falling ${summary.fallingInventoryCount}, resolved ${summary.resolvedInventoryCount}`,
     'Saved-artifact note: Bundle Chronicle replays preserved bundle inventory and embedded dataset fields only. It does not recover raw traces, support frames, or blast radius detail.',
+    '',
+    ...renderStewardLedgerText(report.stewardLedger).split('\n'),
     '',
     'Owner trends',
     ...formatTrendLines(report.ownerTrends, (item) => item.owner),
@@ -156,6 +168,8 @@ export function renderResponseBundleChronicleMarkdownSummary(report) {
     `- **Case movement:** new ${summary.newCaseCount}, rising ${summary.risingCaseCount}, flapping ${summary.flappingCaseCount}, steady ${summary.steadyCaseCount}, falling ${summary.fallingCaseCount}, resolved ${summary.resolvedCaseCount}`,
     `- **Bundle inventory movement:** new ${summary.newInventoryCount}, rising ${summary.risingInventoryCount}, flapping ${summary.flappingInventoryCount}, steady ${summary.steadyInventoryCount}, falling ${summary.fallingInventoryCount}, resolved ${summary.resolvedInventoryCount}`,
     `- **Saved-artifact note:** ${escapeMarkdownText('Bundle Chronicle replays preserved bundle inventory and embedded dataset fields only. It does not recover raw traces, support frames, or blast radius detail.')}`,
+    '',
+    renderStewardLedgerMarkdown(report.stewardLedger),
     '',
     '## Owner trends',
     formatMarkdownTrendLines(report.ownerTrends, (item) => item.owner),

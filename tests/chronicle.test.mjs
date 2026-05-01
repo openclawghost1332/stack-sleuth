@@ -34,6 +34,10 @@ const chronicleInput = [
       { label: 'case-falling', signature: 'sig-falling' },
       { label: 'case-resolved', signature: 'sig-resolved' },
     ],
+    stewardActions: [
+      buildStewardAction('missing-runbook', 'case-rising', 'sig-rising', 'Add a runbook for case-rising.', 'Capture a runbook for case-rising.'),
+      buildStewardAction('missing-owner', 'case-flapping', 'sig-flapping', 'Assign an owner for case-flapping.', 'Capture an owner for case-flapping.'),
+    ],
   }), null, 2),
   '',
   '=== release-b ===',
@@ -61,6 +65,10 @@ const chronicleInput = [
       { label: 'case-falling', signature: 'sig-falling' },
       { label: 'case-resolved', signature: 'sig-resolved' },
     ],
+    stewardActions: [
+      buildStewardAction('missing-runbook', 'case-rising', 'sig-rising', 'Add a runbook for case-rising.', 'Capture a runbook for case-rising.'),
+      buildStewardAction('missing-fix', 'case-new-fix', 'sig-new-fix', 'Document the fix for case-new-fix.', 'Capture the fix for case-new-fix.'),
+    ],
   }), null, 2),
   '',
   '=== release-c ===',
@@ -87,6 +95,10 @@ const chronicleInput = [
       { label: 'case-flapping', signature: 'sig-flapping' },
       { label: 'case-steady', signature: 'sig-steady' },
       { label: 'case-falling', signature: 'sig-falling' },
+    ],
+    stewardActions: [
+      buildStewardAction('missing-owner', 'case-flapping', 'sig-flapping', 'Assign an owner for case-flapping.', 'Capture an owner for case-flapping.'),
+      buildStewardAction('missing-fix', 'case-new-fix', 'sig-new-fix', 'Document the fix for case-new-fix.', 'Capture the fix for case-new-fix.'),
     ],
   }), null, 2),
 ].join('\n');
@@ -135,7 +147,12 @@ test('analyzeCasebookChronicle classifies owner, hotspot, and case trends across
   assert.equal(chronicle.summary.resolvedCaseCount, 1);
   assert.equal(chronicle.summary.latestGateVerdict, 'hold');
   assert.equal(chronicle.summary.gateDrift.direction, 'regressed');
-  assert.equal(chronicle.summary.stewardDrift.direction, 'regressed');
+  assert.equal(chronicle.summary.stewardDrift.direction, 'flat');
+  assert.ok(chronicle.stewardLedger);
+  assert.equal(chronicle.stewardLedger.summary.activeActionCount, 2);
+  assert.equal(chronicle.stewardLedger.summary.carriedActionCount, 1);
+  assert.equal(chronicle.stewardLedger.summary.resurfacedActionCount, 1);
+  assert.equal(chronicle.stewardLedger.summary.resolvedActionCount, 1);
 
   assert.deepEqual(findTrendSeries(chronicle.ownerTrends, 'owner-new'), { trend: 'new', series: [0, 0, 4] });
   assert.deepEqual(findTrendSeries(chronicle.ownerTrends, 'owner-rising'), { trend: 'rising', series: [1, 2, 3] });
@@ -161,12 +178,15 @@ test('chronicle renderers describe saved-artifact chronology without pretending 
   assert.match(text, /Release gate: hold/i);
   assert.match(text, /Gate drift: regressed from watch to hold/i);
   assert.match(text, /Steward drift:/);
+  assert.match(text, /Stack Sleuth Steward Ledger/);
+  assert.match(text, /Current stewardship backlog/i);
   assert.match(text, /Saved-artifact note: Chronicle uses preserved dataset signals only/);
   assert.match(text, /new: 0 → 0 → 4 owner-new/);
 
   assert.match(markdown, /^# Stack Sleuth Casebook Chronicle/m);
   assert.match(markdown, /- \*\*Latest snapshot:\*\* release\\-c/);
   assert.match(markdown, /## Owner trends/);
+  assert.match(markdown, /## Steward Ledger/);
   assert.match(markdown, /Steward drift/i);
   assert.match(markdown, /preserved dataset signals only/i);
   assert.match(markdown, /`owner-rising`/);
@@ -207,6 +227,7 @@ function buildDataset({
   hotspots = [],
   cases = [],
   stewardActionCount = packCount,
+  stewardActions = null,
 } = {}) {
   return {
     kind: 'stack-sleuth-casebook-dataset',
@@ -267,7 +288,7 @@ function buildDataset({
         metadata: {},
         conflicts: [],
       })),
-      actions: Array.from({ length: stewardActionCount }, (_, index) => ({
+      actions: stewardActions ?? Array.from({ length: stewardActionCount }, (_, index) => ({
         kind: index === 0 ? 'conflict' : 'missing-runbook',
         label: cases[index]?.label ?? `case-${index + 1}`,
         signature: cases[index]?.signature ?? `sig-${index + 1}`,
@@ -279,16 +300,31 @@ function buildDataset({
       })),
       summary: {
         caseCount: cases.length,
-        conflictCount: stewardActionCount ? 1 : 0,
+        conflictCount: (stewardActions ?? []).filter((entry) => entry.kind === 'conflict').length || (stewardActionCount ? 1 : 0),
         ownerCoveredCount: 0,
         fixCoveredCount: 0,
         runbookCoveredCount: 0,
-        actionCount: stewardActionCount,
-        urgentActionCount: stewardActionCount ? 1 : 0,
-        headline: `Casebook Steward found ${stewardActionCount} actions across ${cases.length} cases.`,
+        actionCount: stewardActions?.length ?? stewardActionCount,
+        urgentActionCount: stewardActions
+          ? stewardActions.filter((entry) => entry.kind === 'conflict' || entry.kind === 'missing-owner').length
+          : stewardActionCount ? 1 : 0,
+        headline: `Casebook Steward found ${(stewardActions?.length ?? stewardActionCount)} actions across ${cases.length} cases.`,
       },
-      nextAction: stewardActionCount ? 'Do action 1' : 'No stewardship gaps detected in the current casebook state.',
+      nextAction: stewardActions?.[0]?.ask ?? (stewardActionCount ? 'Do action 1' : 'No stewardship gaps detected in the current casebook state.'),
     },
     exportText: '=== saved-case ===\nTypeError: replay me',
+  };
+}
+
+function buildStewardAction(kind, label, signature, headline, ask) {
+  return {
+    kind,
+    label,
+    signature,
+    seenCount: 1,
+    sourcePacks: ['pack-1'],
+    priority: 100,
+    headline,
+    ask,
   };
 }

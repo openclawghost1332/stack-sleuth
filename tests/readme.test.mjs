@@ -174,6 +174,7 @@ test('README documents Casebook Chronicle workflows for browser and CLI longitud
   assert.match(readme, /=== release-a ===|=== canary ===/i);
   assert.match(readme, /release gate/i);
   assert.match(readme, /owner load|recurring hotspots|drift/i);
+  assert.match(readme, /steward ledger|resurfaced|resolved backlog/i);
 });
 
 test('README documents Casebook Shelf workflows for browser and CLI snapshot shelves', () => {
@@ -227,6 +228,7 @@ test('README documents response bundle chronicle workflows for CLI and browser',
   assert.match(readme, /=== release-a ===/i);
   assert.match(readme, /Load Response Bundle Chronicle example|paste the chronicle bundle/i);
   assert.match(readme, /bundle inventory|source workflow|release gate/i);
+  assert.match(readme, /steward ledger|resurfaced|resolved backlog/i);
 });
 
 test('sample portfolio dossier artifact is committed as standalone HTML', () => {

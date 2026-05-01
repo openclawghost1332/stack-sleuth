@@ -146,6 +146,10 @@ const responseBundleChronicleReplay = [
       owners: [{ owner: 'web-platform', packCount: 1 }],
       hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
       cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+      stewardActions: [
+        buildStewardAction('missing-runbook', 'profile-js', 'sig-profile-js', 'Add a runbook for profile-js.', 'Capture a runbook for profile-js.'),
+        buildStewardAction('missing-owner', 'billing-js', 'sig-billing-js', 'Assign an owner for billing-js.', 'Capture an owner for billing-js.'),
+      ],
     }),
     files: ['manifest.json', 'incident-dossier.html', 'portfolio-summary.md', 'handoff.md', 'casebook.txt', 'casebook-dataset.json', 'merge-review.md'],
   }), null, 2),
@@ -159,6 +163,10 @@ const responseBundleChronicleReplay = [
       owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
       hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
       cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+      stewardActions: [
+        buildStewardAction('missing-runbook', 'profile-js', 'sig-profile-js', 'Add a runbook for profile-js.', 'Capture a runbook for profile-js.'),
+        buildStewardAction('missing-fix', 'search-js', 'sig-search-js', 'Document the fix for search-js.', 'Capture the fix for search-js.'),
+      ],
     }),
   }), null, 2),
   '',
@@ -171,6 +179,10 @@ const responseBundleChronicleReplay = [
       owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
       hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
       cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+      stewardActions: [
+        buildStewardAction('missing-owner', 'billing-js', 'sig-billing-js', 'Assign an owner for billing-js.', 'Capture an owner for billing-js.'),
+        buildStewardAction('missing-fix', 'search-js', 'sig-search-js', 'Document the fix for search-js.', 'Capture the fix for search-js.'),
+      ],
     }),
   }), null, 2),
 ].join('\n');
@@ -208,6 +220,10 @@ const chronicleReplay = [
     owners: [{ owner: 'web-platform', packCount: 1 }],
     hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
     cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+    stewardActions: [
+      buildStewardAction('missing-runbook', 'profile-js', 'sig-profile-js', 'Add a runbook for profile-js.', 'Capture a runbook for profile-js.'),
+      buildStewardAction('missing-owner', 'billing-js', 'sig-billing-js', 'Assign an owner for billing-js.', 'Capture an owner for billing-js.'),
+    ],
   }), null, 2),
   '',
   '=== release-b ===',
@@ -216,6 +232,10 @@ const chronicleReplay = [
     owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
     hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
     cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    stewardActions: [
+      buildStewardAction('missing-runbook', 'profile-js', 'sig-profile-js', 'Add a runbook for profile-js.', 'Capture a runbook for profile-js.'),
+      buildStewardAction('missing-fix', 'search-js', 'sig-search-js', 'Document the fix for search-js.', 'Capture the fix for search-js.'),
+    ],
   }), null, 2),
   '',
   '=== release-c ===',
@@ -224,6 +244,10 @@ const chronicleReplay = [
     owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
     hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
     cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+    stewardActions: [
+      buildStewardAction('missing-owner', 'billing-js', 'sig-billing-js', 'Assign an owner for billing-js.', 'Capture an owner for billing-js.'),
+      buildStewardAction('missing-fix', 'search-js', 'sig-search-js', 'Document the fix for search-js.', 'Capture the fix for search-js.'),
+    ],
   }), null, 2),
 ].join('\n');
 
@@ -302,12 +326,12 @@ export const examples = [
   },
   {
     label: 'Response Bundle Chronicle',
-    caption: 'Several saved response bundles stitched into one chronicle reveal release gate drift, owner load, source workflow changes, and bundle inventory movement across release windows without pretending to recover raw trace detail.',
+    caption: 'Several saved response bundles stitched into one chronicle reveal release gate drift, owner load, source workflow changes, bundle inventory movement, and stewardship backlog resurfacing across release windows without pretending to recover raw trace detail.',
     bundleChronicle: responseBundleChronicleReplay,
   },
   {
     label: 'Casebook Chronicle',
-    caption: 'Several saved Casebook Dataset snapshots stitched into one chronicle reveal release gate drift, owner load, recurring hotspot drift, and casebook movement across release windows without pretending to recover raw trace detail.',
+    caption: 'Several saved Casebook Dataset snapshots stitched into one chronicle reveal release gate drift, owner load, recurring hotspot drift, casebook movement, and stewardship backlog resurfacing across release windows without pretending to recover raw trace detail.',
     chronicle: chronicleReplay,
   },
   {
@@ -327,6 +351,9 @@ function buildChronicleReplayDataset({
   owners = [],
   hotspots = [],
   cases = [],
+  stewardActionCount = Math.max(0, 4 - packCount),
+  stewardPreserved = true,
+  stewardActions = null,
 } = {}) {
   return {
     kind: 'stack-sleuth-casebook-dataset',
@@ -374,6 +401,39 @@ function buildChronicleReplayDataset({
       metadata: {},
       conflicts: [],
     })),
+    steward: {
+      preserved: stewardPreserved,
+      cases: cases.map((entry) => ({
+        label: entry.label,
+        signature: entry.signature,
+        sourcePacks: ['pack-1'],
+        metadata: {},
+        conflicts: [],
+      })),
+      actions: stewardActions ?? Array.from({ length: stewardActionCount }, (_, index) => ({
+        kind: index === 0 ? 'missing-owner' : 'missing-runbook',
+        label: cases[index]?.label ?? `case-${index + 1}`,
+        signature: cases[index]?.signature ?? `sig-${index + 1}`,
+        seenCount: 1,
+        sourcePacks: ['pack-1'],
+        priority: 1000 - index,
+        headline: `Do steward action ${index + 1}`,
+        ask: `Handle steward action ${index + 1}`,
+      })),
+      summary: {
+        caseCount: cases.length,
+        conflictCount: 0,
+        ownerCoveredCount: 0,
+        fixCoveredCount: 0,
+        runbookCoveredCount: 0,
+        actionCount: stewardActions?.length ?? stewardActionCount,
+        urgentActionCount: stewardActions
+          ? stewardActions.filter((entry) => entry.kind === 'conflict' || entry.kind === 'missing-owner').length
+          : stewardActionCount ? 1 : 0,
+        headline: `Casebook Steward found ${(stewardActions?.length ?? stewardActionCount)} action${(stewardActions?.length ?? stewardActionCount) === 1 ? '' : 's'} across ${cases.length} case${cases.length === 1 ? '' : 's'}.`,
+      },
+      nextAction: stewardActions?.[0]?.ask ?? (stewardActionCount ? 'Handle steward action 1' : 'No stewardship gaps detected in the current casebook state.'),
+    },
     exportText: '=== saved-case ===\nTypeError: replay me',
   };
 }
@@ -398,8 +458,23 @@ function buildChronicleReplayBundle({
   bundle.manifest.summary.ownerCount = dataset.summary.ownerCount;
   bundle.manifest.summary.recurringHotspotCount = dataset.recurringHotspots.length;
   bundle.manifest.summary.recurringIncidentCount = dataset.recurringIncidents.length;
+  bundle.manifest.summary.stewardActionCount = dataset.steward?.summary?.actionCount ?? 0;
+  bundle.manifest.summary.stewardHeadline = dataset.steward?.summary?.headline ?? 'No steward summary available.';
   bundle.manifest.files = files ?? bundle.manifest.files;
   bundle.artifacts['casebook-dataset.json'] = JSON.stringify(dataset, null, 2);
 
   return bundle;
+}
+
+function buildStewardAction(kind, label, signature, headline, ask) {
+  return {
+    kind,
+    label,
+    signature,
+    seenCount: 1,
+    sourcePacks: ['pack-1'],
+    priority: 1000,
+    headline,
+    ask,
+  };
 }

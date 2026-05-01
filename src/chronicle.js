@@ -1,6 +1,11 @@
 import { inspectReplayDatasetInput } from './dataset.js';
 import { compareGateSnapshots } from './gate.js';
 import { compareStewardSnapshots, describeCasebookStewardHeadline } from './steward.js';
+import {
+  analyzeStewardLedger,
+  renderStewardLedgerMarkdown,
+  renderStewardLedgerText,
+} from './steward-ledger.js';
 
 const LABEL_MARKER = /^===\s*(.+?)\s*===$/gm;
 const TREND_PRIORITY = {
@@ -89,6 +94,10 @@ export function analyzeCasebookChronicle(input) {
   const ownerTrends = buildOwnerTrends(snapshots);
   const hotspotTrends = buildHotspotTrends(snapshots);
   const caseTrends = buildCaseTrends(snapshots);
+  const stewardLedger = analyzeStewardLedger(snapshots.map((snapshot) => ({
+    label: snapshot.label,
+    steward: snapshot.dataset?.steward,
+  })));
   const summary = summarizeChronicle(snapshots, ownerTrends, hotspotTrends, caseTrends);
 
   return {
@@ -97,6 +106,7 @@ export function analyzeCasebookChronicle(input) {
     ownerTrends,
     hotspotTrends,
     caseTrends,
+    stewardLedger,
     summary,
   };
 }
@@ -116,6 +126,8 @@ export function renderCasebookChronicleTextSummary(report) {
     `Hotspot movement: new ${summary.newHotspotCount}, rising ${summary.risingHotspotCount}, flapping ${summary.flappingHotspotCount}, steady ${summary.steadyHotspotCount}, falling ${summary.fallingHotspotCount}, resolved ${summary.resolvedHotspotCount}`,
     `Case movement: new ${summary.newCaseCount}, rising ${summary.risingCaseCount}, flapping ${summary.flappingCaseCount}, steady ${summary.steadyCaseCount}, falling ${summary.fallingCaseCount}, resolved ${summary.resolvedCaseCount}`,
     'Saved-artifact note: Chronicle uses preserved dataset signals only, not raw trace frames, support frames, or blast radius detail.',
+    '',
+    ...renderStewardLedgerText(report.stewardLedger).split('\n'),
     '',
     'Owner trends',
     ...formatTrendLines(report.ownerTrends, (item) => item.owner),
@@ -146,6 +158,8 @@ export function renderCasebookChronicleMarkdownSummary(report) {
     `- **Hotspot movement:** new ${summary.newHotspotCount}, rising ${summary.risingHotspotCount}, flapping ${summary.flappingHotspotCount}, steady ${summary.steadyHotspotCount}, falling ${summary.fallingHotspotCount}, resolved ${summary.resolvedHotspotCount}`,
     `- **Case movement:** new ${summary.newCaseCount}, rising ${summary.risingCaseCount}, flapping ${summary.flappingCaseCount}, steady ${summary.steadyCaseCount}, falling ${summary.fallingCaseCount}, resolved ${summary.resolvedCaseCount}`,
     `- **Saved-artifact note:** ${escapeMarkdownText('Chronicle uses preserved dataset signals only, not raw trace frames, support frames, or blast radius detail.')}`,
+    '',
+    renderStewardLedgerMarkdown(report.stewardLedger),
     '',
     '## Owner trends',
     formatMarkdownTrendLines(report.ownerTrends, (item) => item.owner),

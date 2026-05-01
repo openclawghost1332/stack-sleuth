@@ -20,8 +20,8 @@ Use the built-in example buttons to compare the main workflows:
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
 - Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, while preserving a deterministic release gate verdict for later replay in the CLI or browser
 - Response Bundle replay opening a self-contained `response-bundle.json` artifact or saved bundle directory to restore preserved bundle inventory plus embedded dataset state in the CLI or browser
-- Response Bundle Chronicle replaying several labeled `response-bundle.json` snapshots at once to show release gate drift, source workflow changes, owner load, recurring hotspot drift, casebook movement, and bundle inventory drift across release windows
-- Casebook Chronicle replaying several saved dataset snapshots at once to show release gate drift, owner load, recurring hotspot drift, and casebook movement across release windows
+- Response Bundle Chronicle replaying several labeled `response-bundle.json` snapshots at once to show release gate drift, source workflow changes, owner load, recurring hotspot drift, casebook movement, bundle inventory drift, and a steward ledger of resurfaced versus resolved backlog items across release windows
+- Casebook Chronicle replaying several saved dataset snapshots at once to show release gate drift, owner load, recurring hotspot drift, casebook movement, and a steward ledger of resurfaced versus resolved backlog items across release windows
 - Casebook Shelf scanning top-level .json files from a saved dataset directory, preserving invalid snapshots as warning entries, and replaying the latest valid library state plus release gate and chronicle drift without claiming raw trace recovery
 - Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
 - browser copy that includes excavation-aware summaries plus notebook normalization when the input started as a markdown handoff
@@ -159,7 +159,7 @@ In the browser, paste a saved response-bundle.json blob into the shared workspac
 
 ## Response Bundle Chronicle
 
-Response Bundle Chronicle is the saved-artifact longitudinal view for response bundles. Feed Stack Sleuth several labeled `response-bundle.json` snapshots and it will compare the preserved bundle inventory plus embedded dataset state across releases.
+Response Bundle Chronicle is the saved-artifact longitudinal view for response bundles. Feed Stack Sleuth several labeled `response-bundle.json` snapshots and it will compare the preserved bundle inventory plus embedded dataset state across releases. The chronicle now carries a steward ledger too, so the latest bundle can call out which stewardship actions are newly active, carried, resurfaced, or recently resolved.
 
 ### Replay labeled saved response bundles from the CLI
 
@@ -183,7 +183,7 @@ cat ./sample/response-bundle-chronicle.txt | node ./bin/stack-sleuth.js --bundle
 
 In the browser, paste the same labeled snapshots and use **Load Response Bundle Chronicle example**, **Explain trace(s)**, or **Copy result**.
 
-Response Bundle Chronicle stays honest about saved-artifact limits. It compares release gate movement, source workflow drift, owner load, recurring hotspots, casebook movement, and bundle inventory changes from preserved bundle fields only. It does not recover raw traces, support frames, or blast radius detail.
+Response Bundle Chronicle stays honest about saved-artifact limits. It compares release gate movement, source workflow drift, owner load, recurring hotspots, casebook movement, bundle inventory changes, and steward ledger movement from preserved bundle fields only. It does not recover raw traces, support frames, or blast radius detail.
 
 ## Notebook ingest
 
@@ -577,7 +577,7 @@ In the browser, paste a saved shelf JSON artifact into the shared workspace and 
 
 ## Casebook Chronicle
 
-Casebook Chronicle is the saved-artifact sibling of Timeline Radar. Instead of comparing raw traces or noisy logs, it compares several saved Casebook Dataset snapshots across release windows so you can see release gate drift, owner load, recurring hotspot drift, and casebook movement over time without pretending to recover trace-level culprit, support-frame, or blast-radius detail that was never preserved in the artifact.
+Casebook Chronicle is the saved-artifact sibling of Timeline Radar. Instead of comparing raw traces or noisy logs, it compares several saved Casebook Dataset snapshots across release windows so you can see release gate drift, owner load, recurring hotspot drift, casebook movement, and steward ledger movement over time without pretending to recover trace-level culprit, support-frame, or blast-radius detail that was never preserved in the artifact.
 
 ### Analyze labeled saved datasets from a file
 
@@ -625,7 +625,7 @@ Chronicle snapshots use labeled `=== label ===` blocks whose bodies are saved da
 }
 ```
 
-Stack Sleuth uses the preserved dataset fields, including the saved release gate verdict, response queue, recurring hotspots, case list, and saved summary counts, to classify gate, owner, hotspot, and case trends as the release windows move. In the browser, paste the chronicle bundle into the shared workspace and press **Explain trace(s)**, or press **Load Casebook Chronicle example** to replay a multi-snapshot saved-dataset story through the same trend cards used by Timeline Radar.
+Stack Sleuth uses the preserved dataset fields, including the saved release gate verdict, response queue, recurring hotspots, case list, saved steward actions, and summary counts, to classify gate, owner, hotspot, case, and steward ledger trends as the release windows move. The steward ledger highlights which backlog items resurfaced, stayed active, or dropped into the resolved backlog between snapshots. In the browser, paste the chronicle bundle into the shared workspace and press **Explain trace(s)**, or press **Load Casebook Chronicle example** to replay a multi-snapshot saved-dataset story through the same trend cards used by Timeline Radar.
 
 ## Casebook Merge
 

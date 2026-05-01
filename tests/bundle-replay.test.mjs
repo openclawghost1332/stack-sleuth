@@ -57,13 +57,16 @@ const portfolioFixture = [
 
 test('inspectResponseBundleReplayInput recognizes a self-contained replay artifact and shared summaries', () => {
   const report = analyzeIncidentPortfolio(portfolioFixture);
-  const bundle = buildResponseBundle({
+  const bundlePayload = JSON.parse(buildResponseBundle({
     report,
     sourceMode: 'portfolio',
     sourceLabel: 'Portfolio Radar',
-  });
+  }).files['response-bundle.json']);
 
-  const replay = inspectResponseBundleReplayInput(bundle.files['response-bundle.json']);
+  bundlePayload.manifest.summary.stewardActionCount = 999;
+  bundlePayload.manifest.summary.stewardHeadline = 'Manifest steward summary should not win replay.';
+
+  const replay = inspectResponseBundleReplayInput(JSON.stringify(bundlePayload));
 
   assert.equal(replay.valid, true);
   assert.equal(replay.bundle.kind, 'stack-sleuth-response-bundle');
@@ -72,6 +75,8 @@ test('inspectResponseBundleReplayInput recognizes a self-contained replay artifa
   assert.equal(replay.bundle.manifest.summary.releaseGateVerdict, report.gate.verdict);
   assert.equal(replay.bundle.dataset.gate.verdict, report.gate.verdict);
   assert.equal(replay.bundle.dataset.summary.ownerCount, report.responseQueue.length);
+  assert.equal(replay.bundle.dataset.steward.preserved, true);
+  assert.ok(replay.bundle.dataset.steward.summary.actionCount >= 1);
   assert.deepEqual(replay.bundle.manifest.source, {
     mode: 'portfolio',
     label: 'Portfolio Radar',
@@ -86,13 +91,18 @@ test('inspectResponseBundleReplayInput recognizes a self-contained replay artifa
   assert.match(text, /Source workflow: portfolio \(Portfolio Radar\)/i);
   assert.match(text, /Release gate: hold/i);
   assert.match(text, /Response owners: 1/);
+  assert.match(text, /Steward actions: [1-9]/);
+  assert.match(text, /Next steward action: /);
   assert.match(text, /Saved-artifact note:/i);
   assert.match(text, /response-bundle\.json/);
+  assert.doesNotMatch(text, /Manifest steward summary should not win replay/i);
   assert.doesNotMatch(text, /raw trace recovery/i);
 
   assert.match(markdown, /^# Stack Sleuth Response Bundle Replay/m);
   assert.match(markdown, /- \*\*Source workflow:\*\* portfolio \(Portfolio Radar\)/i);
   assert.match(markdown, /- \*\*Release gate:\*\* hold/i);
+  assert.match(markdown, /- \*\*Steward actions:\*\* [1-9]/i);
+  assert.match(markdown, /- \*\*Next steward action:\*\*/i);
   assert.match(markdown, /## Bundle inventory/);
   assert.match(markdown, /response-bundle\.json/);
 });
@@ -128,6 +138,7 @@ test('inspectResponseBundleReplayInput normalizes legacy version-1 bundle payloa
   assert.equal(replay.bundle.summary.fileCount, 7);
   assert.equal(replay.bundle.dataset.summary.ownerCount, report.responseQueue.length);
   assert.equal(replay.bundle.dataset.gate.verdict, report.gate.verdict);
+  assert.equal(replay.bundle.dataset.steward.preserved, true);
   assert.deepEqual(Object.keys(replay.bundle.artifacts), Object.keys(legacyFiles));
   assert.equal(replay.bundle.artifacts['response-bundle.json'], undefined);
 });

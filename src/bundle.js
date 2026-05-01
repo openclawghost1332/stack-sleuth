@@ -44,6 +44,8 @@ export function buildResponseBundle({ report, sourceMode = 'portfolio', sourceLa
       ownerCount: report.responseQueue?.length ?? 0,
       recurringIncidentCount: report.recurringIncidents?.length ?? 0,
       recurringHotspotCount: report.recurringHotspots?.length ?? 0,
+      stewardActionCount: dataset.steward?.summary?.actionCount ?? 0,
+      stewardHeadline: dataset.steward?.summary?.headline ?? 'No steward summary available.',
     },
     files: RESPONSE_BUNDLE_FILENAMES,
   };

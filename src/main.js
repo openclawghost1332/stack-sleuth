@@ -376,6 +376,10 @@ function renderResponseBundleWorkflow(bundle) {
 
   const responseOwnerCount = bundle.dataset.responseQueue?.length ?? 0;
   const mergedCaseCount = bundle.dataset.cases?.length ?? bundle.dataset.summary?.mergedCaseCount ?? 0;
+  const steward = bundle.dataset.steward;
+  const stewardActionCount = steward?.summary?.actionCount ?? 0;
+  const stewardHeadline = steward?.summary?.headline ?? 'No steward summary available.';
+  const stewardNextAction = steward?.nextAction ?? 'No stewardship gaps detected in the current casebook state.';
 
   excavationValue.textContent = `Saved response bundle replay: ${bundle.summary.fileCount} files, ${bundle.dataset.summary.packCount} packs, ${bundle.dataset.summary.runnablePackCount} runnable`;
   runtimeValue.textContent = 'response bundle replay';
@@ -384,7 +388,7 @@ function renderResponseBundleWorkflow(bundle) {
   confidenceValue.textContent = 'replay';
   tagsValue.textContent = 'response-bundle-replay, saved-artifact';
   signatureValue.textContent = `${bundle.kind}@${bundle.sourceVersion}`;
-  summaryValue.textContent = 'Response Bundle replay reuses preserved bundle and dataset fields only. It does not recover raw traces, support frames, or blast radius detail.';
+  summaryValue.textContent = `Response Bundle replay reuses preserved bundle and dataset fields only, including ${stewardActionCount} stewardship action${stewardActionCount === 1 ? '' : 's'}. It does not recover raw traces, support frames, or blast radius detail.`;
   blastRadiusValue.textContent = 'Saved response bundles preserve bundle inventory plus embedded dataset state. They do not recover raw traces, support frames, or culprit-level blast radius detail.';
   digestGroupsValue.replaceChildren(...buildListItems(buildResponseBundleInventoryItems(bundle.manifest?.files)));
   supportFramesValue.replaceChildren(...buildListItems([
@@ -392,14 +396,15 @@ function renderResponseBundleWorkflow(bundle) {
   ]));
   checklistValue.replaceChildren(...buildListItems([
     'Saved-artifact note: response bundle replay uses preserved bundle and dataset fields only.',
+    `Stewardship next action: ${stewardNextAction}`,
     'Route the preserved response queue first so recalled owners see the replayed incident memory quickly.',
     'Reopen the original portfolio or traces if you need culprit-level evidence beyond the saved artifact.',
   ]));
 
-  portfolioSummaryValue.textContent = `Response bundle replay restored ${responseOwnerCount} owner-routed entr${responseOwnerCount === 1 ? 'y' : 'ies'} and ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'} from the portable saved bundle.`;
+  portfolioSummaryValue.textContent = `Response bundle replay restored ${responseOwnerCount} owner-routed entr${responseOwnerCount === 1 ? 'y' : 'ies'}, ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'}, and ${stewardActionCount} stewardship action${stewardActionCount === 1 ? '' : 's'} from the portable saved bundle.`;
   portfolioPackCountValue.textContent = `${bundle.dataset.summary.runnablePackCount} / ${bundle.dataset.summary.packCount}`;
   portfolioPriorityValue.replaceChildren(...buildListItems(buildResponseBundleInventoryItems(bundle.manifest?.files)));
-  datasetSummaryValue.textContent = 'Saved bundle replay is using the portable response bundle artifact directly, with the embedded Casebook Dataset preserved for replay.';
+  datasetSummaryValue.textContent = `Saved bundle replay is using the portable response bundle artifact directly, with the embedded Casebook Dataset preserved for replay. ${stewardHeadline}`;
   caption.textContent = `Response bundle replay restored ${bundle.summary.fileCount} saved bundle file${bundle.summary.fileCount === 1 ? '' : 's'}.`;
 }
 
@@ -931,8 +936,8 @@ function renderResponseBundleChronicleWorkflow(input) {
   confidenceValue.textContent = 'saved artifact';
   tagsValue.textContent = ['bundle-chronicle', topOwner?.trend, topHotspot?.trend].filter(Boolean).join(', ');
   signatureValue.textContent = `bundle-chronicle:${report.summary.latestLabel}`;
-  summaryValue.textContent = `Bundle Chronicle compared ${report.summary.snapshotCount} saved response bundles. Latest snapshot ${report.summary.latestLabel} preserves ${report.summary.latestPackCount} packs, ${report.summary.latestOwnerCount} response owner${report.summary.latestOwnerCount === 1 ? '' : 's'}, ${report.summary.latestHotspotCount} recurring hotspot${report.summary.latestHotspotCount === 1 ? '' : 's'}, ${report.summary.latestCaseCount} casebook case${report.summary.latestCaseCount === 1 ? '' : 's'}, ${report.summary.latestFileCount} bundle file${report.summary.latestFileCount === 1 ? '' : 's'}, and Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}.`;
-  blastRadiusValue.textContent = 'Saved response bundle chronicle snapshots preserve bundle inventory plus embedded dataset routing, hotspot, and case signals, but not raw trace blast radius, support frames, or culprit-level call stacks.';
+  summaryValue.textContent = `Bundle Chronicle compared ${report.summary.snapshotCount} saved response bundles. Latest snapshot ${report.summary.latestLabel} preserves ${report.summary.latestPackCount} packs, ${report.summary.latestOwnerCount} response owner${report.summary.latestOwnerCount === 1 ? '' : 's'}, ${report.summary.latestHotspotCount} recurring hotspot${report.summary.latestHotspotCount === 1 ? '' : 's'}, ${report.summary.latestCaseCount} casebook case${report.summary.latestCaseCount === 1 ? '' : 's'}, ${report.summary.latestFileCount} bundle file${report.summary.latestFileCount === 1 ? '' : 's'}, steward drift ${report.summary.stewardDrift.direction}, and Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}.`;
+  blastRadiusValue.textContent = 'Saved response bundle chronicle snapshots preserve bundle inventory plus embedded dataset routing, hotspot, case, and stewardship signals, but not raw trace blast radius, support frames, or culprit-level call stacks.';
   digestGroupsValue.replaceChildren(...buildListItems(buildChronicleOwnerItems(report.ownerTrends)));
   supportFramesValue.replaceChildren(...buildListItems([
     'Response Bundle Chronicle replays saved bundle and dataset signals only. Reopen the original portfolio or traces if you need supporting frames.'
@@ -940,11 +945,11 @@ function renderResponseBundleChronicleWorkflow(input) {
   hotspotsValue.replaceChildren(...buildListItems(buildChronicleHotspotItems(report.hotspotTrends, latestDataset)));
   checklistValue.replaceChildren(...buildListItems([
     `Latest source workflow: ${report.summary.latestSourceMode}${report.summary.latestSourceLabel ? ` (${report.summary.latestSourceLabel})` : ''}.`,
-    report.summary.sourceDrift,
+    `Steward drift: ${report.summary.stewardDrift.summary}`,
     'Saved-artifact note: response bundle chronicle uses preserved bundle inventory and embedded dataset fields only.',
   ]));
 
-  timelineSummaryValue.textContent = `Response Bundle Chronicle latest snapshot ${report.summary.latestLabel} came from ${report.summary.latestSourceMode}. Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()} and ${report.summary.gateDrift.summary} Inventory drift: ${report.summary.newInventoryCount} new files, ${report.summary.resolvedInventoryCount} resolved files.`;
+  timelineSummaryValue.textContent = `Response Bundle Chronicle latest snapshot ${report.summary.latestLabel} came from ${report.summary.latestSourceMode}. Release Gate ${String(report.summary.latestGateVerdict ?? 'needs-input').toUpperCase()}, ${report.summary.gateDrift.summary}, and steward view ${report.summary.latestStewardHeadline}. Inventory drift: ${report.summary.newInventoryCount} new files, ${report.summary.resolvedInventoryCount} resolved files.`;
   timelineIncidentsValue.replaceChildren(...buildListItems(buildChronicleTrendItems(report)));
   timelineHotspotsValue.replaceChildren(...buildListItems(buildBundleChronicleInventoryItems(report.inventoryTrends)));
   caption.textContent = latestSnapshot

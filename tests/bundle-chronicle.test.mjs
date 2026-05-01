@@ -27,6 +27,7 @@ const bundleChronicleInput = [
       owners: [{ owner: 'web-platform', packCount: 1 }],
       hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
       cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+      stewardActionCount: 4,
     }),
     files: ['manifest.json', 'incident-dossier.html', 'portfolio-summary.md', 'handoff.md', 'casebook.txt', 'casebook-dataset.json', 'merge-review.md'],
   }),
@@ -40,6 +41,7 @@ const bundleChronicleInput = [
       owners: [{ owner: 'web-platform', packCount: 2 }, { owner: 'billing', packCount: 1 }],
       hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }, { label: 'billing.js', packCount: 1, maxScore: 2 }],
       cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+      stewardActionCount: 3,
     }),
   }),
   '',
@@ -52,6 +54,7 @@ const bundleChronicleInput = [
       owners: [{ owner: 'web-platform', packCount: 3 }, { owner: 'billing', packCount: 2 }],
       hotspots: [{ label: 'profile.js', packCount: 3, maxScore: 4 }, { label: 'billing.js', packCount: 2, maxScore: 3 }],
       cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+      stewardActionCount: 2,
     }),
   }),
 ].join('\n');
@@ -81,7 +84,7 @@ test('inspectResponseBundleChronicleInput validates snapshot bundles and surface
   assert.equal(invalid.snapshotLabel, 'release-a');
 });
 
-test('analyzeResponseBundleChronicle classifies owner, hotspot, case, and inventory trends across snapshots', () => {
+test('analyzeResponseBundleChronicle classifies owner, hotspot, case, inventory, and steward drift across snapshots', () => {
   const report = analyzeResponseBundleChronicle(bundleChronicleInput);
 
   assert.equal(report.summary.snapshotCount, 3);
@@ -89,25 +92,63 @@ test('analyzeResponseBundleChronicle classifies owner, hotspot, case, and invent
   assert.equal(report.summary.latestGateVerdict, 'hold');
   assert.equal(report.summary.latestSourceMode, 'workspace');
   assert.equal(report.summary.gateDrift.direction, 'regressed');
+  assert.equal(report.summary.stewardDrift.direction, 'improved');
+  assert.match(report.summary.latestStewardHeadline, /Casebook Steward found 2 actions across 2 cases\./i);
   assert.equal(report.summary.newOwnerCount, 0);
   assert.equal(report.summary.risingOwnerCount, 2);
   assert.ok(report.inventoryTrends.some((entry) => entry.filename === 'response-bundle.json' && entry.trend === 'new'));
   assert.ok(report.inventoryTrends.some((entry) => entry.filename === 'manifest.json' && entry.trend === 'steady'));
 });
 
-test('bundle chronicle renderers include source workflow and bundle inventory drift without implying raw trace recovery', () => {
+test('bundle chronicle renderers include steward drift, source workflow, and bundle inventory drift without implying raw trace recovery', () => {
   const report = analyzeResponseBundleChronicle(bundleChronicleInput);
   const text = renderResponseBundleChronicleTextSummary(report);
   const markdown = renderResponseBundleChronicleMarkdownSummary(report);
 
   assert.match(text, /Stack Sleuth Response Bundle Chronicle/);
   assert.match(text, /Latest source workflow: workspace/i);
+  assert.match(text, /Steward drift: Improved from 3 stewardship actions to 2\./i);
+  assert.match(text, /Latest steward: Casebook Steward found 2 actions across 2 cases\./i);
   assert.match(text, /Bundle inventory trends/);
   assert.match(text, /Saved-artifact note:/);
 
   assert.match(markdown, /^# Stack Sleuth Response Bundle Chronicle/m);
+  assert.match(markdown, /Steward drift/i);
+  assert.match(markdown, /Latest steward/i);
   assert.match(markdown, /## Bundle inventory trends/);
   assert.match(markdown, /Saved-artifact note/);
+});
+
+test('bundle chronicle marks steward drift unavailable when a saved snapshot had to reconstruct stewardship', () => {
+  const reconstructedChronicleInput = [
+    '=== release-a ===',
+    buildChronicleBundle({
+      dataset: buildChronicleDataset({
+        packCount: 2,
+        owners: [{ owner: 'web-platform', packCount: 1 }],
+        hotspots: [{ label: 'profile.js', packCount: 1, maxScore: 2 }],
+        cases: [{ label: 'profile-js', signature: 'sig-profile-js' }],
+      }),
+    }),
+    '',
+    '=== release-b ===',
+    buildChronicleBundle({
+      dataset: buildChronicleDataset({
+        packCount: 3,
+        owners: [{ owner: 'web-platform', packCount: 2 }],
+        hotspots: [{ label: 'profile.js', packCount: 2, maxScore: 3 }],
+        cases: [{ label: 'profile-js', signature: 'sig-profile-js' }, { label: 'billing-js', signature: 'sig-billing-js' }],
+        stewardPreserved: false,
+      }),
+    }),
+  ].join('\n');
+
+  const report = analyzeResponseBundleChronicle(reconstructedChronicleInput);
+  const text = renderResponseBundleChronicleTextSummary(report);
+
+  assert.equal(report.summary.stewardDrift.direction, 'unavailable');
+  assert.match(report.summary.latestStewardHeadline, /^Reconstructed Casebook Steward/i);
+  assert.match(text, /Steward drift unavailable because one of the compared snapshots had to reconstruct stewardship detail from older dataset fields\./i);
 });
 
 function buildChronicleDataset({
@@ -115,6 +156,8 @@ function buildChronicleDataset({
   owners = [],
   hotspots = [],
   cases = [],
+  stewardActionCount = Math.max(0, 4 - packCount),
+  stewardPreserved = true,
 } = {}) {
   return {
     kind: 'stack-sleuth-casebook-dataset',
@@ -162,6 +205,37 @@ function buildChronicleDataset({
       metadata: {},
       conflicts: [],
     })),
+    steward: {
+      preserved: stewardPreserved,
+      cases: cases.map((entry) => ({
+        label: entry.label,
+        signature: entry.signature,
+        sourcePacks: ['pack-1'],
+        metadata: {},
+        conflicts: [],
+      })),
+      actions: Array.from({ length: stewardActionCount }, (_, index) => ({
+        kind: index === 0 ? 'missing-owner' : 'missing-runbook',
+        label: cases[index]?.label ?? `case-${index + 1}`,
+        signature: cases[index]?.signature ?? `sig-${index + 1}`,
+        seenCount: 1,
+        sourcePacks: ['pack-1'],
+        priority: 1000 - index,
+        headline: `Do steward action ${index + 1}`,
+        ask: `Handle steward action ${index + 1}`,
+      })),
+      summary: {
+        caseCount: cases.length,
+        conflictCount: 0,
+        ownerCoveredCount: 0,
+        fixCoveredCount: 0,
+        runbookCoveredCount: 0,
+        actionCount: stewardActionCount,
+        urgentActionCount: stewardActionCount ? 1 : 0,
+        headline: `Casebook Steward found ${stewardActionCount} action${stewardActionCount === 1 ? '' : 's'} across ${cases.length} case${cases.length === 1 ? '' : 's'}.`,
+      },
+      nextAction: stewardActionCount ? 'Handle steward action 1' : 'No stewardship gaps detected in the current casebook state.',
+    },
     exportText: '=== saved-case ===\nTypeError: replay me',
   };
 }
@@ -189,6 +263,8 @@ function buildChronicleBundle({
   baseBundle.manifest.summary.ownerCount = dataset.summary.ownerCount;
   baseBundle.manifest.summary.recurringHotspotCount = dataset.recurringHotspots.length;
   baseBundle.manifest.summary.recurringIncidentCount = dataset.recurringIncidents.length;
+  baseBundle.manifest.summary.stewardActionCount = dataset.steward?.summary?.actionCount ?? 0;
+  baseBundle.manifest.summary.stewardHeadline = dataset.steward?.summary?.headline ?? 'No steward summary available.';
   baseBundle.manifest.files = files ?? baseBundle.manifest.files;
   baseBundle.artifacts['casebook-dataset.json'] = JSON.stringify(dataset, null, 2);
 

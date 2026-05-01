@@ -72,6 +72,8 @@ test('buildResponseBundle composes a deterministic portfolio response bundle', (
     mode: 'portfolio',
     label: 'Portfolio Radar',
   });
+  const embeddedDataset = JSON.parse(bundle.files['casebook-dataset.json']);
+
   assert.deepEqual(bundle.manifest.summary, {
     headline: report.summary.headline,
     releaseGateVerdict: report.gate.verdict,
@@ -80,6 +82,8 @@ test('buildResponseBundle composes a deterministic portfolio response bundle', (
     ownerCount: report.responseQueue.length,
     recurringIncidentCount: report.recurringIncidents.length,
     recurringHotspotCount: report.recurringHotspots.length,
+    stewardActionCount: embeddedDataset.steward.summary.actionCount,
+    stewardHeadline: embeddedDataset.steward.summary.headline,
   });
 
   const expectedFiles = [
@@ -114,8 +118,11 @@ test('buildResponseBundle composes a deterministic portfolio response bundle', (
   assert.match(bundle.files['casebook.txt'], /^=== release-2026-04-15 ===/m);
   assert.match(bundle.files['casebook.txt'], /^=== billing-outage ===/m);
 
-  const dataset = JSON.parse(bundle.files['casebook-dataset.json']);
+  const dataset = embeddedDataset;
   assert.equal(dataset.kind, 'stack-sleuth-casebook-dataset');
   assert.equal(dataset.version, 1);
+  assert.equal(dataset.steward.preserved, true);
+  assert.ok(dataset.steward.summary.actionCount >= 1);
+  assert.match(dataset.steward.summary.headline, /Casebook Steward found/i);
   assert.match(dataset.exportText, /^=== release-2026-04-15 ===/m);
 });

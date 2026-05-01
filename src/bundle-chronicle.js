@@ -1,5 +1,6 @@
 import { inspectResponseBundleReplayInput } from './bundle-replay.js';
 import { compareGateSnapshots } from './gate.js';
+import { compareStewardSnapshots, describeCasebookStewardHeadline } from './steward.js';
 
 const LABEL_MARKER = /^===\s*(.+?)\s*===$/gm;
 const TREND_PRIORITY = {
@@ -112,6 +113,8 @@ export function renderResponseBundleChronicleTextSummary(report) {
     `Headline: ${summary.headline}`,
     `Release gate: ${summary.latestGateVerdict}`,
     `Gate drift: ${summary.gateDrift.summary}`,
+    `Steward drift: ${summary.stewardDrift.summary}`,
+    `Latest steward: ${summary.latestStewardHeadline}`,
     `Latest source workflow: ${formatSource(summary.latestSourceMode, summary.latestSourceLabel)}`,
     `Source drift: ${summary.sourceDrift}`,
     `Owner movement: new ${summary.newOwnerCount}, rising ${summary.risingOwnerCount}, flapping ${summary.flappingOwnerCount}, steady ${summary.steadyOwnerCount}, falling ${summary.fallingOwnerCount}, resolved ${summary.resolvedOwnerCount}`,
@@ -144,6 +147,8 @@ export function renderResponseBundleChronicleMarkdownSummary(report) {
     `- **Headline:** ${escapeMarkdownText(summary.headline)}`,
     `- **Release gate:** ${escapeMarkdownText(summary.latestGateVerdict)}`,
     `- **Gate drift:** ${escapeMarkdownText(summary.gateDrift.summary)}`,
+    `- **Steward drift:** ${escapeMarkdownText(summary.stewardDrift.summary)}`,
+    `- **Latest steward:** ${escapeMarkdownText(summary.latestStewardHeadline)}`,
     `- **Latest source workflow:** ${escapeMarkdownText(formatSource(summary.latestSourceMode, summary.latestSourceLabel))}`,
     `- **Source drift:** ${escapeMarkdownText(summary.sourceDrift)}`,
     `- **Owner movement:** new ${summary.newOwnerCount}, rising ${summary.risingOwnerCount}, flapping ${summary.flappingOwnerCount}, steady ${summary.steadyOwnerCount}, falling ${summary.fallingOwnerCount}, resolved ${summary.resolvedOwnerCount}`,
@@ -287,6 +292,8 @@ function summarizeBundleChronicle(snapshots, ownerTrends, hotspotTrends, caseTre
     latestSourceMode: String(latestSource.mode ?? 'unknown'),
     latestSourceLabel: latestSource.label == null ? null : String(latestSource.label),
     gateDrift: compareGateSnapshots(previousSnapshot?.dataset?.gate ?? null, latestDataset.gate ?? null),
+    stewardDrift: compareStewardSnapshots(previousSnapshot?.dataset?.steward ?? null, latestDataset.steward ?? null),
+    latestStewardHeadline: describeCasebookStewardHeadline(latestDataset.steward),
     sourceDrift: describeSourceDrift(previousSource, latestSource),
     newOwnerCount: countTrend(ownerTrends, 'new'),
     risingOwnerCount: countTrend(ownerTrends, 'rising'),
@@ -314,7 +321,7 @@ function summarizeBundleChronicle(snapshots, ownerTrends, hotspotTrends, caseTre
     resolvedInventoryCount: countTrend(inventoryTrends, 'resolved'),
   };
 
-  summary.headline = `Bundle Chronicle compared ${summary.snapshotCount} saved response bundles and the latest snapshot ${summary.latestLabel} shows ${summary.newOwnerCount} new owner${summary.newOwnerCount === 1 ? '' : 's'}, ${summary.risingOwnerCount} rising owner${summary.risingOwnerCount === 1 ? '' : 's'}, ${summary.newHotspotCount} new hotspot${summary.newHotspotCount === 1 ? '' : 's'}, and Release Gate ${String(summary.latestGateVerdict).toUpperCase()}.`;
+  summary.headline = `Bundle Chronicle compared ${summary.snapshotCount} saved response bundles and the latest snapshot ${summary.latestLabel} shows ${summary.newOwnerCount} new owner${summary.newOwnerCount === 1 ? '' : 's'}, ${summary.risingOwnerCount} rising owner${summary.risingOwnerCount === 1 ? '' : 's'}, ${summary.newHotspotCount} new hotspot${summary.newHotspotCount === 1 ? '' : 's'}, ${summary.stewardDrift.available ? `steward drift ${summary.stewardDrift.direction}, ` : 'steward drift unavailable, '}and Release Gate ${String(summary.latestGateVerdict).toUpperCase()}.`;
 
   return summary;
 }

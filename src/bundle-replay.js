@@ -1,4 +1,5 @@
 import { inspectReplayDatasetInput } from './dataset.js';
+import { describeCasebookStewardHeadline } from './steward.js';
 import { RESPONSE_BUNDLE_KIND, RESPONSE_BUNDLE_VERSION } from './bundle.js';
 
 const SUPPORTED_BUNDLE_VERSIONS = new Set([1, RESPONSE_BUNDLE_VERSION]);
@@ -47,6 +48,9 @@ export function renderResponseBundleTextSummary(bundle) {
     `Bundle files: ${bundle.summary.fileCount}`,
     `Response owners: ${bundle.dataset.summary.ownerCount}`,
     `Merged cases: ${bundle.dataset.summary.mergedCaseCount}`,
+    `Steward actions: ${bundle.dataset.steward.summary.actionCount}`,
+    `Next steward action: ${bundle.dataset.steward.nextAction}`,
+    `Stewardship: ${describeCasebookStewardHeadline(bundle.dataset.steward)}`,
     `Saved-artifact note: ${REPLAY_NOTE}`,
     '',
     'Bundle inventory',
@@ -65,6 +69,9 @@ export function renderResponseBundleMarkdownSummary(bundle) {
     `- **Bundle files:** ${bundle.summary.fileCount}`,
     `- **Response owners:** ${bundle.dataset.summary.ownerCount}`,
     `- **Merged cases:** ${bundle.dataset.summary.mergedCaseCount}`,
+    `- **Steward actions:** ${bundle.dataset.steward.summary.actionCount}`,
+    `- **Next steward action:** ${escapeMarkdownText(bundle.dataset.steward.nextAction)}`,
+    `- **Stewardship:** ${escapeMarkdownText(describeCasebookStewardHeadline(bundle.dataset.steward))}`,
     `- **Saved-artifact note:** ${escapeMarkdownText(REPLAY_NOTE)}`,
     '',
     '## Bundle inventory',
@@ -114,6 +121,8 @@ function normalizeManifest(manifest) {
       ownerCount: toCount(manifest?.summary?.ownerCount),
       recurringIncidentCount: toCount(manifest?.summary?.recurringIncidentCount),
       recurringHotspotCount: toCount(manifest?.summary?.recurringHotspotCount),
+      stewardActionCount: toCount(manifest?.summary?.stewardActionCount),
+      stewardHeadline: String(manifest?.summary?.stewardHeadline ?? 'No steward summary available.'),
     },
     files,
   };

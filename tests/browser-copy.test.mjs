@@ -695,7 +695,9 @@ test('browser response bundle replay detection runs before dataset replay and re
     assert.equal(harness.get('runtime-value').textContent, 'response bundle replay');
     assert.match(harness.get('headline-value').textContent, /Stack Sleuth Response Bundle Replay/i);
     assert.match(harness.get('summary-value').textContent, /preserved bundle and dataset fields only/i);
+    assert.match(harness.get('summary-value').textContent, /stewardship/i);
     assert.match(harness.get('portfolio-summary-value').textContent, /Response bundle replay restored 1 owner-routed entr/i);
+    assert.match(harness.get('portfolio-summary-value').textContent, /steward/i);
     assert.match(harness.get('dataset-summary-value').textContent, /Saved bundle replay is using the portable response bundle artifact directly/i);
     assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
     assert.match(harness.get('portfolio-priority-value').children[0].textContent, /saved bundle file: manifest\.json/i);
@@ -714,6 +716,8 @@ test('browser response bundle replay copy support writes the saved bundle summar
 
     assert.match(harness.clipboard.text, /Stack Sleuth Response Bundle Replay/);
     assert.match(harness.clipboard.text, /Source workflow: portfolio \(browser replay fixture\)/i);
+    assert.match(harness.clipboard.text, /Steward actions: [1-9]/i);
+    assert.match(harness.clipboard.text, /Next steward action:/i);
     assert.match(harness.clipboard.text, /Saved-artifact note:/i);
     assert.equal(harness.get('example-caption').textContent, 'Response Bundle replay copied to clipboard.');
   } finally {
@@ -731,7 +735,9 @@ test('browser response bundle chronicle detection runs before single-bundle repl
     assert.equal(harness.get('runtime-value').textContent, 'response bundle chronicle');
     assert.match(harness.get('headline-value').textContent, /Bundle Chronicle compared 3 saved response bundles/i);
     assert.match(harness.get('summary-value').textContent, /Release Gate HOLD|release gate hold/i);
+    assert.match(harness.get('summary-value').textContent, /steward/i);
     assert.match(harness.get('timeline-summary-value').textContent, /workspace/i);
+    assert.match(harness.get('checklist-value').children[1].textContent, /steward/i);
     assert.match(harness.get('timeline-hotspots-value').children[0].textContent, /saved bundle file|bundle inventory/i);
   } finally {
     harness.restore();
@@ -747,6 +753,8 @@ test('browser response bundle chronicle copy support writes the saved bundle tre
 
     assert.match(harness.clipboard.text, /Stack Sleuth Response Bundle Chronicle/);
     assert.match(harness.clipboard.text, /Latest source workflow: workspace/i);
+    assert.match(harness.clipboard.text, /Steward drift:/i);
+    assert.match(harness.clipboard.text, /Latest steward:/i);
     assert.match(harness.clipboard.text, /Bundle inventory trends/);
     assert.equal(harness.get('example-caption').textContent, 'Response Bundle Chronicle summary copied to clipboard.');
   } finally {
@@ -1235,6 +1243,37 @@ function buildChronicleDataset({
       metadata: {},
       conflicts: [],
     })),
+    steward: {
+      preserved: true,
+      cases: cases.map((entry) => ({
+        label: entry.label,
+        signature: entry.signature,
+        sourcePacks: ['pack-1'],
+        metadata: {},
+        conflicts: [],
+      })),
+      actions: Array.from({ length: Math.max(0, 4 - packCount) }, (_, index) => ({
+        kind: index === 0 ? 'missing-owner' : 'missing-runbook',
+        label: cases[index]?.label ?? `case-${index + 1}`,
+        signature: cases[index]?.signature ?? `sig-${index + 1}`,
+        seenCount: 1,
+        sourcePacks: ['pack-1'],
+        priority: 1000 - index,
+        headline: `Do steward action ${index + 1}`,
+        ask: `Handle steward action ${index + 1}`,
+      })),
+      summary: {
+        caseCount: cases.length,
+        conflictCount: 0,
+        ownerCoveredCount: 0,
+        fixCoveredCount: 0,
+        runbookCoveredCount: 0,
+        actionCount: Math.max(0, 4 - packCount),
+        urgentActionCount: Math.max(0, 4 - packCount) ? 1 : 0,
+        headline: `Casebook Steward found ${Math.max(0, 4 - packCount)} action${Math.max(0, 4 - packCount) === 1 ? '' : 's'} across ${cases.length} case${cases.length === 1 ? '' : 's'}.`,
+      },
+      nextAction: Math.max(0, 4 - packCount) ? 'Handle steward action 1' : 'No stewardship gaps detected in the current casebook state.',
+    },
     exportText: '=== saved-case ===\nTypeError: replay me',
   };
 }
@@ -1262,6 +1301,8 @@ function buildChronicleBundle({
   baseBundle.manifest.summary.ownerCount = dataset.summary.ownerCount;
   baseBundle.manifest.summary.recurringHotspotCount = dataset.recurringHotspots.length;
   baseBundle.manifest.summary.recurringIncidentCount = dataset.recurringIncidents.length;
+  baseBundle.manifest.summary.stewardActionCount = dataset.steward?.summary?.actionCount ?? 0;
+  baseBundle.manifest.summary.stewardHeadline = dataset.steward?.summary?.headline ?? 'No steward summary available.';
   baseBundle.manifest.files = files ?? baseBundle.manifest.files;
   baseBundle.artifacts['casebook-dataset.json'] = JSON.stringify(dataset, null, 2);
 

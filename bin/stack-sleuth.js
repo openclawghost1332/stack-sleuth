@@ -42,6 +42,7 @@ import {
   renderIncidentPortfolioMarkdownSummary,
 } from '../src/portfolio.js';
 import { renderIncidentDossierHtml } from '../src/report.js';
+import { buildResponseBundle } from '../src/bundle.js';
 import {
   buildHandoffBriefing,
   renderHandoffTextSummary,
@@ -112,6 +113,7 @@ const historyArgumentError = validateOptionValue(args, '--history');
 const currentArgumentError = validateOptionValue(args, '--current');
 const workspaceArgumentError = validateOptionValue(args, '--workspace');
 const capsuleArgumentError = validateOptionValue(args, '--capsule');
+const bundleArgumentError = validateOptionValue(args, '--bundle');
 const baselinePath = readOptionValue(args, '--baseline');
 const candidatePath = readOptionValue(args, '--candidate');
 const packPath = readOptionValue(args, '--pack');
@@ -130,6 +132,7 @@ const historyPath = readOptionValue(args, '--history');
 const currentPath = readOptionValue(args, '--current');
 const workspacePath = readOptionValue(args, '--workspace');
 const capsulePath = readOptionValue(args, '--capsule');
+const bundlePath = readOptionValue(args, '--bundle');
 const workflowArgumentError = validateWorkflowArguments({
   baselinePath,
   candidatePath,
@@ -151,6 +154,15 @@ const workflowArgumentError = validateWorkflowArguments({
 });
 const htmlWorkflowArgumentError = validateHtmlWorkflowSupport({
   mode,
+  packPath,
+  portfolioPath,
+  notebookPath,
+  workspacePath,
+  capsulePath,
+});
+const bundleWorkflowArgumentError = validateBundleWorkflowSupport({
+  mode,
+  bundlePath,
   packPath,
   portfolioPath,
   notebookPath,
@@ -182,6 +194,7 @@ const filePath = args.find((arg, index) => {
     '--current',
     '--workspace',
     '--capsule',
+    '--bundle',
   ].includes(previous);
 }) ?? null;
 
@@ -257,6 +270,10 @@ if (capsuleArgumentError) {
   fail(capsuleArgumentError);
 }
 
+if (bundleArgumentError) {
+  fail(bundleArgumentError);
+}
+
 if (currentPath && !historyPath) {
   fail('Casebook Radar requires --history when using --current.');
 }
@@ -267,6 +284,10 @@ if (workflowArgumentError) {
 
 if (htmlWorkflowArgumentError) {
   fail(htmlWorkflowArgumentError);
+}
+
+if (bundleWorkflowArgumentError) {
+  fail(bundleWorkflowArgumentError);
 }
 
 try {
@@ -289,7 +310,14 @@ try {
         fail('Workspace mode did not find any runnable analyses after notebook normalization. Add at least one pack with Current incident, Baseline plus Candidate, or a valid Timeline section.');
       }
 
-      writeOutput({ workspace, notebook, routed }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary, renderWorkspaceCliHtmlSummary);
+      if (bundlePath) {
+        if (routed.mode !== 'portfolio') {
+          fail('Bundle output is currently supported only when workspace notebook routing normalizes into a portfolio.');
+        }
+        writeBundleOutput(bundlePath, { report: routed.report, sourceMode: 'workspace', sourceLabel: workspace.path ?? workspacePath });
+      } else {
+        writeOutput({ workspace, notebook, routed }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary, renderWorkspaceCliHtmlSummary);
+      }
       process.exit(0);
     }
 
@@ -299,13 +327,21 @@ try {
         fail('Workspace mode did not find any runnable analyses. Add at least one labeled pack with @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
       }
 
-      writeOutput({ workspace, routed: { mode: 'portfolio', report } }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary, renderWorkspaceCliHtmlSummary);
+      if (bundlePath) {
+        writeBundleOutput(bundlePath, { report, sourceMode: 'workspace', sourceLabel: workspace.path ?? workspacePath });
+      } else {
+        writeOutput({ workspace, routed: { mode: 'portfolio', report } }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary, renderWorkspaceCliHtmlSummary);
+      }
       process.exit(0);
     }
 
     const report = analyzeIncidentPack(workspace.normalizedText);
     if (!report.availableAnalyses.length) {
       fail('Workspace mode did not find any runnable analyses. Provide at least @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
+    }
+
+    if (bundlePath) {
+      fail('Bundle output is currently supported only for portfolio-shaped workflows: --portfolio, --notebook, --workspace, and --capsule when they normalize into a portfolio.');
     }
 
     writeOutput({ workspace, routed: { mode: 'pack', report } }, mode, renderWorkspaceCliTextSummary, renderWorkspaceCliMarkdownSummary, renderWorkspaceCliHtmlSummary);
@@ -325,7 +361,14 @@ try {
       ? { mode: 'portfolio', report: analyzeIncidentPortfolio(capsule.normalizedText) }
       : { mode: 'pack', report: analyzeIncidentPack(capsule.normalizedText) };
 
-    writeOutput({ capsule, routed }, mode, renderCapsuleCliTextSummary, renderCapsuleCliMarkdownSummary, renderCapsuleCliHtmlSummary);
+    if (bundlePath) {
+      if (routed.mode !== 'portfolio') {
+        fail('Bundle output is currently supported only when capsule routing normalizes into a portfolio.');
+      }
+      writeBundleOutput(bundlePath, { report: routed.report, sourceMode: 'capsule', sourceLabel: capsulePath === '-' ? 'stdin' : capsulePath });
+    } else {
+      writeOutput({ capsule, routed }, mode, renderCapsuleCliTextSummary, renderCapsuleCliMarkdownSummary, renderCapsuleCliHtmlSummary);
+    }
     process.exit(0);
   }
 
@@ -346,7 +389,14 @@ try {
       fail('Notebook mode did not find any runnable analyses after normalization. Add at least one pack with Current incident, Baseline plus Candidate, or a valid Timeline section.');
     }
 
-    writeOutput({ notebook, routed }, mode, renderNotebookCliTextSummary, renderNotebookCliMarkdownSummary, renderNotebookCliHtmlSummary);
+    if (bundlePath) {
+      if (routed.mode !== 'portfolio') {
+        fail('Bundle output is currently supported only when notebook routing normalizes into a portfolio.');
+      }
+      writeBundleOutput(bundlePath, { report: routed.report, sourceMode: 'notebook', sourceLabel: notebookPath === '-' ? 'stdin' : notebookPath });
+    } else {
+      writeOutput({ notebook, routed }, mode, renderNotebookCliTextSummary, renderNotebookCliMarkdownSummary, renderNotebookCliHtmlSummary);
+    }
     process.exit(0);
   }
 
@@ -477,7 +527,11 @@ try {
       fail('Portfolio mode did not find any runnable analyses. Add at least one labeled pack with @@ current @@, @@ baseline @@ plus @@ candidate @@, or a valid @@ timeline @@ section.');
     }
 
-    writeOutput(report, mode, renderIncidentPortfolioTextSummary, renderIncidentPortfolioMarkdownSummary, renderPortfolioCliHtmlSummary);
+    if (bundlePath) {
+      writeBundleOutput(bundlePath, { report, sourceMode: 'portfolio', sourceLabel: portfolioPath === '-' ? 'stdin' : portfolioPath });
+    } else {
+      writeOutput(report, mode, renderIncidentPortfolioTextSummary, renderIncidentPortfolioMarkdownSummary, renderPortfolioCliHtmlSummary);
+    }
     process.exit(0);
   }
 
@@ -697,6 +751,20 @@ function validateOutputArguments(list) {
     : null;
 }
 
+function validateBundleWorkflowSupport({ mode, bundlePath, packPath, portfolioPath, notebookPath, workspacePath, capsulePath }) {
+  if (!bundlePath) {
+    return null;
+  }
+
+  if (mode !== 'text') {
+    return 'Bundle output cannot be combined with --json, --markdown, or --html.';
+  }
+
+  return portfolioPath || notebookPath || workspacePath || capsulePath
+    ? null
+    : 'Bundle output is currently supported only for portfolio-shaped workflows: --portfolio, --notebook, --workspace, and --capsule when they normalize into a portfolio.';
+}
+
 function validateOptionValue(list, flag) {
   const index = list.indexOf(flag);
   if (index === -1) {
@@ -805,6 +873,15 @@ function writeOutput(payload, outputMode, textRenderer, markdownRenderer, htmlRe
     process.stdout.write(`${markdownRenderer(payload)}\n`);
   } else {
     process.stdout.write(`${textRenderer(payload)}\n`);
+  }
+}
+
+function writeBundleOutput(targetDir, { report, sourceMode, sourceLabel = null } = {}) {
+  const bundle = buildResponseBundle({ report, sourceMode, sourceLabel });
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  for (const [relativePath, content] of Object.entries(bundle.files)) {
+    fs.writeFileSync(`${targetDir}/${relativePath}`, content, 'utf8');
   }
 }
 

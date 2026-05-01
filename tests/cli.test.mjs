@@ -1187,7 +1187,95 @@ test('CLI rejects --html for unsupported workflows', () => {
   assert.equal(result.stdout, '');
 });
 
+test('CLI writes a response bundle for --portfolio input', async (t) => {
+  const outputDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-'));
+  t.after(() => fs.promises.rm(outputDir, { recursive: true, force: true }));
+
+  const result = runCli(['--portfolio', '-', '--bundle', outputDir], { input: portfolioInput });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '');
+  await assertResponseBundle(outputDir, 'portfolio');
+});
+
+test('CLI routes notebook, workspace, and capsule portfolio workflows into response bundles', async (t) => {
+  const notebookBundleDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-notebook-'));
+  const workspaceRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-workspace-'));
+  const workspaceBundleDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-workspace-out-'));
+  const capsuleBundleDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'stack-sleuth-bundle-capsule-'));
+  t.after(() => Promise.all([
+    fs.promises.rm(notebookBundleDir, { recursive: true, force: true }),
+    fs.promises.rm(workspaceRoot, { recursive: true, force: true }),
+    fs.promises.rm(workspaceBundleDir, { recursive: true, force: true }),
+    fs.promises.rm(capsuleBundleDir, { recursive: true, force: true }),
+  ]));
+
+  await fs.promises.mkdir(path.join(workspaceRoot, 'packs', 'checkout-prod'), { recursive: true });
+  await fs.promises.mkdir(path.join(workspaceRoot, 'packs', 'billing-canary'), { recursive: true });
+  await fs.promises.writeFile(path.join(workspaceRoot, 'packs', 'checkout-prod', 'current.log'), sampleTrace, 'utf8');
+  await fs.promises.writeFile(path.join(workspaceRoot, 'packs', 'billing-canary', 'baseline.log'), sampleTrace, 'utf8');
+  await fs.promises.writeFile(path.join(workspaceRoot, 'packs', 'billing-canary', 'candidate.log'), comparisonTrace, 'utf8');
+
+  const notebookResult = runCli(['--notebook', '-', '--bundle', notebookBundleDir], { input: notebookPortfolioInput });
+  const workspaceResult = runCli(['--workspace', workspaceRoot, '--bundle', workspaceBundleDir]);
+  const capsuleResult = runCli(['--capsule', '-', '--bundle', capsuleBundleDir], { input: capsulePortfolioInput });
+
+  assert.equal(notebookResult.status, 0, notebookResult.stderr);
+  assert.equal(workspaceResult.status, 0, workspaceResult.stderr);
+  assert.equal(capsuleResult.status, 0, capsuleResult.stderr);
+  assert.equal(notebookResult.stdout, '');
+  assert.equal(workspaceResult.stdout, '');
+  assert.equal(capsuleResult.stdout, '');
+
+  await assertResponseBundle(notebookBundleDir, 'notebook');
+  await assertResponseBundle(workspaceBundleDir, 'workspace');
+  await assertResponseBundle(capsuleBundleDir, 'capsule');
+});
+
+test('CLI rejects --bundle for pack-shaped workflows and alternate output modes', () => {
+  const packResult = runCli(['--pack', '-', '--bundle', '/tmp/stack-sleuth-invalid-bundle'], { input: incidentPackInput });
+  const notebookPackResult = runCli(['--notebook', '-', '--bundle', '/tmp/stack-sleuth-invalid-notebook-bundle'], { input: notebookPackInput });
+  const jsonResult = runCli(['--portfolio', '-', '--bundle', '/tmp/stack-sleuth-invalid-json-bundle', '--json'], { input: portfolioInput });
+
+  assert.notEqual(packResult.status, 0);
+  assert.match(packResult.stderr, /Bundle output is currently supported only for portfolio-shaped workflows/i);
+  assert.equal(packResult.stdout, '');
+
+  assert.notEqual(notebookPackResult.status, 0);
+  assert.match(notebookPackResult.stderr, /Bundle output is currently supported only when notebook routing normalizes into a portfolio/i);
+  assert.equal(notebookPackResult.stdout, '');
+
+  assert.notEqual(jsonResult.status, 0);
+  assert.match(jsonResult.stderr, /Bundle output cannot be combined with --json, --markdown, or --html/i);
+  assert.equal(jsonResult.stdout, '');
+});
+
 import { buildReleaseGate } from '../src/gate.js';
+
+async function assertResponseBundle(outputDir, expectedSourceMode) {
+  const expectedFiles = [
+    'casebook-dataset.json',
+    'casebook.txt',
+    'handoff.md',
+    'incident-dossier.html',
+    'manifest.json',
+    'merge-review.md',
+    'portfolio-summary.md',
+  ];
+  const files = (await fs.promises.readdir(outputDir)).sort();
+  assert.deepEqual(files, expectedFiles);
+
+  const manifest = JSON.parse(await fs.promises.readFile(path.join(outputDir, 'manifest.json'), 'utf8'));
+  assert.equal(manifest.kind, 'stack-sleuth-response-bundle');
+  assert.equal(manifest.version, 1);
+  assert.equal(manifest.source.mode, expectedSourceMode);
+  assert.deepEqual([...manifest.files].sort(), expectedFiles);
+  assert.match(await fs.promises.readFile(path.join(outputDir, 'incident-dossier.html'), 'utf8'), /<!doctype html>/i);
+  assert.match(await fs.promises.readFile(path.join(outputDir, 'portfolio-summary.md'), 'utf8'), /Stack Sleuth Portfolio Radar/i);
+  assert.match(await fs.promises.readFile(path.join(outputDir, 'handoff.md'), 'utf8'), /Stack Sleuth Handoff Briefing/i);
+  assert.match(await fs.promises.readFile(path.join(outputDir, 'casebook.txt'), 'utf8'), /^=== /m);
+  assert.match(await fs.promises.readFile(path.join(outputDir, 'merge-review.md'), 'utf8'), /Stack Sleuth Casebook Merge/i);
+}
 
 function buildCapsuleArtifact(relativePath, excerpt, options = {}) {
   const version = options.version ?? '1';

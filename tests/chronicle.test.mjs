@@ -135,6 +135,7 @@ test('analyzeCasebookChronicle classifies owner, hotspot, and case trends across
   assert.equal(chronicle.summary.resolvedCaseCount, 1);
   assert.equal(chronicle.summary.latestGateVerdict, 'hold');
   assert.equal(chronicle.summary.gateDrift.direction, 'regressed');
+  assert.equal(chronicle.summary.stewardDrift.direction, 'regressed');
 
   assert.deepEqual(findTrendSeries(chronicle.ownerTrends, 'owner-new'), { trend: 'new', series: [0, 0, 4] });
   assert.deepEqual(findTrendSeries(chronicle.ownerTrends, 'owner-rising'), { trend: 'rising', series: [1, 2, 3] });
@@ -159,12 +160,14 @@ test('chronicle renderers describe saved-artifact chronology without pretending 
   assert.match(text, /Owner trends/);
   assert.match(text, /Release gate: hold/i);
   assert.match(text, /Gate drift: regressed from watch to hold/i);
+  assert.match(text, /Steward drift:/);
   assert.match(text, /Saved-artifact note: Chronicle uses preserved dataset signals only/);
   assert.match(text, /new: 0 → 0 → 4 owner-new/);
 
   assert.match(markdown, /^# Stack Sleuth Casebook Chronicle/m);
   assert.match(markdown, /- \*\*Latest snapshot:\*\* release\\-c/);
   assert.match(markdown, /## Owner trends/);
+  assert.match(markdown, /Steward drift/i);
   assert.match(markdown, /preserved dataset signals only/i);
   assert.match(markdown, /`owner-rising`/);
 });
@@ -180,6 +183,7 @@ function buildDataset({
   owners = [],
   hotspots = [],
   cases = [],
+  stewardActionCount = packCount,
 } = {}) {
   return {
     kind: 'stack-sleuth-casebook-dataset',
@@ -231,6 +235,37 @@ function buildDataset({
       metadata: {},
       conflicts: [],
     })),
+    steward: {
+      preserved: true,
+      cases: cases.map((entry) => ({
+        label: entry.label,
+        signature: entry.signature,
+        sourcePacks: ['pack-1'],
+        metadata: {},
+        conflicts: [],
+      })),
+      actions: Array.from({ length: stewardActionCount }, (_, index) => ({
+        kind: index === 0 ? 'conflict' : 'missing-runbook',
+        label: cases[index]?.label ?? `case-${index + 1}`,
+        signature: cases[index]?.signature ?? `sig-${index + 1}`,
+        seenCount: 1,
+        sourcePacks: ['pack-1'],
+        priority: 100 - index,
+        headline: `Action ${index + 1}`,
+        ask: `Do action ${index + 1}`,
+      })),
+      summary: {
+        caseCount: cases.length,
+        conflictCount: stewardActionCount ? 1 : 0,
+        ownerCoveredCount: 0,
+        fixCoveredCount: 0,
+        runbookCoveredCount: 0,
+        actionCount: stewardActionCount,
+        urgentActionCount: stewardActionCount ? 1 : 0,
+        headline: `Casebook Steward found ${stewardActionCount} actions across ${cases.length} cases.`,
+      },
+      nextAction: stewardActionCount ? 'Do action 1' : 'No stewardship gaps detected in the current casebook state.',
+    },
     exportText: '=== saved-case ===\nTypeError: replay me',
   };
 }

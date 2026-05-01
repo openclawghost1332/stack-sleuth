@@ -18,10 +18,10 @@ Use the built-in example buttons to compare the main workflows:
 - several structured incident packs ranked in Portfolio Radar mode with an owner-aware response queue, explicit routing gaps, runbook gaps, recurring incidents, and shared hotspots
 - Handoff Briefing turning a labeled portfolio into owner-specific handoff packets plus explicit ownership-gap and runbook-gap follow-ups
 - Casebook Forge turning a labeled portfolio into a reusable casebook export for future incident memory
-- Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, while preserving a deterministic release gate verdict for later replay in the CLI or browser
-- Casebook Chronicle replaying several saved dataset snapshots at once to show release gate drift, owner load, recurring hotspot drift, and casebook movement across release windows
-- Casebook Shelf scanning top-level .json files from a saved dataset directory, preserving invalid snapshots as warning entries, and replaying the latest valid library state plus release gate and chronicle drift without claiming raw trace recovery
-- Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts
+- Casebook Dataset packaging a labeled portfolio into a reusable JSON dataset plus export text for saved incident memory, while preserving a deterministic release gate verdict and Casebook Steward backlog for later replay in the CLI or browser
+- Casebook Chronicle replaying several saved dataset snapshots at once to show release gate drift, Casebook Steward drift, owner load, recurring hotspot drift, and casebook movement across release windows
+- Casebook Shelf scanning top-level .json files from a saved dataset directory, preserving invalid snapshots as warning entries, and replaying the latest valid library state plus release gate, chronicle drift, and latest Casebook Steward backlog without claiming raw trace recovery
+- Casebook Merge turning a labeled portfolio plus embedded history into a living casebook update with visible merge conflicts and a Casebook Steward backlog that says what to document next
 - browser copy that includes excavation-aware summaries plus notebook normalization when the input started as a markdown handoff
 
 ## CLI
@@ -361,7 +361,7 @@ In the browser, paste the full labeled portfolio into the shared workspace, then
 
 ## Casebook Dataset
 
-Casebook Dataset is the CLI-friendly handoff artifact between Portfolio Radar, Casebook Forge, and later Casebook Radar runs. Feed it the same labeled portfolio and it will package the ranked portfolio signals, the preserved release gate verdict, response queue, recurring hotspots, merged case list, and a reusable casebook export into one saved JSON blob.
+Casebook Dataset is the CLI-friendly handoff artifact between Portfolio Radar, Casebook Forge, and later Casebook Radar runs. Feed it the same labeled portfolio and it will package the ranked portfolio signals, the preserved release gate verdict, response queue, recurring hotspots, merged case list, reusable casebook export, and a preserved Casebook Steward backlog into one saved JSON blob.
 
 ### Build a reusable dataset from a labeled portfolio file
 
@@ -407,7 +407,7 @@ In the browser, paste a saved dataset JSON blob into the shared workspace and pr
 
 ## Casebook Shelf
 
-Casebook Shelf is the directory-oriented saved-artifact companion to Casebook Dataset and Casebook Chronicle. Point `--shelf` at a folder of top-level `.json` files and Stack Sleuth will scan them in deterministic filename order, preserve both valid snapshots and invalid snapshots as visible warning entries, and then replay the latest valid saved library state. When at least two valid saved datasets remain, the shelf also reuses the chronicle engine to show the latest release gate state plus owner and hotspot drift across the saved snapshots.
+Casebook Shelf is the directory-oriented saved-artifact companion to Casebook Dataset and Casebook Chronicle. Point `--shelf` at a folder of top-level `.json` files and Stack Sleuth will scan them in deterministic filename order, preserve both valid snapshots and invalid snapshots as visible warning entries, and then replay the latest valid saved library state. When at least two valid saved datasets remain, the shelf also reuses the chronicle engine to show the latest release gate state plus owner, hotspot, and Casebook Steward drift across the saved snapshots.
 
 ### Build a shelf from a directory of saved datasets
 
@@ -429,7 +429,7 @@ In the browser, paste a saved shelf JSON artifact into the shared workspace and 
 
 ## Casebook Chronicle
 
-Casebook Chronicle is the saved-artifact sibling of Timeline Radar. Instead of comparing raw traces or noisy logs, it compares several saved Casebook Dataset snapshots across release windows so you can see release gate drift, owner load, recurring hotspot drift, and casebook movement over time without pretending to recover trace-level culprit, support-frame, or blast-radius detail that was never preserved in the artifact.
+Casebook Chronicle is the saved-artifact sibling of Timeline Radar. Instead of comparing raw traces or noisy logs, it compares several saved Casebook Dataset snapshots across release windows so you can see release gate drift, Casebook Steward drift, owner load, recurring hotspot drift, and casebook movement over time without pretending to recover trace-level culprit, support-frame, or blast-radius detail that was never preserved in the artifact.
 
 ### Analyze labeled saved datasets from a file
 
@@ -481,7 +481,7 @@ Stack Sleuth uses the preserved dataset fields, including the saved release gate
 
 ## Casebook Merge
 
-Casebook Merge takes the next step after Casebook Forge. Feed it the same labeled portfolio, including any embedded `@@ history @@` sections, and it will produce an updated living casebook export that keeps human-authored `summary`, `fix`, `owner`, and `runbook` guidance when possible, adds fresh `seen-count` and `source-packs` metadata, and flags merge conflicts when two historical entries disagree about the same signature.
+Casebook Merge takes the next step after Casebook Forge. Feed it the same labeled portfolio, including any embedded `@@ history @@` sections, and it will produce an updated living casebook export that keeps human-authored `summary`, `fix`, `owner`, and `runbook` guidance when possible, adds fresh `seen-count` and `source-packs` metadata, flags merge conflicts when two historical entries disagree about the same signature, and runs Casebook Steward to turn the merged or saved incident memory into a prioritized backlog of what to document next.
 
 ### Merge a living casebook from a labeled portfolio file
 

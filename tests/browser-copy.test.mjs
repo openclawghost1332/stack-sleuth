@@ -562,6 +562,7 @@ test('browser Casebook Dataset example button loads saved dataset JSON and repla
     assert.equal(harness.get('runtime-value').textContent, 'dataset replay');
     assert.match(harness.get('dataset-summary-value').textContent, /Casebook Dataset captured 3 merged cases/i);
     assert.match(harness.get('dataset-summary-value').textContent, /Release Gate HOLD|Release gate: hold/i);
+    assert.match(harness.get('dataset-summary-value').textContent, /Casebook Steward|what to document next/i);
     assert.match(harness.get('portfolio-response-queue-value').children[0].textContent, /web-platform/);
     assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
     assert.match(harness.get('example-caption').textContent, /saved dataset|replay/i);
@@ -581,6 +582,7 @@ test('browser Casebook Shelf example button loads saved shelf JSON before datase
     assert.match(harness.get('headline-value').textContent, /2 valid snapshots, 1 invalid snapshot/i);
     assert.match(harness.get('summary-value').textContent, /warning entry|saved dataset shelf/i);
     assert.match(harness.get('summary-value').textContent, /Release Gate WATCH|release gate watch/i);
+    assert.match(harness.get('summary-value').textContent, /Casebook Steward/i);
     assert.match(harness.get('timeline-summary-value').textContent, /release-b/i);
     assert.match(harness.get('timeline-incidents-value').children[0].textContent, /web-platform|owner/i);
     assert.match(harness.get('checklist-value').children[0].textContent, /saved artifact/i);
@@ -633,8 +635,10 @@ test('browser Casebook Chronicle example button loads labeled saved datasets and
     assert.equal(harness.get('runtime-value').textContent, 'casebook chronicle');
     assert.match(harness.get('headline-value').textContent, /Chronicle compared 3 saved datasets/i);
     assert.match(harness.get('summary-value').textContent, /Release Gate HOLD|release gate hold/i);
+    assert.match(harness.get('summary-value').textContent, /steward drift/i);
     assert.match(harness.get('timeline-summary-value').textContent, /release-c/i);
     assert.match(harness.get('timeline-summary-value').textContent, /Regressed from watch to hold|gate drift/i);
+    assert.match(harness.get('timeline-summary-value').textContent, /steward drift/i);
     assert.match(harness.get('timeline-incidents-value').children[0].textContent, /owner|case|hotspot/i);
     assert.match(harness.get('example-caption').textContent, /saved datasets|drift|chronicle/i);
   } finally {
@@ -784,6 +788,7 @@ test('browser portfolio flow keeps Portfolio Radar as the primary runtime while 
     assert.match(harness.get('forge-summary-value').textContent, /Forged \d+ reusable case/i);
     assert.match(harness.get('forge-export-value').textContent, /=== release-2026-04-15 ===/);
     assert.match(harness.get('dataset-summary-value').textContent, /Casebook Dataset captured 3 merged cases from 3 packs/i);
+    assert.match(harness.get('dataset-summary-value').textContent, /Casebook Steward|what to document next/i);
     assert.equal(harness.get('dataset-pack-count-value').textContent, '3 / 3');
     assert.match(harness.get('dataset-export-value').textContent, /=== profile-js-generic-runtime-error ===/);
     assert.match(harness.get('merge-summary-value').textContent, /Merged 3 casebook entries/i);

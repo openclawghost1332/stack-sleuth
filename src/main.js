@@ -52,6 +52,7 @@ import {
   renderNormalizedNotebookText,
   routeIncidentNotebook,
 } from './notebook.js';
+import { describeCasebookStewardHeadline } from './steward.js';
 import { examples } from './examples.js';
 
 const traceInput = document.querySelector('#trace-input');
@@ -149,6 +150,50 @@ const casebookExample = examples.find((item) => item.label === 'Casebook Radar')
 const regressionExample = examples.find((item) => item.label === 'Regression radar');
 const timelineExample = examples.find((item) => item.label === 'Timeline radar');
 
+function inspectSavedArtifactWorkflow(traceText) {
+  const bundleChronicle = inspectResponseBundleChronicleInput(traceText);
+  if (bundleChronicle.valid) {
+    return { kind: 'bundle-chronicle', value: bundleChronicle };
+  }
+  if (shouldRenderResponseBundleChronicleError(bundleChronicle)) {
+    return { kind: 'bundle-chronicle-error', value: bundleChronicle };
+  }
+
+  const bundleReplay = inspectResponseBundleReplayInput(traceText);
+  if (bundleReplay.valid) {
+    return { kind: 'bundle-replay', value: bundleReplay };
+  }
+  if (shouldRenderResponseBundleError(bundleReplay, traceText)) {
+    return { kind: 'bundle-replay-error', value: bundleReplay };
+  }
+
+  const shelfReplay = inspectReplayShelfInput(traceText);
+  if (shelfReplay.valid) {
+    return { kind: 'shelf-replay', value: shelfReplay };
+  }
+  if (shouldRenderShelfError(shelfReplay, traceText)) {
+    return { kind: 'shelf-replay-error', value: shelfReplay };
+  }
+
+  const chronicle = inspectCasebookChronicleInput(traceText);
+  if (chronicle.valid) {
+    return { kind: 'dataset-chronicle', value: chronicle };
+  }
+  if (shouldRenderChronicleError(chronicle)) {
+    return { kind: 'dataset-chronicle-error', value: chronicle };
+  }
+
+  const replay = inspectReplayDatasetInput(traceText);
+  if (replay.valid) {
+    return { kind: 'dataset-replay', value: replay };
+  }
+  if (shouldRenderDatasetReplayError(replay, traceText)) {
+    return { kind: 'dataset-replay-error', value: replay };
+  }
+
+  return null;
+}
+
 function renderDiagnosis() {
   const traceText = traceInput.value.trim();
   if (!traceText) {
@@ -156,59 +201,42 @@ function renderDiagnosis() {
     return;
   }
 
-  const bundleChronicle = inspectResponseBundleChronicleInput(traceText);
-  if (bundleChronicle.valid) {
-    renderResponseBundleChronicleWorkflow(bundleChronicle);
-    return;
-  }
-
-  if (shouldRenderResponseBundleChronicleError(bundleChronicle)) {
-    renderResponseBundleChronicleError(bundleChronicle);
-    return;
-  }
-
-  const bundleReplay = inspectResponseBundleReplayInput(traceText);
-  if (bundleReplay.valid) {
-    renderResponseBundleWorkflow(bundleReplay.bundle);
-    return;
-  }
-
-  if (shouldRenderResponseBundleError(bundleReplay, traceText)) {
-    renderResponseBundleError(bundleReplay);
-    return;
-  }
-
-  const shelfReplay = inspectReplayShelfInput(traceText);
-  if (shelfReplay.valid) {
-    renderShelfWorkflow(shelfReplay.shelf);
-    return;
-  }
-
-  if (shouldRenderShelfError(shelfReplay, traceText)) {
-    renderShelfError(shelfReplay);
-    return;
-  }
-
-  const chronicle = inspectCasebookChronicleInput(traceText);
-  if (chronicle.valid) {
-    renderChronicleWorkflow(chronicle);
-    return;
-  }
-
-  if (shouldRenderChronicleError(chronicle)) {
-    renderChronicleError(chronicle);
-    return;
-  }
-
-  const replay = inspectReplayDatasetInput(traceText);
-  if (replay.valid) {
-    renderDatasetReplayWorkflow(replay.dataset);
-    return;
-  }
-
-  if (shouldRenderDatasetReplayError(replay, traceText)) {
-    renderDatasetReplayError(replay);
-    return;
+  const savedArtifact = inspectSavedArtifactWorkflow(traceText);
+  if (savedArtifact) {
+    switch (savedArtifact.kind) {
+      case 'bundle-chronicle':
+        renderResponseBundleChronicleWorkflow(savedArtifact.value);
+        return;
+      case 'bundle-chronicle-error':
+        renderResponseBundleChronicleError(savedArtifact.value);
+        return;
+      case 'bundle-replay':
+        renderResponseBundleWorkflow(savedArtifact.value.bundle);
+        return;
+      case 'bundle-replay-error':
+        renderResponseBundleError(savedArtifact.value);
+        return;
+      case 'shelf-replay':
+        renderShelfWorkflow(savedArtifact.value.shelf);
+        return;
+      case 'shelf-replay-error':
+        renderShelfError(savedArtifact.value);
+        return;
+      case 'dataset-chronicle':
+        renderChronicleWorkflow(savedArtifact.value);
+        return;
+      case 'dataset-chronicle-error':
+        renderChronicleError(savedArtifact.value);
+        return;
+      case 'dataset-replay':
+        renderDatasetReplayWorkflow(savedArtifact.value.dataset);
+        return;
+      case 'dataset-replay-error':
+        renderDatasetReplayError(savedArtifact.value);
+        return;
+      default:
+        break;
+    }
   }
 
   const notebook = parseIncidentNotebook(traceText);
@@ -378,8 +406,11 @@ function renderResponseBundleWorkflow(bundle) {
   const mergedCaseCount = bundle.dataset.cases?.length ?? bundle.dataset.summary?.mergedCaseCount ?? 0;
   const steward = bundle.dataset.steward;
   const stewardActionCount = steward?.summary?.actionCount ?? 0;
-  const stewardHeadline = steward?.summary?.headline ?? 'No steward summary available.';
+  const stewardHeadline = describeCasebookStewardHeadline(steward);
   const stewardNextAction = steward?.nextAction ?? 'No stewardship gaps detected in the current casebook state.';
+  const stewardReplayNote = steward?.preserved === false
+    ? ' Stewardship was reconstructed from older dataset fields for replay.'
+    : '';
 
   excavationValue.textContent = `Saved response bundle replay: ${bundle.summary.fileCount} files, ${bundle.dataset.summary.packCount} packs, ${bundle.dataset.summary.runnablePackCount} runnable`;
   runtimeValue.textContent = 'response bundle replay';
@@ -388,7 +419,7 @@ function renderResponseBundleWorkflow(bundle) {
   confidenceValue.textContent = 'replay';
   tagsValue.textContent = 'response-bundle-replay, saved-artifact';
   signatureValue.textContent = `${bundle.kind}@${bundle.sourceVersion}`;
-  summaryValue.textContent = `Response Bundle replay reuses preserved bundle and dataset fields only, including ${stewardActionCount} stewardship action${stewardActionCount === 1 ? '' : 's'}. It does not recover raw traces, support frames, or blast radius detail.`;
+  summaryValue.textContent = `Response Bundle replay reuses preserved bundle and dataset fields only, including ${stewardActionCount} stewardship action${stewardActionCount === 1 ? '' : 's'}.${stewardReplayNote} It does not recover raw traces, support frames, or blast radius detail.`;
   blastRadiusValue.textContent = 'Saved response bundles preserve bundle inventory plus embedded dataset state. They do not recover raw traces, support frames, or culprit-level blast radius detail.';
   digestGroupsValue.replaceChildren(...buildListItems(buildResponseBundleInventoryItems(bundle.manifest?.files)));
   supportFramesValue.replaceChildren(...buildListItems([
@@ -396,6 +427,7 @@ function renderResponseBundleWorkflow(bundle) {
   ]));
   checklistValue.replaceChildren(...buildListItems([
     'Saved-artifact note: response bundle replay uses preserved bundle and dataset fields only.',
+    ...(steward?.preserved === false ? ['Stewardship note: the saved bundle had to reconstruct steward state from older dataset fields.'] : []),
     `Stewardship next action: ${stewardNextAction}`,
     'Route the preserved response queue first so recalled owners see the replayed incident memory quickly.',
     'Reopen the original portfolio or traces if you need culprit-level evidence beyond the saved artifact.',
@@ -404,7 +436,7 @@ function renderResponseBundleWorkflow(bundle) {
   portfolioSummaryValue.textContent = `Response bundle replay restored ${responseOwnerCount} owner-routed entr${responseOwnerCount === 1 ? 'y' : 'ies'}, ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'}, and ${stewardActionCount} stewardship action${stewardActionCount === 1 ? '' : 's'} from the portable saved bundle.`;
   portfolioPackCountValue.textContent = `${bundle.dataset.summary.runnablePackCount} / ${bundle.dataset.summary.packCount}`;
   portfolioPriorityValue.replaceChildren(...buildListItems(buildResponseBundleInventoryItems(bundle.manifest?.files)));
-  datasetSummaryValue.textContent = `Saved bundle replay is using the portable response bundle artifact directly, with the embedded Casebook Dataset preserved for replay. ${stewardHeadline}`;
+  datasetSummaryValue.textContent = `Saved bundle replay is using the portable response bundle artifact directly, with the embedded Casebook Dataset ${steward?.preserved === false ? 'reconstructed from older fields for replay' : 'preserved for replay'}. ${stewardHeadline}`;
   caption.textContent = `Response bundle replay restored ${bundle.summary.fileCount} saved bundle file${bundle.summary.fileCount === 1 ? '' : 's'}.`;
 }
 
@@ -417,6 +449,10 @@ function renderDatasetReplayWorkflow(report) {
   const recurringIncidentCount = report.recurringIncidents?.length ?? 0;
   const recurringHotspotCount = report.recurringHotspots?.length ?? 0;
   const mergedCaseCount = report.cases?.length ?? report.summary?.mergedCaseCount ?? 0;
+  const stewardHeadline = describeCasebookStewardHeadline(report.steward);
+  const stewardReplayNote = report.steward?.preserved === false
+    ? ' Stewardship was reconstructed from older dataset fields for replay.'
+    : '';
 
   excavationValue.textContent = `Saved dataset replay: ${report.summary.packCount} packs, ${report.summary.runnablePackCount} runnable`;
   runtimeValue.textContent = 'dataset replay';
@@ -425,7 +461,7 @@ function renderDatasetReplayWorkflow(report) {
   confidenceValue.textContent = 'replay';
   tagsValue.textContent = 'dataset-replay, casebook-dataset';
   signatureValue.textContent = `${report.kind}@${report.version}`;
-  summaryValue.textContent = `Replayed ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'}, ${responseOwnerCount} response owner${responseOwnerCount === 1 ? '' : 's'}, ${recurringIncidentCount} recurring incident signature${recurringIncidentCount === 1 ? '' : 's'}, and ${recurringHotspotCount} recurring hotspot${recurringHotspotCount === 1 ? '' : 's'} from a saved Casebook Dataset artifact. Release Gate verdict: ${report.gate?.verdict ?? 'needs-input'}.`;
+  summaryValue.textContent = `Replayed ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'}, ${responseOwnerCount} response owner${responseOwnerCount === 1 ? '' : 's'}, ${recurringIncidentCount} recurring incident signature${recurringIncidentCount === 1 ? '' : 's'}, and ${recurringHotspotCount} recurring hotspot${recurringHotspotCount === 1 ? '' : 's'} from a saved Casebook Dataset artifact. Release Gate verdict: ${report.gate?.verdict ?? 'needs-input'}.${stewardReplayNote}`;
   blastRadiusValue.textContent = 'Saved datasets preserve routing and reusable incident-memory state, not culprit-level blast radius detail. Reopen the source portfolio input for trace-level excavation context.';
   digestGroupsValue.replaceChildren(...buildListItems(buildDatasetReplayPackItems(report.portfolio?.packOrder)));
   supportFramesValue.replaceChildren(...buildListItems([
@@ -433,6 +469,7 @@ function renderDatasetReplayWorkflow(report) {
   ]));
   hotspotsValue.replaceChildren(...buildListItems(buildPortfolioRecurringHotspotItems(report.recurringHotspots ?? [])));
   checklistValue.replaceChildren(...buildListItems([
+    ...(report.steward?.preserved === false ? ['Stewardship note: this saved dataset had to reconstruct steward state from older fields.'] : []),
     ...(report.gate?.checklist ?? []),
     'Route the preserved response queue first so recalled owners see the replayed incident memory quickly.',
     'Paste the saved export text into Casebook Radar or an @@ history @@ section when you want fresh current-versus-history matching.',
@@ -455,7 +492,7 @@ function renderDatasetReplayWorkflow(report) {
   forgeSummaryValue.textContent = `Saved dataset replay preserved ${mergedCaseCount} merged case${mergedCaseCount === 1 ? '' : 's'} and one reusable casebook export.`;
   forgeExportValue.textContent = report.exportText || 'No reusable casebook export was preserved in this saved dataset.';
 
-  datasetSummaryValue.textContent = `${report.summary.headline} Saved dataset replay is using the portable artifact directly, with Release Gate ${report.gate?.verdict?.toUpperCase?.() ?? 'NEEDS INPUT'} preserved.`;
+  datasetSummaryValue.textContent = `${report.summary.headline} Saved dataset replay is using the portable artifact directly, with Release Gate ${report.gate?.verdict?.toUpperCase?.() ?? 'NEEDS INPUT'} preserved. ${stewardHeadline}`;
   datasetPackCountValue.textContent = `${report.summary.runnablePackCount} / ${report.summary.packCount}`;
   datasetExportValue.textContent = report.exportText || 'No dataset export available in this saved artifact.';
 
@@ -1336,89 +1373,68 @@ function loadCasebookExample(example) {
 
 async function copyDiagnosis() {
   const traceText = traceInput.value.trim();
-  const bundleChronicle = inspectResponseBundleChronicleInput(traceText);
+  const savedArtifact = inspectSavedArtifactWorkflow(traceText);
 
-  if (bundleChronicle.valid) {
-    try {
-      await navigator.clipboard.writeText(renderResponseBundleChronicleTextSummary(analyzeResponseBundleChronicle(bundleChronicle)));
-      caption.textContent = 'Response Bundle Chronicle summary copied to clipboard.';
-    } catch {
-      caption.textContent = 'Clipboard copy unavailable here, but the Response Bundle Chronicle summary is ready to copy manually.';
+  if (savedArtifact) {
+    switch (savedArtifact.kind) {
+      case 'bundle-chronicle':
+        try {
+          await navigator.clipboard.writeText(renderResponseBundleChronicleTextSummary(analyzeResponseBundleChronicle(savedArtifact.value)));
+          caption.textContent = 'Response Bundle Chronicle summary copied to clipboard.';
+        } catch {
+          caption.textContent = 'Clipboard copy unavailable here, but the Response Bundle Chronicle summary is ready to copy manually.';
+        }
+        return;
+      case 'bundle-chronicle-error':
+        caption.textContent = describeResponseBundleChronicleInputError(savedArtifact.value);
+        return;
+      case 'bundle-replay':
+        try {
+          await navigator.clipboard.writeText(renderResponseBundleTextSummary(savedArtifact.value.bundle));
+          caption.textContent = 'Response Bundle replay copied to clipboard.';
+        } catch {
+          caption.textContent = 'Clipboard copy unavailable here, but the Response Bundle replay is ready to copy manually.';
+        }
+        return;
+      case 'bundle-replay-error':
+        caption.textContent = describeResponseBundleReplayError(savedArtifact.value).caption;
+        return;
+      case 'shelf-replay':
+        try {
+          await navigator.clipboard.writeText(renderShelfTextSummary(savedArtifact.value.shelf));
+          caption.textContent = 'Casebook Shelf summary copied to clipboard.';
+        } catch {
+          caption.textContent = 'Clipboard copy unavailable here, but the Casebook Shelf summary is ready to copy manually.';
+        }
+        return;
+      case 'shelf-replay-error':
+        caption.textContent = describeShelfInputError(savedArtifact.value);
+        return;
+      case 'dataset-chronicle':
+        try {
+          await navigator.clipboard.writeText(renderCasebookChronicleTextSummary(analyzeCasebookChronicle(savedArtifact.value)));
+          caption.textContent = 'Casebook Chronicle summary copied to clipboard.';
+        } catch {
+          caption.textContent = 'Clipboard copy unavailable here, but the Casebook Chronicle summary is ready to copy manually.';
+        }
+        return;
+      case 'dataset-chronicle-error':
+        caption.textContent = describeChronicleInputError(savedArtifact.value);
+        return;
+      case 'dataset-replay':
+        try {
+          await navigator.clipboard.writeText(renderDatasetTextSummary(savedArtifact.value.dataset));
+          caption.textContent = 'Casebook Dataset replay copied to clipboard.';
+        } catch {
+          caption.textContent = 'Clipboard copy unavailable here, but the Casebook Dataset replay is ready to copy manually.';
+        }
+        return;
+      case 'dataset-replay-error':
+        caption.textContent = describeDatasetReplayError(savedArtifact.value).caption;
+        return;
+      default:
+        break;
     }
-    return;
-  }
-
-  if (shouldRenderResponseBundleChronicleError(bundleChronicle)) {
-    caption.textContent = describeResponseBundleChronicleInputError(bundleChronicle);
-    return;
-  }
-
-  const bundleReplay = inspectResponseBundleReplayInput(traceText);
-
-  if (bundleReplay.valid) {
-    try {
-      await navigator.clipboard.writeText(renderResponseBundleTextSummary(bundleReplay.bundle));
-      caption.textContent = 'Response Bundle replay copied to clipboard.';
-    } catch {
-      caption.textContent = 'Clipboard copy unavailable here, but the Response Bundle replay is ready to copy manually.';
-    }
-    return;
-  }
-
-  if (shouldRenderResponseBundleError(bundleReplay, traceText)) {
-    caption.textContent = describeResponseBundleReplayError(bundleReplay).caption;
-    return;
-  }
-
-  const shelfReplay = inspectReplayShelfInput(traceText);
-
-  if (shelfReplay.valid) {
-    try {
-      await navigator.clipboard.writeText(renderShelfTextSummary(shelfReplay.shelf));
-      caption.textContent = 'Casebook Shelf summary copied to clipboard.';
-    } catch {
-      caption.textContent = 'Clipboard copy unavailable here, but the Casebook Shelf summary is ready to copy manually.';
-    }
-    return;
-  }
-
-  if (shouldRenderShelfError(shelfReplay, traceText)) {
-    caption.textContent = describeShelfInputError(shelfReplay);
-    return;
-  }
-
-  const chronicle = inspectCasebookChronicleInput(traceText);
-
-  if (chronicle.valid) {
-    try {
-      await navigator.clipboard.writeText(renderCasebookChronicleTextSummary(analyzeCasebookChronicle(chronicle)));
-      caption.textContent = 'Casebook Chronicle summary copied to clipboard.';
-    } catch {
-      caption.textContent = 'Clipboard copy unavailable here, but the Casebook Chronicle summary is ready to copy manually.';
-    }
-    return;
-  }
-
-  if (shouldRenderChronicleError(chronicle)) {
-    caption.textContent = describeChronicleInputError(chronicle);
-    return;
-  }
-
-  const replay = inspectReplayDatasetInput(traceText);
-
-  if (replay.valid) {
-    try {
-      await navigator.clipboard.writeText(renderDatasetTextSummary(replay.dataset));
-      caption.textContent = 'Casebook Dataset replay copied to clipboard.';
-    } catch {
-      caption.textContent = 'Clipboard copy unavailable here, but the Casebook Dataset replay is ready to copy manually.';
-    }
-    return;
-  }
-
-  if (shouldRenderDatasetReplayError(replay, traceText)) {
-    caption.textContent = describeDatasetReplayError(replay).caption;
-    return;
   }
 
   const notebook = parseIncidentNotebook(traceText);
